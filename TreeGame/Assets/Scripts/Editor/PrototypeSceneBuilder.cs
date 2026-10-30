@@ -317,6 +317,10 @@ namespace TreeGame.EditorTools
                 ("treeGrowth", growth),
                 ("config", config));
 
+            SetReferences(go.AddComponent<TreeWindSway>(),
+                ("visuals", visuals),
+                ("config", config));
+
             return go;
         }
 

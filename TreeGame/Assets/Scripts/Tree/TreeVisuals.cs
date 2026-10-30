@@ -62,11 +62,27 @@ namespace TreeGame.Trees
         [Tooltip("How far clusters scatter around their anchor, relative to cluster size.")]
         [SerializeField, Min(0f)] private float foliageSpread = 0.6f;
 
+        [Header("Wind Response (at wind strength 1)")]
+        [Tooltip("Degrees the whole tree leans from its base, over overall growth. Saplings bend; by default the " +
+                 "trunk eases to fully rigid at 40% growth (the curve reaches 1 there), leaving only branches and leaves moving.")]
+        [SerializeField] private GrowthParameter trunkSway = new GrowthParameter(2f, 0f,
+            // Flat tangents: eases smoothly from flexible to rigid instead of stopping abruptly at 40%.
+            new AnimationCurve(new Keyframe(0f, 0f, 0f, 0f), new Keyframe(0.4f, 1f, 0f, 0f), new Keyframe(1f, 1f, 0f, 0f)));
+        [Tooltip("Degrees branches bend with the wind, on top of the trunk's lean.")]
+        [SerializeField, Min(0f)] private float branchSway = 6f;
+        [Tooltip("Degrees of individual, uneven branch movement, so branches don't move in lockstep.")]
+        [SerializeField, Min(0f)] private float branchFlutter = 4f;
+        [SerializeField, Min(0f)] private float branchFlutterFrequency = 2f;
+        [Tooltip("How far leaf clusters jiggle, relative to their size.")]
+        [SerializeField, Min(0f)] private float foliageFlutter = 0.08f;
+        [SerializeField, Min(0f)] private float foliageFlutterFrequency = 3f;
+
         private sealed class Branch
         {
             public Transform Pivot;
             public Transform Wood;
             public Transform Tip;
+            public Quaternion RestRotation;
             public float AttachHeight;
             public float StartGrowth;
             public float LengthScale;
@@ -79,6 +95,8 @@ namespace TreeGame.Trees
             public int BranchIndex; // -1 = attached to the top of the trunk.
             public Vector3 Offset;
             public float SizeScale;
+            public Vector3 RestPosition;
+            public float Size;
         }
 
         private Transform generatedRoot;
@@ -90,6 +108,9 @@ namespace TreeGame.Trees
         private float displayedGrowth;
         private float targetGrowth;
         private float growthVelocity;
+
+        private float windStrength;
+        private float appliedWindStrength;
 
         private void Awake()
         {
@@ -135,6 +156,18 @@ namespace TreeGame.Trees
             Render(displayedGrowth);
         }
 
+        // After Update, so wind is layered on top of this frame's growth pose (Render sets the rest pose).
+        private void LateUpdate()
+        {
+            // Calm and already at rest: nothing to do.
+            if (windStrength == 0f && appliedWindStrength == 0f)
+            {
+                return;
+            }
+
+            ApplyWindPose();
+        }
+
         private void OnValidate()
         {
             // Curve and size tweaks in Play Mode show up immediately. Layout changes (seed, counts) need a rebuild.
@@ -150,6 +183,15 @@ namespace TreeGame.Trees
             displayedGrowth = targetGrowth;
             growthVelocity = 0f;
             Render(displayedGrowth);
+        }
+
+        /// <summary>
+        /// Sets the horizontal wind acting on the tree: signed, positive pushes to the right, roughly 0..1 in magnitude.
+        /// The tree doesn't know where wind comes from; it just reacts to this value.
+        /// </summary>
+        public void SetWind(float strength)
+        {
+            windStrength = float.IsFinite(strength) ? strength : 0f;
         }
 
         private void OnGrowthChanged(float growth)
@@ -229,9 +271,55 @@ namespace TreeGame.Trees
                     continue;
                 }
 
+                cluster.Size = size;
+                cluster.RestPosition = cluster.Offset * baseSize;
                 cluster.Transform.localScale = Vector3.one * size;
-                cluster.Transform.localPosition = cluster.Offset * baseSize;
+                cluster.Transform.localPosition = cluster.RestPosition;
             }
+        }
+
+        /// <summary>
+        /// Layers wind on top of the rest pose: the tree leans from its base, branches bend and flutter,
+        /// and leaf clusters jiggle. Only rotations and leaf offsets change, so growth stays deterministic.
+        /// </summary>
+        private void ApplyWindPose()
+        {
+            BuildIfNeeded();
+            float time = Time.time;
+            float flutterAmount = Mathf.Abs(windStrength);
+
+            // Negative Z rotation tilts the top toward +X, i.e. downwind for positive strength.
+            generatedRoot.localRotation = Quaternion.Euler(0f, 0f, -windStrength * trunkSway.Evaluate(displayedGrowth));
+
+            for (int i = 0; i < branches.Length; i++)
+            {
+                Branch branch = branches[i];
+                float flutter = SignedNoise(time * branchFlutterFrequency, i) * branchFlutter * flutterAmount;
+                float bend = windStrength * branchSway + flutter;
+                branch.Pivot.localRotation = Quaternion.Euler(0f, 0f, -bend) * branch.RestRotation;
+            }
+
+            for (int i = 0; i < foliage.Length; i++)
+            {
+                FoliageCluster cluster = foliage[i];
+                if (!cluster.Transform.gameObject.activeSelf)
+                {
+                    continue;
+                }
+
+                // Offset noise rows per cluster (and per axis) so leaves move independently.
+                float noiseTime = time * foliageFlutterFrequency;
+                var jiggle = new Vector3(SignedNoise(noiseTime, i + 0.5f), SignedNoise(noiseTime, i + 50.5f), 0f);
+                cluster.Transform.localPosition = cluster.RestPosition + jiggle * (cluster.Size * foliageFlutter * flutterAmount);
+            }
+
+            appliedWindStrength = windStrength;
+        }
+
+        /// <summary>Smooth noise in -1..1. Each row gives an independent but deterministic pattern.</summary>
+        private static float SignedNoise(float time, float row)
+        {
+            return (Mathf.PerlinNoise(time, row) - 0.5f) * 2f;
         }
 
         /// <summary>Discards and regenerates the parts, e.g. after changing the seed or counts in Play Mode.</summary>
@@ -283,6 +371,7 @@ namespace TreeGame.Trees
                 branches[i] = new Branch
                 {
                     Pivot = pivot,
+                    RestRotation = pivot.localRotation,
                     Wood = CreatePrimitive(PrimitiveType.Cylinder, "Wood", pivot, barkMaterial),
                     Tip = CreateEmpty("Tip", pivot),
                     AttachHeight = Mathf.Clamp01(Mathf.Lerp(branchAttachHeight.x, branchAttachHeight.y, t) + random.NextFloat(-0.05f, 0.05f)),

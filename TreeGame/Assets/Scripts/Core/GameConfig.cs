@@ -25,9 +25,15 @@ namespace TreeGame.Core
         [Tooltip("Walking speed in world units per second.")]
         [SerializeField, Min(0.1f)] private float playerMoveSpeed = 4f;
 
+        [Header("Wind")]
+        [Tooltip("Shared by everything the wind moves, so it all sways together.")]
+        [SerializeField] private WindSettings wind = new WindSettings();
+
         public float SecondsToFullyGrow => secondsToFullyGrow;
 
         public float PlayerMoveSpeed => playerMoveSpeed;
+
+        public WindSettings Wind => wind;
 
         public ResourceSettings GetResourceSettings(TreeResourceType type)
         {
