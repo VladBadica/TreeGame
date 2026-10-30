@@ -19,12 +19,10 @@ namespace TreeGame.Trees
 
         public float Growth => growth;
 
-        public bool IsFullyGrown => growth >= 1f;
-
         /// <summary>Adds a non-negative amount of growth; the result is clamped to 1.</summary>
         public void AddGrowth(float amount)
         {
-            if (!IsFinite(amount))
+            if (!float.IsFinite(amount))
             {
                 Debug.LogWarning($"{nameof(TreeGrowth)}: ignored non-finite growth amount {amount}.", this);
                 return;
@@ -43,7 +41,7 @@ namespace TreeGame.Trees
         /// <summary>Sets growth directly (clamped to 0..1). Intended for testing, resets and loading saved state.</summary>
         public void SetGrowth(float value)
         {
-            if (!IsFinite(value))
+            if (!float.IsFinite(value))
             {
                 Debug.LogWarning($"{nameof(TreeGrowth)}: ignored non-finite growth value {value}.", this);
                 return;
@@ -67,7 +65,5 @@ namespace TreeGame.Trees
                 GrowthChanged?.Invoke(growth);
             }
         }
-
-        private static bool IsFinite(float value) => !float.IsNaN(value) && !float.IsInfinity(value);
     }
 }

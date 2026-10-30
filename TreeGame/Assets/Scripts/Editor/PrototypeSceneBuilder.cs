@@ -1,4 +1,6 @@
 using System.Linq;
+using TreeGame.Care;
+using TreeGame.DevTools;
 using TreeGame.Trees;
 using TreeGame.UI;
 using UnityEditor;
@@ -13,7 +15,7 @@ using UnityEngine.UI;
 namespace TreeGame.EditorTools
 {
     /// <summary>
-    /// Generates the prototype scene (camera, light, ground, tree and debug UI) with all references wired,
+    /// Generates the prototype scene (camera, light, ground, tree, HUD and debug UI) with all references wired,
     /// so the setup is reproducible and nothing has to be assembled by hand.
     /// </summary>
     public static class PrototypeSceneBuilder
@@ -52,8 +54,14 @@ namespace TreeGame.EditorTools
             CreateSun();
             CreateCamera();
             CreateGround(ground);
-            TreeGrowth treeGrowth = CreateTree(bark, leaves);
-            CreateDebugUI(treeGrowth);
+            GameObject tree = CreateTree(bark, leaves);
+            TreeResource water = AddResource(tree, TreeResourceType.Water);
+            TreeResource nutrients = AddResource(tree, TreeResourceType.Nutrients);
+
+            CreateEventSystem();
+            CreateResourceHud(CreateCanvas("HUD", 0), water, nutrients);
+            // Own canvas, drawn on top, so all dev tooling can be removed by deleting one object.
+            CreateDebugPanel(CreateCanvas("Debug UI", 100), tree.GetComponent<TreeGrowth>());
 
             EditorSceneManager.SaveScene(scene, ScenePath);
             AddSceneToBuildSettings();
@@ -109,7 +117,7 @@ namespace TreeGame.EditorTools
             ground.GetComponent<Renderer>().sharedMaterial = material;
         }
 
-        private static TreeGrowth CreateTree(Material bark, Material leaves)
+        private static GameObject CreateTree(Material bark, Material leaves)
         {
             var go = new GameObject("Tree");
             var growth = go.AddComponent<TreeGrowth>();
@@ -120,43 +128,43 @@ namespace TreeGame.EditorTools
                 ("barkMaterial", bark),
                 ("foliageMaterial", leaves));
 
-            return growth;
+            return go;
         }
 
-        private static void CreateDebugUI(TreeGrowth treeGrowth)
+        private static TreeResource AddResource(GameObject owner, TreeResourceType type)
+        {
+            var resource = owner.AddComponent<TreeResource>();
+            var serializedObject = new SerializedObject(resource);
+            serializedObject.FindProperty("type").enumValueIndex = (int)type;
+            serializedObject.ApplyModifiedPropertiesWithoutUndo();
+            return resource;
+        }
+
+        private static void CreateEventSystem()
         {
             var eventSystem = new GameObject("EventSystem", typeof(EventSystem));
             // The project uses the Input System package only, so the legacy StandaloneInputModule would not work.
             eventSystem.AddComponent<InputSystemUIInputModule>().AssignDefaultActions();
+        }
 
-            var canvasGo = new GameObject("Debug UI", typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
-            canvasGo.GetComponent<Canvas>().renderMode = RenderMode.ScreenSpaceOverlay;
+        private static Transform CreateCanvas(string objectName, int sortingOrder)
+        {
+            var canvasGo = new GameObject(objectName, typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
+            var canvas = canvasGo.GetComponent<Canvas>();
+            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            canvas.sortingOrder = sortingOrder;
             var scaler = canvasGo.GetComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             scaler.referenceResolution = new Vector2(1920f, 1080f);
             scaler.matchWidthOrHeight = 0.5f;
 
+            return canvasGo.transform;
+        }
+
+        private static void CreateDebugPanel(Transform canvas, TreeGrowth treeGrowth)
+        {
             DefaultControls.Resources resources = GetUIResources();
-
-            // Panel in the top-left corner, children stacked vertically.
-            var panel = new GameObject("Growth Debug Panel", typeof(RectTransform), typeof(Image), typeof(VerticalLayoutGroup));
-            var panelRect = (RectTransform)panel.transform;
-            panelRect.SetParent(canvasGo.transform, false);
-            panelRect.anchorMin = panelRect.anchorMax = panelRect.pivot = new Vector2(0f, 1f);
-            panelRect.anchoredPosition = new Vector2(24f, -24f);
-            panelRect.sizeDelta = new Vector2(420f, 160f);
-
-            var panelImage = panel.GetComponent<Image>();
-            panelImage.sprite = resources.standard;
-            panelImage.type = Image.Type.Sliced;
-            panelImage.color = new Color(0f, 0f, 0f, 0.45f);
-
-            var layout = panel.GetComponent<VerticalLayoutGroup>();
-            layout.padding = new RectOffset(16, 16, 12, 16);
-            layout.spacing = 10f;
-            layout.childControlWidth = layout.childControlHeight = true;
-            layout.childForceExpandWidth = true;
-            layout.childForceExpandHeight = false;
+            GameObject panel = CreatePanel(canvas, "Growth Debug Panel", new Vector2(0f, 1f), new Vector2(24f, -24f), new Vector2(420f, 160f));
 
             Text label = DefaultControls.CreateText(resources).GetComponent<Text>();
             label.name = "Growth Label";
@@ -178,7 +186,8 @@ namespace TreeGame.EditorTools
             rowLayout.childControlWidth = rowLayout.childControlHeight = true;
             rowLayout.childForceExpandWidth = rowLayout.childForceExpandHeight = true;
 
-            Button addButton = CreateButton(resources, buttonRow.transform, "Add Growth Button", "Grow +5%");
+            // The panel sets the real caption from its growth step at runtime.
+            Button addButton = CreateButton(resources, buttonRow.transform, "Add Growth Button", "Grow");
             Button resetButton = CreateButton(resources, buttonRow.transform, "Reset Button", "Reset");
 
             var debugPanel = panel.AddComponent<GrowthDebugPanel>();
@@ -188,6 +197,68 @@ namespace TreeGame.EditorTools
                 ("addGrowthButton", addButton),
                 ("resetButton", resetButton),
                 ("growthLabel", label));
+        }
+
+        private static void CreateResourceHud(Transform canvas, TreeResource water, TreeResource nutrients)
+        {
+            GameObject panel = CreatePanel(canvas, "Tree Needs", new Vector2(1f, 1f), new Vector2(-24f, -24f), new Vector2(360f, 120f));
+            CreateResourceBar(panel.transform, water, new Color(0.36f, 0.64f, 0.93f));
+            CreateResourceBar(panel.transform, nutrients, new Color(0.9f, 0.68f, 0.28f));
+        }
+
+        private static void CreateResourceBar(Transform parent, TreeResource resource, Color fillColor)
+        {
+            var bar = new GameObject($"{resource.Type} Bar", typeof(RectTransform), typeof(Image));
+            AddToLayout(bar, parent, 38f);
+            StyleImage(bar.GetComponent<Image>(), new Color(0f, 0f, 0f, 0.35f));
+
+            var fill = new GameObject("Fill", typeof(RectTransform), typeof(Image));
+            RectTransform fillRect = StretchInParent(fill, bar.transform);
+            StyleImage(fill.GetComponent<Image>(), fillColor);
+
+            var labelGo = new GameObject("Label", typeof(RectTransform), typeof(Text), typeof(Shadow));
+            StretchInParent(labelGo, bar.transform);
+            var label = labelGo.GetComponent<Text>();
+            StyleText(label, 20, Color.white, TextAnchor.MiddleCenter);
+            label.text = resource.Type.ToString(); // Placeholder; the bar formats the value at runtime.
+
+            var resourceBar = bar.AddComponent<ResourceBar>();
+            SetReferences(resourceBar,
+                ("resource", resource),
+                ("fill", fillRect),
+                ("label", label));
+        }
+
+        /// <summary>Semi-transparent, vertically stacking panel anchored to a screen corner.</summary>
+        private static GameObject CreatePanel(Transform canvas, string objectName, Vector2 corner, Vector2 offset, Vector2 size)
+        {
+            var panel = new GameObject(objectName, typeof(RectTransform), typeof(Image), typeof(VerticalLayoutGroup));
+            var rect = (RectTransform)panel.transform;
+            rect.SetParent(canvas, false);
+            rect.anchorMin = rect.anchorMax = rect.pivot = corner;
+            rect.anchoredPosition = offset;
+            rect.sizeDelta = size;
+
+            StyleImage(panel.GetComponent<Image>(), new Color(0f, 0f, 0f, 0.45f));
+
+            var layout = panel.GetComponent<VerticalLayoutGroup>();
+            layout.padding = new RectOffset(16, 16, 12, 16);
+            layout.spacing = 10f;
+            layout.childControlWidth = layout.childControlHeight = true;
+            layout.childForceExpandWidth = true;
+            layout.childForceExpandHeight = false;
+
+            return panel;
+        }
+
+        private static RectTransform StretchInParent(GameObject go, Transform parent)
+        {
+            var rect = (RectTransform)go.transform;
+            rect.SetParent(parent, false);
+            rect.anchorMin = Vector2.zero;
+            rect.anchorMax = Vector2.one;
+            rect.offsetMin = rect.offsetMax = Vector2.zero;
+            return rect;
         }
 
         private static Button CreateButton(DefaultControls.Resources resources, Transform parent, string objectName, string caption)
@@ -207,6 +278,13 @@ namespace TreeGame.EditorTools
         {
             go.transform.SetParent(parent, false);
             go.AddComponent<LayoutElement>().preferredHeight = preferredHeight;
+        }
+
+        private static void StyleImage(Image image, Color color)
+        {
+            image.sprite = GetUIResources().standard;
+            image.type = Image.Type.Sliced;
+            image.color = color;
         }
 
         private static void StyleText(Text text, int fontSize, Color color, TextAnchor alignment)

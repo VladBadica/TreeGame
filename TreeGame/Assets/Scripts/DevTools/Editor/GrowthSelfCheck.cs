@@ -1,11 +1,12 @@
 using System.Collections.Generic;
 using System.Text;
+using TreeGame.Care;
 using TreeGame.Trees;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.UI;
 
-namespace TreeGame.EditorTools
+namespace TreeGame.DevTools
 {
     /// <summary>
     /// Play Mode sanity check for the growth foundation: clamping, reset, determinism,
@@ -38,15 +39,16 @@ namespace TreeGame.EditorTools
                 // Silences the warnings that the deliberate invalid inputs below are expected to produce.
                 Debug.unityLogger.filterLogType = LogType.Error;
 
-                growth.SetGrowth(0f);
+                SetAndSnap(growth, visuals,0f);
                 string initialState = Snapshot(visuals.transform, out int objectCount);
 
                 // Repeated changes must only update existing parts.
                 var random = new System.Random(1);
                 for (int i = 0; i < 500; i++)
                 {
-                    growth.SetGrowth((float)random.NextDouble());
+                    SetAndSnap(growth, visuals,(float)random.NextDouble());
                     growth.AddGrowth(0.05f);
+                    visuals.SnapToTarget();
                 }
 
                 Snapshot(visuals.transform, out int countAfterChanges);
@@ -68,15 +70,15 @@ namespace TreeGame.EditorTools
                 Expect(failures, growth.Growth == 0.5f, $"non-finite input changed growth to {growth.Growth}");
 
                 // Determinism: the same value gives the same tree regardless of history.
-                growth.SetGrowth(0.63f);
+                SetAndSnap(growth, visuals,0.63f);
                 string first = Snapshot(visuals.transform, out _);
-                growth.SetGrowth(0.1f);
-                growth.SetGrowth(0.9f);
-                growth.SetGrowth(0.63f);
+                SetAndSnap(growth, visuals,0.1f);
+                SetAndSnap(growth, visuals,0.9f);
+                SetAndSnap(growth, visuals,0.63f);
                 Expect(failures, first == Snapshot(visuals.transform, out _), "the same growth value produced a different tree");
 
                 // Reset restores the initial appearance.
-                growth.SetGrowth(0f);
+                SetAndSnap(growth, visuals,0f);
                 Expect(failures, initialState == Snapshot(visuals.transform, out _), "reset did not restore the initial appearance");
 
                 // The debug slider drives growth and the tree.
@@ -88,23 +90,59 @@ namespace TreeGame.EditorTools
                 else
                 {
                     slider.value = 0.4f;
+                    visuals.SnapToTarget();
                     Expect(failures, Mathf.Approximately(growth.Growth, 0.4f), $"slider set growth to {growth.Growth}, expected 0.4");
                     Expect(failures, initialState != Snapshot(visuals.transform, out _), "moving the slider did not change the tree");
                 }
+
+                CheckResources(failures);
             }
             finally
             {
                 Debug.unityLogger.filterLogType = originalFilter;
-                growth.SetGrowth(originalGrowth);
+                SetAndSnap(growth, visuals, originalGrowth);
             }
 
             if (failures.Count == 0)
             {
-                Debug.Log("Growth self-check PASSED: clamping, validation, determinism, reset, slider and no duplicate parts.");
+                Debug.Log("Growth self-check PASSED: clamping, validation, determinism, reset, slider, no duplicate parts and resources.");
             }
             else
             {
                 Debug.LogError("Growth self-check FAILED:\n- " + string.Join("\n- ", failures));
+            }
+        }
+
+        /// <summary>Visuals ease toward the target over time; snapping makes snapshots reflect the final pose.</summary>
+        private static void SetAndSnap(TreeGrowth growth, TreeVisuals visuals, float value)
+        {
+            growth.SetGrowth(value);
+            visuals.SnapToTarget();
+        }
+
+        private static void CheckResources(List<string> failures)
+        {
+            TreeResource[] resources = Object.FindObjectsByType<TreeResource>();
+            foreach (TreeResourceType type in System.Enum.GetValues(typeof(TreeResourceType)))
+            {
+                Expect(failures, System.Array.Exists(resources, r => r.Type == type), $"no {type} resource in the scene");
+            }
+
+            foreach (TreeResource resource in resources)
+            {
+                float original = resource.Amount;
+
+                resource.SetAmount(resource.MaxAmount * 10f);
+                Expect(failures, resource.Amount == resource.MaxAmount, $"{resource.Type} exceeded its maximum");
+                resource.Consume(resource.MaxAmount * 10f);
+                Expect(failures, resource.Amount == 0f, $"{resource.Type} went below zero");
+                resource.Add(-5f);
+                resource.Consume(float.NaN);
+                Expect(failures, resource.Amount == 0f, $"{resource.Type} accepted an invalid amount");
+                resource.Add(resource.MaxAmount * 0.25f);
+                Expect(failures, Mathf.Approximately(resource.Normalized, 0.25f), $"{resource.Type} normalized value is {resource.Normalized}, expected 0.25");
+
+                resource.SetAmount(original);
             }
         }
 

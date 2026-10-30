@@ -5,16 +5,22 @@ namespace TreeGame.Trees
     /// <summary>
     /// Placeholder tree made of Unity primitives that reacts to <see cref="TreeGrowth"/>.
     /// The parts are generated once from a fixed seed; growth changes only move, scale and show/hide them,
-    /// so the same growth value always produces the same tree and nothing is rebuilt per frame.
+    /// so the same growth value always produces the same tree and nothing is rebuilt.
+    /// The displayed growth eases toward the actual growth; that is purely presentation, TreeGrowth stays authoritative.
     /// Any other visual (procedural mesh, authored model) can replace this by listening to the same event.
     /// </summary>
     public class TreeVisuals : MonoBehaviour
     {
         private const float GoldenAngle = 137.5f;
         private const float MinVisibleSize = 0.001f;
+        private const float SettleThreshold = 0.0005f;
 
         [Header("Source")]
         [SerializeField] private TreeGrowth treeGrowth;
+
+        [Header("Animation")]
+        [Tooltip("Approximate time in seconds for the tree to catch up with a growth change. 0 = instant.")]
+        [SerializeField, Min(0f)] private float growthSmoothTime = 0.35f;
 
         [Header("Materials")]
         [SerializeField] private Material barkMaterial;
@@ -79,6 +85,10 @@ namespace TreeGame.Trees
         private Branch[] branches;
         private FoliageCluster[] foliage;
 
+        private float displayedGrowth;
+        private float targetGrowth;
+        private float growthVelocity;
+
         private void Awake()
         {
             BuildIfNeeded();
@@ -92,29 +102,65 @@ namespace TreeGame.Trees
                 return;
             }
 
-            treeGrowth.GrowthChanged += ApplyGrowth;
-            ApplyGrowth(treeGrowth.Growth);
+            treeGrowth.GrowthChanged += OnGrowthChanged;
+            targetGrowth = treeGrowth.Growth;
+            SnapToTarget();
         }
 
         private void OnDisable()
         {
             if (treeGrowth != null)
             {
-                treeGrowth.GrowthChanged -= ApplyGrowth;
+                treeGrowth.GrowthChanged -= OnGrowthChanged;
             }
+        }
+
+        private void Update()
+        {
+            // Idle once settled: transforms are only touched while the tree is catching up.
+            if (displayedGrowth == targetGrowth)
+            {
+                return;
+            }
+
+            displayedGrowth = Mathf.SmoothDamp(displayedGrowth, targetGrowth, ref growthVelocity, growthSmoothTime);
+            if (Mathf.Abs(displayedGrowth - targetGrowth) < SettleThreshold)
+            {
+                displayedGrowth = targetGrowth;
+                growthVelocity = 0f;
+            }
+
+            Render(displayedGrowth);
         }
 
         private void OnValidate()
         {
             // Curve and size tweaks in Play Mode show up immediately. Layout changes (seed, counts) need a rebuild.
-            if (Application.isPlaying && generatedRoot != null && treeGrowth != null)
+            if (Application.isPlaying && generatedRoot != null)
             {
-                ApplyGrowth(treeGrowth.Growth);
+                Render(displayedGrowth);
+            }
+        }
+
+        /// <summary>Skips the easing and shows the current growth immediately (e.g. after loading or for tests).</summary>
+        public void SnapToTarget()
+        {
+            displayedGrowth = targetGrowth;
+            growthVelocity = 0f;
+            Render(displayedGrowth);
+        }
+
+        private void OnGrowthChanged(float growth)
+        {
+            targetGrowth = growth;
+            if (growthSmoothTime <= 0f)
+            {
+                SnapToTarget();
             }
         }
 
         /// <summary>Updates the existing parts to match a normalized growth value. Never creates objects once built.</summary>
-        public void ApplyGrowth(float growth)
+        private void Render(float growth)
         {
             BuildIfNeeded();
             growth = Mathf.Clamp01(growth);
@@ -202,7 +248,7 @@ namespace TreeGame.Trees
                 generatedRoot = null;
             }
 
-            ApplyGrowth(treeGrowth != null ? treeGrowth.Growth : 0f);
+            Render(displayedGrowth);
         }
 
         private void BuildIfNeeded()

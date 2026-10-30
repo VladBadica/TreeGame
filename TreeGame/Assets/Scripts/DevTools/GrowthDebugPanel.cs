@@ -2,7 +2,7 @@ using TreeGame.Trees;
 using UnityEngine;
 using UnityEngine.UI;
 
-namespace TreeGame.UI
+namespace TreeGame.DevTools
 {
     /// <summary>
     /// Development-only controls for driving <see cref="TreeGrowth"/> by hand.
@@ -35,6 +35,13 @@ namespace TreeGame.UI
             if (addGrowthButton != null)
             {
                 addGrowthButton.onClick.AddListener(AddGrowthStep);
+
+                // Caption is derived from the step so the two can't drift apart.
+                Text caption = addGrowthButton.GetComponentInChildren<Text>();
+                if (caption != null)
+                {
+                    caption.text = $"Grow +{growthStep * 100f:0}%";
+                }
             }
 
             if (resetButton != null)
