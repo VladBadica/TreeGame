@@ -41,8 +41,8 @@ namespace TreeGame.EditorTools
         private const float WalkableHalfWidth = 13f;
 
         // The player walks in front of the tree (negative Z is toward the camera) and starts just left of it.
-        private static readonly Vector3 PlayerStartPosition = new Vector3(-1.5f, 0.6f, -2f);
-        private static readonly Vector3 PlayerSize = new Vector3(0.6f, 1.2f, 0.4f);
+        // The player's origin is at its feet.
+        private static readonly Vector3 PlayerStartPosition = new Vector3(-1.5f, 0f, -2f);
 
         // Camera framing: centered on the player, nearly side-on. A small pitch still shows a sliver of ground top.
         private static readonly Vector3 CameraTarget = new Vector3(PlayerStartPosition.x, 2f, 0f);
@@ -76,7 +76,6 @@ namespace TreeGame.EditorTools
             Material bark = GetOrCreateMaterial("Bark", new Color(0.45f, 0.3f, 0.2f));
             Material leaves = GetOrCreateMaterial("Leaves", new Color(0.36f, 0.62f, 0.3f));
             Material ground = GetOrCreateMaterial("Ground", new Color(0.58f, 0.72f, 0.42f));
-            Material playerMaterial = GetOrCreateMaterial("Player", new Color(0.86f, 0.46f, 0.36f));
             AssetDatabase.SaveAssets();
 
             ConfigureEnvironment();
@@ -85,7 +84,7 @@ namespace TreeGame.EditorTools
             GameObject tree = CreateTree(config, bark, leaves);
             TreeResource water = CreateResource(tree.transform, TreeResourceType.Water, config);
             TreeResource nutrients = CreateResource(tree.transform, TreeResourceType.Nutrients, config);
-            Transform player = CreatePlayer(config, playerMaterial);
+            Transform player = CreatePlayer(config);
             Transform camera = CreateCamera(player);
             CreateBackdrop(camera);
 
@@ -185,15 +184,10 @@ namespace TreeGame.EditorTools
                 float width = height * random.NextFloat(2f, 3f);
 
                 // A flattened sphere centered on the base line shows as a soft hill silhouette; the ground hides its lower half.
-                GameObject hill = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-                hill.name = "Hill";
-                hill.transform.SetParent(layer, false);
-                hill.transform.localPosition = new Vector3(x, 0f, 0f);
-                hill.transform.localScale = new Vector3(width, height * 2f, 0.1f);
-                Object.DestroyImmediate(hill.GetComponent<Collider>());
+                Transform hill = CreatePart(PrimitiveType.Sphere, "Hill", layer,
+                    new Vector3(x, 0f, 0f), new Vector3(width, height * 2f, 0.1f), material);
 
                 var renderer = hill.GetComponent<Renderer>();
-                renderer.sharedMaterial = material;
                 renderer.shadowCastingMode = ShadowCastingMode.Off;
                 renderer.receiveShadows = false;
             }
@@ -205,16 +199,20 @@ namespace TreeGame.EditorTools
             serializedParallax.ApplyModifiedPropertiesWithoutUndo();
         }
 
-        private static Transform CreatePlayer(GameConfig config, Material material)
+        private static Transform CreatePlayer(GameConfig config)
         {
-            // Placeholder body: a flat box reads as a rectangle from the side-on camera.
-            GameObject player = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            player.name = "Player";
+            var player = new GameObject("Player");
             player.transform.position = PlayerStartPosition;
-            player.transform.localScale = PlayerSize;
-            player.GetComponent<Renderer>().sharedMaterial = material;
-            // Nothing uses physics yet; a collider can be added once interaction needs one.
-            Object.DestroyImmediate(player.GetComponent<Collider>());
+
+            CreateCharacterModel(player.transform, out Transform body, out Transform leftLeg, out Transform rightLeg,
+                out Transform leftArm, out Transform rightArm);
+
+            SetReferences(player.AddComponent<CharacterWalkAnimation>(),
+                ("body", body),
+                ("leftLeg", leftLeg),
+                ("rightLeg", rightLeg),
+                ("leftArm", leftArm),
+                ("rightArm", rightArm));
 
             var movement = player.AddComponent<PlayerMovement>();
             SetReferences(movement,
@@ -226,6 +224,66 @@ namespace TreeGame.EditorTools
             serializedMovement.ApplyModifiedPropertiesWithoutUndo();
 
             return player.transform;
+        }
+
+        /// <summary>
+        /// Placeholder gardener built from primitives, about 1.8 units tall with its feet at the origin.
+        /// The front faces local -Z (toward the camera); the walk animation turns it toward the walking direction.
+        /// Limbs hang from empty pivots at the hips and shoulders so they swing from the joint, not their middle.
+        /// </summary>
+        private static void CreateCharacterModel(Transform parent, out Transform body,
+            out Transform leftLeg, out Transform rightLeg, out Transform leftArm, out Transform rightArm)
+        {
+            Material skin = GetOrCreateMaterial("Player Skin", new Color(0.96f, 0.8f, 0.66f));
+            Material shirt = GetOrCreateMaterial("Player Shirt", new Color(0.86f, 0.46f, 0.36f));
+            Material pants = GetOrCreateMaterial("Player Pants", new Color(0.33f, 0.38f, 0.52f));
+            Material hat = GetOrCreateMaterial("Player Hat", new Color(0.88f, 0.75f, 0.45f));
+            Material eyes = GetOrCreateMaterial("Player Eyes", new Color(0.12f, 0.1f, 0.1f));
+
+            body = new GameObject("Body").transform;
+            body.SetParent(parent, false);
+
+            // Unity's capsule and cylinder are 2 units tall at scale 1, so a Y scale of h/2 gives height h.
+            leftLeg = CreatePivot("Left Leg", body, new Vector3(-0.1f, 0.5f, 0f));
+            rightLeg = CreatePivot("Right Leg", body, new Vector3(0.1f, 0.5f, 0f));
+            CreatePart(PrimitiveType.Capsule, "Leg", leftLeg, new Vector3(0f, -0.25f, 0f), new Vector3(0.16f, 0.25f, 0.16f), pants);
+            CreatePart(PrimitiveType.Capsule, "Leg", rightLeg, new Vector3(0f, -0.25f, 0f), new Vector3(0.16f, 0.25f, 0.16f), pants);
+
+            CreatePart(PrimitiveType.Capsule, "Torso", body, new Vector3(0f, 0.85f, 0f), new Vector3(0.42f, 0.38f, 0.34f), shirt);
+
+            leftArm = CreatePivot("Left Arm", body, new Vector3(-0.27f, 1.12f, 0f));
+            rightArm = CreatePivot("Right Arm", body, new Vector3(0.27f, 1.12f, 0f));
+            CreatePart(PrimitiveType.Capsule, "Arm", leftArm, new Vector3(0f, -0.2f, 0f), new Vector3(0.12f, 0.2f, 0.12f), skin);
+            CreatePart(PrimitiveType.Capsule, "Arm", rightArm, new Vector3(0f, -0.2f, 0f), new Vector3(0.12f, 0.2f, 0.12f), skin);
+
+            CreatePart(PrimitiveType.Sphere, "Head", body, new Vector3(0f, 1.47f, 0f), Vector3.one * 0.42f, skin);
+            CreatePart(PrimitiveType.Sphere, "Left Eye", body, new Vector3(-0.08f, 1.5f, -0.19f), Vector3.one * 0.06f, eyes);
+            CreatePart(PrimitiveType.Sphere, "Right Eye", body, new Vector3(0.08f, 1.5f, -0.19f), Vector3.one * 0.06f, eyes);
+
+            CreatePart(PrimitiveType.Cylinder, "Hat Brim", body, new Vector3(0f, 1.66f, 0f), new Vector3(0.56f, 0.015f, 0.56f), hat);
+            CreatePart(PrimitiveType.Cylinder, "Hat Crown", body, new Vector3(0f, 1.74f, 0f), new Vector3(0.32f, 0.08f, 0.32f), hat);
+        }
+
+        private static Transform CreatePivot(string objectName, Transform parent, Vector3 localPosition)
+        {
+            var pivot = new GameObject(objectName).transform;
+            pivot.SetParent(parent, false);
+            pivot.localPosition = localPosition;
+            return pivot;
+        }
+
+        /// <summary>A collider-free primitive; nothing uses physics yet, colliders can be added when interaction needs them.</summary>
+        private static Transform CreatePart(PrimitiveType type, string objectName, Transform parent,
+            Vector3 localPosition, Vector3 localScale, Material material)
+        {
+            GameObject part = GameObject.CreatePrimitive(type);
+            part.name = objectName;
+            part.transform.SetParent(parent, false);
+            part.transform.localPosition = localPosition;
+            part.transform.localScale = localScale;
+            part.GetComponent<Renderer>().sharedMaterial = material;
+            Object.DestroyImmediate(part.GetComponent<Collider>());
+            return part.transform;
         }
 
         /// <summary>Finds the reference asset Unity generates for an action inside the project's input actions.</summary>
