@@ -7,7 +7,8 @@ namespace TreeGame.UI
 {
     /// <summary>
     /// Shows "Press [key] to [action]" above whatever the <see cref="Interactor"/> is focused on.
-    /// The key comes from the current input binding, so rebinding the action updates the prompt automatically.
+    /// The key comes from the interact action's current binding (so rebinding updates the prompt automatically),
+    /// unless the target names its own key.
     /// Lives on a screen-space canvas and follows its target on screen.
     /// </summary>
     public class InteractionPrompt : MonoBehaviour
@@ -66,7 +67,8 @@ namespace TreeGame.UI
                 return;
             }
 
-            label.text = $"Press <b>{GetKeyName()}</b> to {target.ActionDescription}";
+            string key = string.IsNullOrEmpty(target.PromptKeyOverride) ? GetKeyName() : target.PromptKeyOverride;
+            label.text = $"Press <b>{key}</b> to {target.ActionDescription}";
             FollowTarget();
         }
 

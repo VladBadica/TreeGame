@@ -9,6 +9,7 @@ using TreeGame.Items;
 using TreeGame.Player;
 using TreeGame.Trees;
 using TreeGame.UI;
+using TreeGame.World;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -31,6 +32,7 @@ namespace TreeGame.EditorTools
         private const string MaterialsFolder = "Assets/Materials";
         private const string ConfigFolder = "Assets/Config";
         private const string ConfigPath = ConfigFolder + "/GameConfig.asset";
+        private const string ItemsFolder = "Assets/Items";
 
         private const string InputActionsPath = "Assets/InputSystem_Actions.inputactions";
 
@@ -87,6 +89,10 @@ namespace TreeGame.EditorTools
 
             // Existing assets are reused so manual tweaks to them survive regenerating the scene.
             GameConfig config = GetOrCreateConfig();
+            // Order matters: the water bucket goes into slot 1, which the tree's "Press 1 to Water" prompt relies on.
+            GiveStartingItemsIfNone(config,
+                GetOrCreateItem<WaterBucketDefinition>("WaterBucket", "Water Bucket", PlaceholderArt.GetOrCreateWaterBucketIcon()),
+                GetOrCreateItem<CompostBucketDefinition>("CompostBucket", "Compost Bucket", PlaceholderArt.GetOrCreateCompostBucketIcon()));
             Material bark = GetOrCreateMaterial("Bark", new Color(0.45f, 0.3f, 0.2f));
             Material leaves = GetOrCreateMaterial("Leaves", new Color(0.36f, 0.62f, 0.3f));
             Material ground = GetOrCreateMaterial("Ground", new Color(0.58f, 0.72f, 0.42f));
@@ -97,11 +103,12 @@ namespace TreeGame.EditorTools
             CreateSun();
             CreateGround(ground);
             CreateFences(fenceNear, fenceFar);
-            CreateWell();
+            CreateWell(config);
             CreateCompostHeap();
             GameObject tree = CreateTree(config, bark, leaves);
             TreeResource water = CreateResource(tree.transform, TreeResourceType.Water, config);
             TreeResource nutrients = CreateResource(tree.transform, TreeResourceType.Nutrients, config);
+            CreateTreeWatering(tree.transform, water);
             Transform player = CreatePlayer(config, tree.transform);
             Transform camera = CreateCamera(player);
             var viewCamera = camera.GetComponent<Camera>();
@@ -223,7 +230,7 @@ namespace TreeGame.EditorTools
         }
 
         /// <summary>Placeholder well built from boxes, about 2.2 units tall with its base at ground level.</summary>
-        private static void CreateWell()
+        private static void CreateWell(GameConfig config)
         {
             Material stone = GetOrCreateMaterial("Well Stone", new Color(0.62f, 0.6f, 0.58f));
             Material rim = GetOrCreateMaterial("Well Rim", new Color(0.5f, 0.48f, 0.47f));
@@ -255,20 +262,46 @@ namespace TreeGame.EditorTools
                 new Vector3(0.33f, 1.92f, 0f), new Vector3(0.8f, 0.06f, 1f), roof);
             rightRoof.localRotation = Quaternion.Euler(0f, 0f, -roofPitch);
 
-            // Interaction zone: a little wider than the well, and deep enough to reach the player's walking line.
+            // As wide as the well's base, so the prompt appears once the player reaches the well's edge
+            // (the player's own trigger capsule, radius 0.3, adds to this), leaving room for other interactables.
+            Interactable interactable = CreateInteractionZone(well, width: 1.2f, promptHeight: 2.5f, "get water");
+            SetReferences(well.gameObject.AddComponent<WaterWell>(),
+                ("interactable", interactable),
+                ("config", config));
+        }
+
+        /// <summary>Lets the player pour water onto the tree by using the bucket (hotbar slot 1) next to it.</summary>
+        private static void CreateTreeWatering(Transform tree, TreeResource water)
+        {
+            // Watering uses the bucket's hotbar key rather than the interact key, so the prompt names that key.
+            // Narrow, so the player has to stand almost at the trunk, leaving room for other interactables nearby.
+            // The player's own trigger capsule (radius 0.3) adds to this, so it triggers within about 0.7 of the trunk.
+            Interactable interactable = CreateInteractionZone(tree, width: 0.8f, promptHeight: 2.5f, "Water", promptKeyOverride: "1");
+            SetReferences(interactable.gameObject.AddComponent<WaterReceiver>(), ("water", water));
+        }
+
+        /// <summary>
+        /// A trigger zone the player can stand in to see a prompt and interact. It is deep enough (along Z) to reach
+        /// the player's walking line wherever the owner stands, and only as wide as given.
+        /// </summary>
+        private static Interactable CreateInteractionZone(Transform owner, float width, float promptHeight,
+            string actionDescription, string promptKeyOverride = "")
+        {
             var zone = new GameObject("Interaction Zone", typeof(BoxCollider));
-            zone.transform.SetParent(well, false);
+            zone.transform.SetParent(owner, false);
             var zoneCollider = zone.GetComponent<BoxCollider>();
             zoneCollider.isTrigger = true;
             zoneCollider.center = new Vector3(0f, 1f, 0f);
-            zoneCollider.size = new Vector3(2.4f, 2f, 6f);
+            zoneCollider.size = new Vector3(width, 2f, 6f);
 
-            Transform promptAnchor = CreatePivot("Prompt Anchor", well, new Vector3(0f, 2.5f, 0f));
+            Transform promptAnchor = CreatePivot("Prompt Anchor", owner, new Vector3(0f, promptHeight, 0f));
             var interactable = zone.AddComponent<Interactable>();
             SetReferences(interactable, ("promptAnchor", promptAnchor));
             var serializedInteractable = new SerializedObject(interactable);
-            serializedInteractable.FindProperty("actionDescription").stringValue = "get water";
+            serializedInteractable.FindProperty("actionDescription").stringValue = actionDescription;
+            serializedInteractable.FindProperty("promptKeyOverride").stringValue = promptKeyOverride;
             serializedInteractable.ApplyModifiedPropertiesWithoutUndo();
+            return interactable;
         }
 
         private static void CreateFenceHalf(string objectName, Sprite sprite, Transform parent, Vector3 position, bool mirrored)
@@ -657,8 +690,9 @@ namespace TreeGame.EditorTools
 
             var iconObject = new GameObject("Icon", typeof(RectTransform), typeof(Image));
             RectTransform iconRect = StretchInParent(iconObject, slot.transform);
-            iconRect.offsetMin = new Vector2(10f, 10f);
-            iconRect.offsetMax = new Vector2(-10f, -10f);
+            // Extra room at the bottom for the fill label, and at the top for the key number.
+            iconRect.offsetMin = new Vector2(12f, 16f);
+            iconRect.offsetMax = new Vector2(-12f, -8f);
             var icon = iconObject.GetComponent<Image>();
             icon.preserveAspect = true;
             icon.enabled = false; // Empty until an item is placed in the slot.
@@ -669,11 +703,20 @@ namespace TreeGame.EditorTools
             keyRect.offsetMax = new Vector2(0f, -4f);
             keyLabel.text = "1"; // Placeholder; each copy gets its own number at runtime.
 
+            // Inside the square along its bottom edge, so it reads as part of the slot.
+            TMP_Text displayTextLabel = CreateText("Display Text", 16f, Color.white, TextAlignmentOptions.Bottom);
+            RectTransform displayTextRect = StretchInParent(displayTextLabel.gameObject, slot.transform);
+            displayTextRect.offsetMin = new Vector2(0f, 3f);
+            displayTextLabel.fontStyle = FontStyles.Bold;
+            displayTextLabel.text = "";
+            displayTextLabel.enabled = false; // Shown only for items that have display text.
+
             var slotView = slot.AddComponent<InventorySlotView>();
             SetReferences(slotView,
                 ("background", background),
                 ("icon", icon),
-                ("keyLabel", keyLabel));
+                ("keyLabel", keyLabel),
+                ("displayTextLabel", displayTextLabel));
             slot.SetActive(false);
 
             SetReferences(bar.AddComponent<InventoryBar>(),
@@ -807,6 +850,60 @@ namespace TreeGame.EditorTools
             config = ScriptableObject.CreateInstance<GameConfig>();
             AssetDatabase.CreateAsset(config, ConfigPath);
             return config;
+        }
+
+        /// <summary>
+        /// An item definition asset in the Items folder, created with the given name and icon if it doesn't exist yet.
+        /// Type-specific defaults (e.g. a bucket's capacity) come from the definition class itself.
+        /// </summary>
+        private static T GetOrCreateItem<T>(string assetName, string displayName, Sprite icon) where T : ItemDefinition
+        {
+            string path = $"{ItemsFolder}/{assetName}.asset";
+            var item = AssetDatabase.LoadAssetAtPath<T>(path);
+            if (item != null)
+            {
+                return item;
+            }
+
+            if (!AssetDatabase.IsValidFolder(ItemsFolder))
+            {
+                AssetDatabase.CreateFolder("Assets", "Items");
+            }
+
+            item = ScriptableObject.CreateInstance<T>();
+            AssetDatabase.CreateAsset(item, path);
+
+            SetReferences(item, ("icon", icon));
+            var serializedItem = new SerializedObject(item);
+            serializedItem.FindProperty("displayName").stringValue = displayName;
+            serializedItem.ApplyModifiedPropertiesWithoutUndo();
+            return item;
+        }
+
+        /// <summary>
+        /// Only fills a starting list without any valid items, so items chosen in the config are never overwritten
+        /// (entries whose asset was deleted count as empty).
+        /// </summary>
+        private static void GiveStartingItemsIfNone(GameConfig config, params ItemDefinition[] items)
+        {
+            var serializedConfig = new SerializedObject(config);
+            SerializedProperty startingItems = serializedConfig.FindProperty("startingItems");
+            for (int i = 0; i < startingItems.arraySize; i++)
+            {
+                if (startingItems.GetArrayElementAtIndex(i).objectReferenceValue != null)
+                {
+                    return;
+                }
+            }
+
+            startingItems.arraySize = items.Length;
+            for (int i = 0; i < items.Length; i++)
+            {
+                startingItems.GetArrayElementAtIndex(i).objectReferenceValue = items[i];
+            }
+
+            serializedConfig.ApplyModifiedPropertiesWithoutUndo();
+            EditorUtility.SetDirty(config);
         }
 
         private static Material GetOrCreateMaterial(string materialName, Color color, bool unlit = false)

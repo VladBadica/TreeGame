@@ -15,17 +15,24 @@ namespace TreeGame.Interaction
         [SerializeField] private string actionDescription = "interact";
         [Tooltip("Where the prompt appears. Empty = this object's position.")]
         [SerializeField] private Transform promptAnchor;
+        [Tooltip("Key shown in the prompt. Empty = the interact key. Set it when the action happens through another key, " +
+                 "e.g. \"1\" for using the item in hotbar slot 1.")]
+        [SerializeField] private string promptKeyOverride;
 
-        /// <summary>Raised when the player interacts with this object.</summary>
-        public event Action Interacted;
+        /// <summary>Raised with the interacting object (e.g. the player) when someone interacts with this object.</summary>
+        public event Action<GameObject> Interacted;
 
         public string ActionDescription => actionDescription;
 
+        /// <summary>The key to show instead of the interact key, or null/empty to show the interact key.</summary>
+        public string PromptKeyOverride => promptKeyOverride;
+
         public Vector3 PromptPosition => promptAnchor != null ? promptAnchor.position : transform.position;
 
-        public void Interact()
+        /// <param name="user">Who is interacting, so responses can act on them (e.g. fill their bucket).</param>
+        public void Interact(GameObject user)
         {
-            Interacted?.Invoke();
+            Interacted?.Invoke(user);
         }
 
         private void Reset()

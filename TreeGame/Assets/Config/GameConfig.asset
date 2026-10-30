@@ -14,8 +14,22 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::TreeGame.Core.GameConfig
   secondsToFullyGrow: 300
   water:
-    maxAmount: 100
+    maxAmount: 200
     secondsToEmpty: 120
   nutrients:
     maxAmount: 100
     secondsToEmpty: 240
+  playerMoveSpeed: 4
+  inventorySlotCount: 9
+  startingItems:
+  - {fileID: 11400000, guid: 7b4f43cf13d3dd14ba1ddc94c17fda10, type: 2}
+  - {fileID: 11400000, guid: 56304d56daa9f79468cc636f3dd096c9, type: 2}
+  wellFillPerUse: 0.1
+  wind:
+    direction: 1
+    baseStrength: 0.1
+    gustStrength: 0.25
+    gustFrequency: 0.2
+    gustTravelSpeed: 6
+    turbulence: 0.05
+    turbulenceFrequency: 1.5

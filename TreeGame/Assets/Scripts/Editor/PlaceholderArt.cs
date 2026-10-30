@@ -13,6 +13,8 @@ namespace TreeGame.EditorTools
         private const string ArtFolder = "Assets/Art";
         private const string FenceNearPath = ArtFolder + "/FenceNear.png";
         private const string FenceFarPath = ArtFolder + "/FenceFar.png";
+        private const string WaterBucketIconPath = ArtFolder + "/WaterBucketIcon.png";
+        private const string CompostBucketIconPath = ArtFolder + "/CompostBucketIcon.png";
         private const float PixelsPerUnit = 100f;
 
         // The camera is orthographic, so depth has to be painted in. The fence is drawn in one-point perspective:
@@ -51,6 +53,95 @@ namespace TreeGame.EditorTools
 
             near = AssetDatabase.LoadAssetAtPath<Sprite>(FenceNearPath);
             far = AssetDatabase.LoadAssetAtPath<Sprite>(FenceFarPath);
+        }
+
+        /// <summary>The water bucket's inventory icon: a blue bucket.</summary>
+        public static Sprite GetOrCreateWaterBucketIcon()
+        {
+            return GetOrCreateBucketIcon(WaterBucketIconPath,
+                body: new Color32(96, 156, 220, 255), rim: new Color32(66, 122, 188, 255));
+        }
+
+        /// <summary>The compost bucket's inventory icon: a brown bucket.</summary>
+        public static Sprite GetOrCreateCompostBucketIcon()
+        {
+            return GetOrCreateBucketIcon(CompostBucketIconPath,
+                body: new Color32(156, 108, 66, 255), rim: new Color32(120, 80, 48, 255));
+        }
+
+        /// <summary>A bucket icon (tapered body, darker rim and a handle, with an outline) in the given colors.</summary>
+        private static Sprite GetOrCreateBucketIcon(string path, Color32 body, Color32 rim)
+        {
+            if (!File.Exists(path))
+            {
+                PaintBucketIcon(path, body, rim);
+            }
+
+            return AssetDatabase.LoadAssetAtPath<Sprite>(path);
+        }
+
+        private static void PaintBucketIcon(string path, Color32 bodyColor, Color32 rimColor)
+        {
+            const int size = 128;
+            const int centerX = size / 2;
+            // Handle and outline stay dark grey on every bucket, so only the body color tells them apart.
+            var handleColor = new Color32(92, 100, 110, 255);
+            var outlineColor = new Color32(62, 68, 78, 255);
+
+            // Body narrows toward the bottom; the rim is a slightly wider band at the top.
+            bool IsBody(int x, int y)
+            {
+                if (y < 14 || y >= 92)
+                {
+                    return false;
+                }
+
+                float halfWidth = Mathf.Lerp(34f, 46f, (y - 14) / 78f);
+                return Mathf.Abs(x - centerX + 0.5f) < halfWidth;
+            }
+
+            bool IsRim(int x, int y) => y >= 86 && y < 98 && Mathf.Abs(x - centerX + 0.5f) < 50f;
+            bool IsBucket(int x, int y) => IsBody(x, y) || IsRim(x, y);
+
+            // An arch above the rim.
+            bool IsHandle(int x, int y)
+            {
+                if (y < 96)
+                {
+                    return false;
+                }
+
+                float distance = Vector2.Distance(new Vector2(x + 0.5f, y + 0.5f), new Vector2(centerX, 92f));
+                return distance >= 38f && distance < 44f;
+            }
+
+            var pixels = new Color32[size * size];
+            for (int y = 0; y < size; y++)
+            {
+                for (int x = 0; x < size; x++)
+                {
+                    Color32 color = Transparent;
+                    if (IsBucket(x, y))
+                    {
+                        color = IsNearEdge(x, y, IsBucket, 4) ? outlineColor : IsRim(x, y) ? rimColor : bodyColor;
+                    }
+                    else if (IsHandle(x, y))
+                    {
+                        color = IsNearEdge(x, y, IsHandle, 2) ? outlineColor : handleColor;
+                    }
+
+                    pixels[y * size + x] = color;
+                }
+            }
+
+            SaveSprite(path, size, size, pixels, new Vector2(0.5f, 0.5f));
+        }
+
+        /// <summary>True for pixels inside a shape but within <paramref name="distance"/> of its edge, used for outlines.</summary>
+        private static bool IsNearEdge(int x, int y, System.Func<int, int, bool> isInside, int distance)
+        {
+            return !isInside(x - distance, y) || !isInside(x + distance, y) ||
+                   !isInside(x, y - distance) || !isInside(x, y + distance);
         }
 
         /// <summary>Rasterizes the fence back to front (painter's algorithm), remembering each pixel's depth.</summary>

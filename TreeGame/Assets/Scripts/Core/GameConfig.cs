@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using TreeGame.Care;
+using TreeGame.Items;
 using UnityEngine;
 
 namespace TreeGame.Core
@@ -18,7 +20,8 @@ namespace TreeGame.Core
         [SerializeField, Min(1f)] private float secondsToFullyGrow = 300f;
 
         [Header("Resources")]
-        [SerializeField] private ResourceSettings water = new ResourceSettings(maxAmount: 100f, secondsToEmpty: 120f);
+        [Tooltip("Water is measured in liters, the same unit as a bucket, so pouring moves liters one to one.")]
+        [SerializeField] private ResourceSettings water = new ResourceSettings(maxAmount: 200f, secondsToEmpty: 120f);
         [SerializeField] private ResourceSettings nutrients = new ResourceSettings(maxAmount: 100f, secondsToEmpty: 240f);
 
         [Header("Player")]
@@ -28,6 +31,12 @@ namespace TreeGame.Core
         [Header("Inventory")]
         [Tooltip("Number of inventory slots. The number keys 1-9 can reach at most 9.")]
         [SerializeField, Range(1, 9)] private int inventorySlotCount = 9;
+        [Tooltip("Items the player starts with, placed into slots in this order. Containers start empty.")]
+        [SerializeField] private ItemDefinition[] startingItems = new ItemDefinition[0];
+
+        [Header("Well")]
+        [Tooltip("How much water one use of the well adds to a bucket, as a fraction of the bucket's capacity.")]
+        [SerializeField, Range(0f, 1f)] private float wellFillPerUse = 0.1f;
 
         [Header("Wind")]
         [Tooltip("Shared by everything the wind moves, so it all sways together.")]
@@ -38,6 +47,10 @@ namespace TreeGame.Core
         public float PlayerMoveSpeed => playerMoveSpeed;
 
         public int InventorySlotCount => inventorySlotCount;
+
+        public IReadOnlyList<ItemDefinition> StartingItems => startingItems;
+
+        public float WellFillPerUse => wellFillPerUse;
 
         public WindSettings Wind => wind;
 

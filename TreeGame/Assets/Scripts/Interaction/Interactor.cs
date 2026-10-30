@@ -65,7 +65,7 @@ namespace TreeGame.Interaction
 
             if (Focused != null && InteractAction.WasPressedThisFrame())
             {
-                Focused.Interact();
+                Focused.Interact(gameObject);
             }
         }
 
