@@ -79,6 +79,31 @@ namespace TreeGame.Items
             return definition != null && TryAdd(definition.CreateItem());
         }
 
+        /// <summary>
+        /// Adds several items of a type. Stackable items top up existing stacks first, then start new stacks
+        /// in empty slots; other items take one slot each. Returns how many didn't fit (0 = all added).
+        /// </summary>
+        public int Add(ItemDefinition definition, int count = 1)
+        {
+            if (definition == null || count <= 0)
+            {
+                return 0;
+            }
+
+            if (definition is StackableItemDefinition stackable)
+            {
+                return AddToStacks(stackable, count);
+            }
+
+            int remaining = count;
+            while (remaining > 0 && TryAdd(definition))
+            {
+                remaining--;
+            }
+
+            return remaining;
+        }
+
         /// <summary>Puts the item into the first empty slot. Returns false if the inventory is full.</summary>
         public bool TryAdd(Item item)
         {
@@ -145,6 +170,38 @@ namespace TreeGame.Items
 
             Slots[index]?.OnUse(gameObject);
             SlotActivated?.Invoke(index);
+        }
+
+        private int AddToStacks(StackableItemDefinition definition, int count)
+        {
+            int remaining = count;
+            foreach (Item item in Slots)
+            {
+                if (remaining == 0)
+                {
+                    return 0;
+                }
+
+                if (item is StackableItem stack && stack.Definition == definition)
+                {
+                    remaining = stack.AddToStack(remaining);
+                }
+            }
+
+            while (remaining > 0)
+            {
+                StackableItem stack = definition.CreateStack();
+                int amount = Mathf.Min(remaining, stack.MaxStack);
+                stack.SetCount(amount);
+                if (!TryAdd(stack))
+                {
+                    break; // No empty slot left.
+                }
+
+                remaining -= amount;
+            }
+
+            return remaining;
         }
 
         private void CreateSlots()

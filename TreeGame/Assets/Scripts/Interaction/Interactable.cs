@@ -27,7 +27,8 @@ namespace TreeGame.Interaction
         /// <summary>The key to show instead of the interact key, or null/empty to show the interact key.</summary>
         public string PromptKeyOverride => promptKeyOverride;
 
-        public Vector3 PromptPosition => promptAnchor != null ? promptAnchor.position : transform.position;
+        /// <summary>Where the prompt appears: the prompt anchor, or this object if none is set.</summary>
+        public Transform PromptAnchor => promptAnchor != null ? promptAnchor : transform;
 
         /// <param name="user">Who is interacting, so responses can act on them (e.g. fill their bucket).</param>
         public void Interact(GameObject user)

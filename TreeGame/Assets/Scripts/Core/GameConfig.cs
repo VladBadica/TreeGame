@@ -38,6 +38,9 @@ namespace TreeGame.Core
         [Tooltip("How much water one use of the well adds to a bucket, as a fraction of the bucket's capacity.")]
         [SerializeField, Range(0f, 1f)] private float wellFillPerUse = 0.1f;
 
+        [Header("Fallen Leaves")]
+        [SerializeField] private FallenLeafSettings fallenLeaves = new FallenLeafSettings();
+
         [Header("Wind")]
         [Tooltip("Shared by everything the wind moves, so it all sways together.")]
         [SerializeField] private WindSettings wind = new WindSettings();
@@ -51,6 +54,8 @@ namespace TreeGame.Core
         public IReadOnlyList<ItemDefinition> StartingItems => startingItems;
 
         public float WellFillPerUse => wellFillPerUse;
+
+        public FallenLeafSettings FallenLeaves => fallenLeaves;
 
         public WindSettings Wind => wind;
 

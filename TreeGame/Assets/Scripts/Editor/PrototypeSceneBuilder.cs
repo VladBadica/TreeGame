@@ -33,6 +33,8 @@ namespace TreeGame.EditorTools
         private const string ConfigFolder = "Assets/Config";
         private const string ConfigPath = ConfigFolder + "/GameConfig.asset";
         private const string ItemsFolder = "Assets/Items";
+        private const string PrefabsFolder = "Assets/Prefabs";
+        private const string FallenLeafPrefabPath = PrefabsFolder + "/FallenLeaf.prefab";
 
         private const string InputActionsPath = "Assets/InputSystem_Actions.inputactions";
 
@@ -93,6 +95,9 @@ namespace TreeGame.EditorTools
             GiveStartingItemsIfNone(config,
                 GetOrCreateItem<WaterBucketDefinition>("WaterBucket", "Water Bucket", PlaceholderArt.GetOrCreateWaterBucketIcon()),
                 GetOrCreateItem<CompostBucketDefinition>("CompostBucket", "Compost Bucket", PlaceholderArt.GetOrCreateCompostBucketIcon()));
+            Sprite brownLeaf = PlaceholderArt.GetOrCreateBrownLeafSprite();
+            ItemPickup fallenLeafPrefab = GetOrCreateFallenLeafPrefab(
+                GetOrCreateItem<StackableItemDefinition>("BrownLeaves", "Brown Leaves", brownLeaf), brownLeaf);
             Material bark = GetOrCreateMaterial("Bark", new Color(0.45f, 0.3f, 0.2f));
             Material leaves = GetOrCreateMaterial("Leaves", new Color(0.36f, 0.62f, 0.3f));
             Material ground = GetOrCreateMaterial("Ground", new Color(0.58f, 0.72f, 0.42f));
@@ -109,6 +114,7 @@ namespace TreeGame.EditorTools
             TreeResource water = CreateResource(tree.transform, TreeResourceType.Water, config);
             TreeResource nutrients = CreateResource(tree.transform, TreeResourceType.Nutrients, config);
             CreateTreeWatering(tree.transform, water);
+            CreateFallenLeafSpawner(tree, config, fallenLeafPrefab);
             Transform player = CreatePlayer(config, tree.transform);
             Transform camera = CreateCamera(player);
             var viewCamera = camera.GetComponent<Camera>();
@@ -119,6 +125,7 @@ namespace TreeGame.EditorTools
             Transform hud = CreateCanvas("HUD", 0);
             CreateResourceHud(hud, water, nutrients);
             CreateInteractionPrompt(hud, player.GetComponent<Interactor>(), viewCamera);
+            CreateGatherPrompt(hud, player.GetComponent<ItemCollector>(), viewCamera);
             CreateInventoryBar(hud, player.GetComponent<Inventory>());
             // Own canvas, drawn on top, so all dev tooling can be removed by deleting one object.
             CreateDebugPanel(CreateCanvas("Debug UI", 100), tree.GetComponent<TreeGrowth>());
@@ -280,6 +287,58 @@ namespace TreeGame.EditorTools
             SetReferences(interactable.gameObject.AddComponent<WaterReceiver>(), ("water", water));
         }
 
+        /// <summary>Leaves fall around the tree once it has grown; they collect under their own root, not the tree.</summary>
+        private static void CreateFallenLeafSpawner(GameObject tree, GameConfig config, ItemPickup leafPrefab)
+        {
+            // Outside the tree, so spawned leaves never mix with the tree's generated parts.
+            var container = new GameObject("Fallen Leaves").transform;
+
+            var spawner = tree.AddComponent<FallenLeafSpawner>();
+            SetReferences(spawner,
+                ("treeGrowth", tree.GetComponent<TreeGrowth>()),
+                ("config", config),
+                ("leafPrefab", leafPrefab),
+                ("container", container));
+            // From just inside the ground's front edge to just behind the trunk, so some land in front of the player.
+            var serializedSpawner = new SerializedObject(spawner);
+            serializedSpawner.FindProperty("depthRange").vector2Value = new Vector2(GroundFrontZ + 0.5f, 0.5f);
+            serializedSpawner.ApplyModifiedPropertiesWithoutUndo();
+        }
+
+        /// <summary>
+        /// The fallen leaf prefab: the leaf sprite plus a pickup zone giving one Brown Leaves.
+        /// Reused if it exists, so edits to the prefab survive regenerating the scene.
+        /// </summary>
+        private static ItemPickup GetOrCreateFallenLeafPrefab(ItemDefinition leaves, Sprite sprite)
+        {
+            var existing = AssetDatabase.LoadAssetAtPath<ItemPickup>(FallenLeafPrefabPath);
+            if (existing != null)
+            {
+                return existing;
+            }
+
+            if (!AssetDatabase.IsValidFolder(PrefabsFolder))
+            {
+                AssetDatabase.CreateFolder("Assets", "Prefabs");
+            }
+
+            var leaf = new GameObject("Fallen Leaf", typeof(SpriteRenderer), typeof(BoxCollider));
+            leaf.GetComponent<SpriteRenderer>().sprite = sprite;
+
+            // Narrow, so the player has to walk up to a leaf, but deep enough (Z) to reach the player's walking line
+            // from wherever along the ground the leaf landed.
+            var zone = leaf.GetComponent<BoxCollider>();
+            zone.isTrigger = true;
+            zone.center = new Vector3(0f, 0.5f, 0f);
+            zone.size = new Vector3(0.5f, 1f, 8f);
+
+            SetReferences(leaf.AddComponent<ItemPickup>(), ("item", leaves));
+
+            GameObject prefab = PrefabUtility.SaveAsPrefabAsset(leaf, FallenLeafPrefabPath);
+            Object.DestroyImmediate(leaf);
+            return prefab.GetComponent<ItemPickup>();
+        }
+
         /// <summary>
         /// A trigger zone the player can stand in to see a prompt and interact. It is deep enough (along Z) to reach
         /// the player's walking line wherever the owner stands, and only as wide as given.
@@ -401,6 +460,9 @@ namespace TreeGame.EditorTools
             SetReferences(inventory, ("config", config));
             SetReferences(player.AddComponent<HotbarInput>(),
                 ("hotbarAction", FindActionReference("Player", "Hotbar")),
+                ("inventory", inventory));
+            SetReferences(player.AddComponent<ItemCollector>(),
+                ("collectAction", FindActionReference("Player", "Collect")),
                 ("inventory", inventory));
 
             var movement = player.AddComponent<PlayerMovement>();
@@ -626,37 +688,56 @@ namespace TreeGame.EditorTools
             CreateResourceBar(panel.transform, nutrients, new Color(0.9f, 0.68f, 0.28f));
         }
 
-        /// <summary>A small rounded popup that the prompt component moves above whatever the player can interact with.</summary>
+        /// <summary>The prompt above whatever the player can interact with (F, or a named key such as 1).</summary>
         private static void CreateInteractionPrompt(Transform canvas, Interactor interactor, Camera viewCamera)
         {
-            // The component lives on an always-active object; it shows and hides the popup child.
-            var promptRoot = new GameObject("Interaction Prompt", typeof(RectTransform));
-            StretchInParent(promptRoot, canvas);
+            WorldPopup popup = CreateWorldPopup(canvas, "Interaction Prompt", viewCamera);
+            SetReferences(popup.gameObject.AddComponent<InteractionPrompt>(),
+                ("interactor", interactor),
+                ("popup", popup));
+        }
 
-            var popup = new GameObject("Popup", typeof(RectTransform), typeof(Image), typeof(HorizontalLayoutGroup), typeof(ContentSizeFitter));
-            var popupRect = (RectTransform)popup.transform;
-            popupRect.SetParent(promptRoot.transform, false);
+        /// <summary>The prompt above the nearest item the player can pick up with the collect key (E).</summary>
+        private static void CreateGatherPrompt(Transform canvas, ItemCollector collector, Camera viewCamera)
+        {
+            WorldPopup popup = CreateWorldPopup(canvas, "Gather Prompt", viewCamera);
+            SetReferences(popup.gameObject.AddComponent<GatherPrompt>(),
+                ("collector", collector),
+                ("popup", popup));
+        }
+
+        /// <summary>A small rounded text popup that follows a point in the world; prompts decide its text.</summary>
+        private static WorldPopup CreateWorldPopup(Transform canvas, string objectName, Camera viewCamera)
+        {
+            // The components live on an always-active object; they show and hide the panel child.
+            var root = new GameObject(objectName, typeof(RectTransform));
+            StretchInParent(root, canvas);
+
+            var panel = new GameObject("Panel", typeof(RectTransform), typeof(Image), typeof(HorizontalLayoutGroup), typeof(ContentSizeFitter));
+            var panelRect = (RectTransform)panel.transform;
+            panelRect.SetParent(root.transform, false);
             // Anchored at one point and pivoted at its bottom center, so it sits just above the target position.
-            popupRect.anchorMin = popupRect.anchorMax = Vector2.zero;
-            popupRect.pivot = new Vector2(0.5f, 0f);
-            StyleImage(popup.GetComponent<Image>(), new Color(0f, 0f, 0f, 0.6f));
+            panelRect.anchorMin = panelRect.anchorMax = Vector2.zero;
+            panelRect.pivot = new Vector2(0.5f, 0f);
+            StyleImage(panel.GetComponent<Image>(), new Color(0f, 0f, 0f, 0.6f));
 
-            var layout = popup.GetComponent<HorizontalLayoutGroup>();
+            var layout = panel.GetComponent<HorizontalLayoutGroup>();
             layout.padding = new RectOffset(18, 18, 8, 8);
             layout.childControlWidth = layout.childControlHeight = true;
-            var fitter = popup.GetComponent<ContentSizeFitter>();
+            var fitter = panel.GetComponent<ContentSizeFitter>();
             fitter.horizontalFit = fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
 
             TMP_Text label = CreateText("Label", 24f, Color.white, TextAlignmentOptions.Center);
-            label.transform.SetParent(popupRect, false);
-            label.text = "Press F to interact"; // Placeholder; the prompt builds the real text from the binding.
-            popup.SetActive(false);
+            label.transform.SetParent(panelRect, false);
+            label.text = "Press F to interact"; // Placeholder; prompts build the real text from the binding.
+            panel.SetActive(false); // Saved hidden; prompts show it when there is something to say.
 
-            SetReferences(promptRoot.AddComponent<InteractionPrompt>(),
-                ("interactor", interactor),
+            var popup = root.AddComponent<WorldPopup>();
+            SetReferences(popup,
                 ("viewCamera", viewCamera),
-                ("popup", popupRect),
+                ("panel", panelRect),
                 ("label", label));
+            return popup;
         }
 
         /// <summary>

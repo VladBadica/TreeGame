@@ -42,6 +42,15 @@
                     "initialStateCheck": false
                 },
                 {
+                    "name": "Collect",
+                    "type": "Button",
+                    "id": "f5f0e8c4-55b9-4949-b355-cf611e958d08",
+                    "expectedControlType": "Button",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": false
+                },
+                {
                     "name": "Hotbar",
                     "type": "PassThrough",
                     "id": "f8de2297-a47f-43dc-af3a-2199b8765959",
@@ -446,6 +455,17 @@
                     "processors": "",
                     "groups": "Keyboard&Mouse",
                     "action": "Interact",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "073703ee-6c44-408a-af57-ce4dad388b65",
+                    "path": "<Keyboard>/e",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "Keyboard&Mouse",
+                    "action": "Collect",
                     "isComposite": false,
                     "isPartOfComposite": false
                 },

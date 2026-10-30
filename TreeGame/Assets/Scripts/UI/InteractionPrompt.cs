@@ -1,7 +1,5 @@
-using TMPro;
 using TreeGame.Interaction;
 using UnityEngine;
-using UnityEngine.InputSystem;
 
 namespace TreeGame.UI
 {
@@ -9,25 +7,19 @@ namespace TreeGame.UI
     /// Shows "Press [key] to [action]" above whatever the <see cref="Interactor"/> is focused on.
     /// The key comes from the interact action's current binding (so rebinding updates the prompt automatically),
     /// unless the target names its own key.
-    /// Lives on a screen-space canvas and follows its target on screen.
     /// </summary>
     public class InteractionPrompt : MonoBehaviour
     {
         [SerializeField] private Interactor interactor;
-        [SerializeField] private Camera viewCamera;
-        [Tooltip("The popup that is shown and hidden; its pivot is placed at the target's prompt position.")]
-        [SerializeField] private RectTransform popup;
-        [SerializeField] private TMP_Text label;
+        [SerializeField] private WorldPopup popup;
         [Tooltip("Which control scheme's binding to show, e.g. \"Keyboard&Mouse\".")]
         [SerializeField] private string bindingGroup = "Keyboard&Mouse";
 
-        private Interactable target;
-
         private void OnEnable()
         {
-            if (interactor == null || viewCamera == null || popup == null || label == null)
+            if (interactor == null || popup == null)
             {
-                Debug.LogWarning($"{nameof(InteractionPrompt)}: needs an interactor, camera, popup and label.", this);
+                Debug.LogWarning($"{nameof(InteractionPrompt)}: needs an interactor and a popup.", this);
                 enabled = false;
                 return;
             }
@@ -45,44 +37,22 @@ namespace TreeGame.UI
 
             if (popup != null)
             {
-                popup.gameObject.SetActive(false);
+                popup.Hide();
             }
         }
 
-        // Only does work while a prompt is visible.
-        private void LateUpdate()
+        private void Show(Interactable target)
         {
-            if (target != null)
-            {
-                FollowTarget();
-            }
-        }
-
-        private void Show(Interactable interactable)
-        {
-            target = interactable;
-            popup.gameObject.SetActive(target != null);
             if (target == null)
             {
+                popup.Hide();
                 return;
             }
 
-            string key = string.IsNullOrEmpty(target.PromptKeyOverride) ? GetKeyName() : target.PromptKeyOverride;
-            label.text = $"Press <b>{key}</b> to {target.ActionDescription}";
-            FollowTarget();
-        }
-
-        private void FollowTarget()
-        {
-            // On a screen-space overlay canvas, positions are in screen pixels.
-            popup.position = viewCamera.WorldToScreenPoint(target.PromptPosition);
-        }
-
-        private string GetKeyName()
-        {
-            InputAction action = interactor.InteractAction;
-            string key = action != null ? action.GetBindingDisplayString(InputBinding.MaskByGroup(bindingGroup)) : "";
-            return string.IsNullOrEmpty(key) ? "Interact" : key;
+            string key = string.IsNullOrEmpty(target.PromptKeyOverride)
+                ? BindingText.KeyName(interactor.InteractAction, bindingGroup, fallback: "Interact")
+                : target.PromptKeyOverride;
+            popup.Show(target.PromptAnchor, BindingText.PressToPrompt(key, target.ActionDescription));
         }
     }
 }

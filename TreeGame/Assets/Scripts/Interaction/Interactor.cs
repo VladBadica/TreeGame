@@ -1,5 +1,5 @@
 using System;
-using System.Collections.Generic;
+using TreeGame.Core;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -15,7 +15,7 @@ namespace TreeGame.Interaction
     {
         [SerializeField] private InputActionReference interactAction;
 
-        private readonly List<Interactable> interactablesInRange = new List<Interactable>();
+        private readonly ProximityTracker<Interactable> interactablesInRange = new ProximityTracker<Interactable>();
 
         /// <summary>Raised with the newly focused interactable, or null when none is in range.</summary>
         public event Action<Interactable> FocusChanged;
@@ -43,62 +43,18 @@ namespace TreeGame.Interaction
             SetFocus(null);
         }
 
-        private void OnTriggerEnter(Collider other)
-        {
-            if (other.TryGetComponent(out Interactable interactable) && !interactablesInRange.Contains(interactable))
-            {
-                interactablesInRange.Add(interactable);
-            }
-        }
+        private void OnTriggerEnter(Collider other) => interactablesInRange.OnTriggerEnter(other);
 
-        private void OnTriggerExit(Collider other)
-        {
-            if (other.TryGetComponent(out Interactable interactable))
-            {
-                interactablesInRange.Remove(interactable);
-            }
-        }
+        private void OnTriggerExit(Collider other) => interactablesInRange.OnTriggerExit(other);
 
         private void Update()
         {
-            SetFocus(FindNearest());
+            SetFocus(interactablesInRange.FindNearest(transform.position.x));
 
             if (Focused != null && InteractAction.WasPressedThisFrame())
             {
                 Focused.Interact(gameObject);
             }
-        }
-
-        private Interactable FindNearest()
-        {
-            Interactable nearest = null;
-            float nearestDistance = float.MaxValue;
-
-            // Backwards so destroyed entries can be dropped while iterating.
-            for (int i = interactablesInRange.Count - 1; i >= 0; i--)
-            {
-                Interactable candidate = interactablesInRange[i];
-                if (candidate == null)
-                {
-                    interactablesInRange.RemoveAt(i);
-                    continue;
-                }
-
-                if (!candidate.isActiveAndEnabled)
-                {
-                    continue;
-                }
-
-                // Side-on game: only horizontal distance matters.
-                float distance = Mathf.Abs(candidate.transform.position.x - transform.position.x);
-                if (distance < nearestDistance)
-                {
-                    nearest = candidate;
-                    nearestDistance = distance;
-                }
-            }
-
-            return nearest;
         }
 
         private void SetFocus(Interactable interactable)

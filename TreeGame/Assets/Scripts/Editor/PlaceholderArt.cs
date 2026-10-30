@@ -15,6 +15,7 @@ namespace TreeGame.EditorTools
         private const string FenceFarPath = ArtFolder + "/FenceFar.png";
         private const string WaterBucketIconPath = ArtFolder + "/WaterBucketIcon.png";
         private const string CompostBucketIconPath = ArtFolder + "/CompostBucketIcon.png";
+        private const string BrownLeafPath = ArtFolder + "/BrownLeaf.png";
         private const float PixelsPerUnit = 100f;
 
         // The camera is orthographic, so depth has to be painted in. The fence is drawn in one-point perspective:
@@ -135,6 +136,68 @@ namespace TreeGame.EditorTools
             }
 
             SaveSprite(path, size, size, pixels, new Vector2(0.5f, 0.5f));
+        }
+
+        /// <summary>
+        /// A fallen brown leaf, about 0.4 x 0.2 world units: a pointed oval with a center vein and a short stem,
+        /// pivoted at its bottom center so it rests on the ground. Also used as the leaves' inventory icon.
+        /// </summary>
+        public static Sprite GetOrCreateBrownLeafSprite()
+        {
+            if (!File.Exists(BrownLeafPath))
+            {
+                PaintBrownLeaf();
+            }
+
+            return AssetDatabase.LoadAssetAtPath<Sprite>(BrownLeafPath);
+        }
+
+        private static void PaintBrownLeaf()
+        {
+            const int width = 64;
+            const int height = 32;
+            const float centerX = 34f; // Shifted right to leave room for the stem on the left.
+            const float centerY = height / 2f;
+            const float halfLength = 28f;
+            const float halfWidth = 13f;
+            var leafColor = new Color32(176, 112, 58, 255);
+            var veinColor = new Color32(118, 70, 36, 255);
+
+            // Pointed at both ends: the half-width shrinks toward the tips like a parabola.
+            bool IsBlade(int x, int y)
+            {
+                float along = (x + 0.5f - centerX) / halfLength;
+                if (Mathf.Abs(along) >= 1f)
+                {
+                    return false;
+                }
+
+                return Mathf.Abs(y + 0.5f - centerY) < halfWidth * (1f - along * along);
+            }
+
+            bool IsStem(int x, int y) => x >= 1 && x < centerX - halfLength + 2 && Mathf.Abs(y + 0.5f - centerY) < 1.5f;
+
+            var pixels = new Color32[width * height];
+            for (int y = 0; y < height; y++)
+            {
+                for (int x = 0; x < width; x++)
+                {
+                    Color32 color = Transparent;
+                    if (IsBlade(x, y))
+                    {
+                        bool isVein = Mathf.Abs(y + 0.5f - centerY) < 1f && Mathf.Abs(x + 0.5f - centerX) < halfLength * 0.8f;
+                        color = isVein || IsNearEdge(x, y, IsBlade, 2) ? veinColor : leafColor;
+                    }
+                    else if (IsStem(x, y))
+                    {
+                        color = veinColor;
+                    }
+
+                    pixels[y * width + x] = color;
+                }
+            }
+
+            SaveSprite(BrownLeafPath, width, height, pixels, new Vector2(0.5f, 0f), pixelsPerUnit: 160f);
         }
 
         /// <summary>True for pixels inside a shape but within <paramref name="distance"/> of its edge, used for outlines.</summary>
@@ -260,7 +323,8 @@ namespace TreeGame.EditorTools
             private static float Outline(float d) => Mathf.Max(OutlineAtCrossing * Scale(d), 1f / PixelsPerUnit);
         }
 
-        private static void SaveSprite(string path, int width, int height, Color32[] pixels, Vector2 pivot)
+        private static void SaveSprite(string path, int width, int height, Color32[] pixels, Vector2 pivot,
+            float pixelsPerUnit = PixelsPerUnit)
         {
             if (!AssetDatabase.IsValidFolder(ArtFolder))
             {
@@ -276,7 +340,7 @@ namespace TreeGame.EditorTools
             var importer = (TextureImporter)AssetImporter.GetAtPath(path);
             importer.textureType = TextureImporterType.Sprite;
             importer.spriteImportMode = SpriteImportMode.Single;
-            importer.spritePixelsPerUnit = PixelsPerUnit;
+            importer.spritePixelsPerUnit = pixelsPerUnit;
             importer.alphaIsTransparency = true;
             importer.mipmapEnabled = false;
             importer.wrapMode = TextureWrapMode.Clamp;
