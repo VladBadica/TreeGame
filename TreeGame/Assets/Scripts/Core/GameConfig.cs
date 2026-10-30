@@ -21,7 +21,13 @@ namespace TreeGame.Core
         [SerializeField] private ResourceSettings water = new ResourceSettings(maxAmount: 100f, secondsToEmpty: 120f);
         [SerializeField] private ResourceSettings nutrients = new ResourceSettings(maxAmount: 100f, secondsToEmpty: 240f);
 
+        [Header("Player")]
+        [Tooltip("Walking speed in world units per second.")]
+        [SerializeField, Min(0.1f)] private float playerMoveSpeed = 4f;
+
         public float SecondsToFullyGrow => secondsToFullyGrow;
+
+        public float PlayerMoveSpeed => playerMoveSpeed;
 
         public ResourceSettings GetResourceSettings(TreeResourceType type)
         {

@@ -1,13 +1,16 @@
 using System.Linq;
+using TreeGame.Cameras;
 using TreeGame.Care;
 using TreeGame.Core;
 using TreeGame.DevTools;
+using TreeGame.Player;
 using TreeGame.Trees;
 using TreeGame.UI;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.EventSystems;
+using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.UI;
 using UnityEngine.Rendering;
 using UnityEngine.SceneManagement;
@@ -16,7 +19,7 @@ using UnityEngine.UI;
 namespace TreeGame.EditorTools
 {
     /// <summary>
-    /// Generates the prototype scene (camera, light, ground, tree, HUD and debug UI) with all references wired,
+    /// Generates the prototype scene (camera, light, ground, tree, player, HUD and debug UI) with all references wired,
     /// so the setup is reproducible and nothing has to be assembled by hand.
     /// </summary>
     public static class PrototypeSceneBuilder
@@ -26,8 +29,19 @@ namespace TreeGame.EditorTools
         private const string ConfigFolder = "Assets/Config";
         private const string ConfigPath = ConfigFolder + "/GameConfig.asset";
 
-        // Camera framing: looks slightly down at the tree for a 2.5D feel.
-        private static readonly Vector3 CameraTarget = new Vector3(0f, 2.2f, 0f);
+        private const string InputActionsPath = "Assets/InputSystem_Actions.inputactions";
+
+        // Unity's plane is 10x10 units; the walkable range keeps the player a little inside its edges.
+        private const float GroundScale = 3f;
+        private const float GroundHalfWidth = 5f * GroundScale;
+        private const float WalkableMargin = 2f;
+
+        // The player walks in front of the tree (negative Z is toward the camera) and starts just left of it.
+        private static readonly Vector3 PlayerStartPosition = new Vector3(-1.5f, 0.6f, -2f);
+        private static readonly Vector3 PlayerSize = new Vector3(0.6f, 1.2f, 0.4f);
+
+        // Camera framing: centered on the player, looking slightly down at the tree for a 2.5D feel.
+        private static readonly Vector3 CameraTarget = new Vector3(PlayerStartPosition.x, 2.2f, 0f);
         private const float CameraPitch = 12f;
         private const float CameraDistance = 15f;
         private const float CameraOrthographicSize = 3f;
@@ -55,15 +69,17 @@ namespace TreeGame.EditorTools
             Material bark = GetOrCreateMaterial("Bark", new Color(0.45f, 0.3f, 0.2f));
             Material leaves = GetOrCreateMaterial("Leaves", new Color(0.36f, 0.62f, 0.3f));
             Material ground = GetOrCreateMaterial("Ground", new Color(0.58f, 0.72f, 0.42f));
+            Material playerMaterial = GetOrCreateMaterial("Player", new Color(0.86f, 0.46f, 0.36f));
             AssetDatabase.SaveAssets();
 
             ConfigureEnvironment();
             CreateSun();
-            CreateCamera();
             CreateGround(ground);
             GameObject tree = CreateTree(config, bark, leaves);
             TreeResource water = CreateResource(tree.transform, TreeResourceType.Water, config);
             TreeResource nutrients = CreateResource(tree.transform, TreeResourceType.Nutrients, config);
+            Transform player = CreatePlayer(config, playerMaterial);
+            CreateCamera(player);
 
             CreateEventSystem();
             CreateResourceHud(CreateCanvas("HUD", 0), water, nutrients);
@@ -99,7 +115,7 @@ namespace TreeGame.EditorTools
             light.shadows = LightShadows.Soft;
         }
 
-        private static void CreateCamera()
+        private static void CreateCamera(Transform followTarget)
         {
             var go = new GameObject("Main Camera") { tag = "MainCamera" };
             Quaternion rotation = Quaternion.Euler(CameraPitch, 0f, 0f);
@@ -114,14 +130,55 @@ namespace TreeGame.EditorTools
             camera.farClipPlane = 50f;
 
             go.AddComponent<AudioListener>();
+
+            SetReferences(go.AddComponent<CameraFollow>(), ("target", followTarget));
         }
 
         private static void CreateGround(Material material)
         {
             GameObject ground = GameObject.CreatePrimitive(PrimitiveType.Plane);
             ground.name = "Ground";
-            ground.transform.localScale = new Vector3(3f, 1f, 3f);
+            ground.transform.localScale = new Vector3(GroundScale, 1f, GroundScale);
             ground.GetComponent<Renderer>().sharedMaterial = material;
+        }
+
+        private static Transform CreatePlayer(GameConfig config, Material material)
+        {
+            // Placeholder body: a flat box reads as a rectangle from the side-on camera.
+            GameObject player = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            player.name = "Player";
+            player.transform.position = PlayerStartPosition;
+            player.transform.localScale = PlayerSize;
+            player.GetComponent<Renderer>().sharedMaterial = material;
+            // Nothing uses physics yet; a collider can be added once interaction needs one.
+            Object.DestroyImmediate(player.GetComponent<Collider>());
+
+            var movement = player.AddComponent<PlayerMovement>();
+            SetReferences(movement,
+                ("moveAction", FindActionReference("Player", "Move")),
+                ("config", config));
+            var serializedMovement = new SerializedObject(movement);
+            serializedMovement.FindProperty("walkableRangeX").vector2Value =
+                new Vector2(-GroundHalfWidth + WalkableMargin, GroundHalfWidth - WalkableMargin);
+            serializedMovement.ApplyModifiedPropertiesWithoutUndo();
+
+            return player.transform;
+        }
+
+        /// <summary>Finds the reference asset Unity generates for an action inside the project's input actions.</summary>
+        private static InputActionReference FindActionReference(string mapName, string actionName)
+        {
+            foreach (Object asset in AssetDatabase.LoadAllAssetsAtPath(InputActionsPath))
+            {
+                if (asset is InputActionReference reference && reference.action != null &&
+                    reference.action.name == actionName && reference.action.actionMap.name == mapName)
+                {
+                    return reference;
+                }
+            }
+
+            Debug.LogError($"No '{mapName}/{actionName}' action found in {InputActionsPath}.");
+            return null;
         }
 
         private static GameObject CreateTree(GameConfig config, Material bark, Material leaves)
@@ -210,6 +267,12 @@ namespace TreeGame.EditorTools
             // The panel sets the real caption from its growth step at runtime.
             Button addButton = CreateButton(resources, buttonRow.transform, "Add Growth Button", "Grow");
             Button resetButton = CreateButton(resources, buttonRow.transform, "Reset Button", "Reset");
+
+            // Mouse-only: otherwise a selected slider would also react to the arrow keys used for walking.
+            var noNavigation = new Navigation { mode = Navigation.Mode.None };
+            slider.navigation = noNavigation;
+            addButton.navigation = noNavigation;
+            resetButton.navigation = noNavigation;
 
             var debugPanel = panel.AddComponent<GrowthDebugPanel>();
             SetReferences(debugPanel,
