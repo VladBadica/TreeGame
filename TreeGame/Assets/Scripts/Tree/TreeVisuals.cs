@@ -1,3 +1,4 @@
+using TreeGame.Core;
 using UnityEngine;
 
 namespace TreeGame.Trees
@@ -11,7 +12,6 @@ namespace TreeGame.Trees
     /// </summary>
     public class TreeVisuals : MonoBehaviour
     {
-        private const float GoldenAngle = 137.5f;
         private const float MinVisibleSize = 0.001f;
         private const float SettleThreshold = 0.0005f;
 
@@ -51,6 +51,8 @@ namespace TreeGame.Trees
         [SerializeField] private Vector2 branchAttachHeight = new Vector2(0.45f, 0.85f);
         [Tooltip("Branch angle away from vertical in degrees (min, max).")]
         [SerializeField] private Vector2 branchTilt = new Vector2(40f, 65f);
+        [Tooltip("Max degrees a branch may turn toward or away from the camera. 0 = perfectly flat, side-on tree.")]
+        [SerializeField, Range(0f, 90f)] private float branchDepthAngle = 25f;
 
         [Header("Foliage")]
         [Tooltip("Fraction of foliage clusters shown over overall growth. Clusters fade in one after another.")]
@@ -271,9 +273,11 @@ namespace TreeGame.Trees
                 float t = branchCount > 1 ? i / (branchCount - 1f) : 0f;
                 Transform pivot = CreateEmpty($"Branch {i}", generatedRoot);
 
-                // Golden-angle spacing spreads branches evenly around the trunk; jitter keeps it organic.
-                float yaw = i * GoldenAngle + Range(random, -15f, 15f);
-                float tilt = Range(random, branchTilt.x, branchTilt.y);
+                // Alternate left/right so branches spread across the screen, as suits the side-on 2.5D view.
+                // A limited turn toward or away from the camera keeps a hint of volume.
+                float side = i % 2 == 0 ? 0f : 180f;
+                float yaw = side + random.NextFloat(-branchDepthAngle, branchDepthAngle);
+                float tilt = random.NextFloat(branchTilt.x, branchTilt.y);
                 pivot.localRotation = Quaternion.Euler(0f, yaw, 0f) * Quaternion.Euler(0f, 0f, tilt);
 
                 branches[i] = new Branch
@@ -281,9 +285,9 @@ namespace TreeGame.Trees
                     Pivot = pivot,
                     Wood = CreatePrimitive(PrimitiveType.Cylinder, "Wood", pivot, barkMaterial),
                     Tip = CreateEmpty("Tip", pivot),
-                    AttachHeight = Mathf.Clamp01(Mathf.Lerp(branchAttachHeight.x, branchAttachHeight.y, t) + Range(random, -0.05f, 0.05f)),
+                    AttachHeight = Mathf.Clamp01(Mathf.Lerp(branchAttachHeight.x, branchAttachHeight.y, t) + random.NextFloat(-0.05f, 0.05f)),
                     StartGrowth = Mathf.Lerp(firstBranchGrowth, lastBranchGrowth, t),
-                    LengthScale = Range(random, 0.75f, 1.1f),
+                    LengthScale = random.NextFloat(0.75f, 1.1f),
                 };
             }
 
@@ -302,7 +306,7 @@ namespace TreeGame.Trees
                     Transform = CreatePrimitive(PrimitiveType.Sphere, $"Foliage {i}", anchor, foliageMaterial),
                     BranchIndex = branchIndex,
                     Offset = offset,
-                    SizeScale = Range(random, 0.75f, 1.15f),
+                    SizeScale = random.NextFloat(0.75f, 1.15f),
                 };
             }
         }
@@ -331,17 +335,12 @@ namespace TreeGame.Trees
             return go.transform;
         }
 
-        private static float Range(System.Random random, float min, float max)
-        {
-            return min + (float)random.NextDouble() * (max - min);
-        }
-
         private static Vector3 InsideUnitSphere(System.Random random)
         {
             // Rejection sampling: deterministic for a given seed and uniformly distributed.
             while (true)
             {
-                var point = new Vector3(Range(random, -1f, 1f), Range(random, -1f, 1f), Range(random, -1f, 1f));
+                var point = new Vector3(random.NextFloat(-1f, 1f), random.NextFloat(-1f, 1f), random.NextFloat(-1f, 1f));
                 if (point.sqrMagnitude <= 1f)
                 {
                     return point;

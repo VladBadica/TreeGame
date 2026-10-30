@@ -31,20 +31,26 @@ namespace TreeGame.EditorTools
 
         private const string InputActionsPath = "Assets/InputSystem_Actions.inputactions";
 
-        // Unity's plane is 10x10 units; the walkable range keeps the player a little inside its edges.
-        private const float GroundScale = 3f;
-        private const float GroundHalfWidth = 5f * GroundScale;
-        private const float WalkableMargin = 2f;
+        // The ground is a shallow strip seen almost side-on, like a stage: wide along X, shallow in depth (Z).
+        // It is thick so its front face always fills the bottom of the screen.
+        private const float GroundWidth = 80f;
+        private const float GroundThickness = 4f;
+        private const float GroundFrontZ = -3.5f;
+        private const float GroundBackZ = 1.5f;
+        private const float WalkableHalfWidth = 13f;
 
         // The player walks in front of the tree (negative Z is toward the camera) and starts just left of it.
         private static readonly Vector3 PlayerStartPosition = new Vector3(-1.5f, 0.6f, -2f);
         private static readonly Vector3 PlayerSize = new Vector3(0.6f, 1.2f, 0.4f);
 
-        // Camera framing: centered on the player, looking slightly down at the tree for a 2.5D feel.
-        private static readonly Vector3 CameraTarget = new Vector3(PlayerStartPosition.x, 2.2f, 0f);
-        private const float CameraPitch = 12f;
-        private const float CameraDistance = 15f;
+        // Camera framing: centered on the player, nearly side-on. A small pitch still shows a sliver of ground top.
+        private static readonly Vector3 CameraTarget = new Vector3(PlayerStartPosition.x, 2f, 0f);
+        private const float CameraPitch = 5f;
+        private const float CameraDistance = 20f;
         private const float CameraOrthographicSize = 3f;
+
+        // Background hills are generated across this X range on each side of the origin.
+        private const float BackdropHalfWidth = 40f;
 
         [MenuItem("Tree Game/Create Prototype Scene")]
         private static void CreatePrototypeScene()
@@ -79,7 +85,8 @@ namespace TreeGame.EditorTools
             TreeResource water = CreateResource(tree.transform, TreeResourceType.Water, config);
             TreeResource nutrients = CreateResource(tree.transform, TreeResourceType.Nutrients, config);
             Transform player = CreatePlayer(config, playerMaterial);
-            CreateCamera(player);
+            Transform camera = CreateCamera(player);
+            CreateBackdrop(camera);
 
             CreateEventSystem();
             CreateResourceHud(CreateCanvas("HUD", 0), water, nutrients);
@@ -115,7 +122,7 @@ namespace TreeGame.EditorTools
             light.shadows = LightShadows.Soft;
         }
 
-        private static void CreateCamera(Transform followTarget)
+        private static Transform CreateCamera(Transform followTarget)
         {
             var go = new GameObject("Main Camera") { tag = "MainCamera" };
             Quaternion rotation = Quaternion.Euler(CameraPitch, 0f, 0f);
@@ -127,19 +134,74 @@ namespace TreeGame.EditorTools
             camera.clearFlags = CameraClearFlags.SolidColor;
             camera.backgroundColor = new Color(0.78f, 0.88f, 0.95f);
             camera.nearClipPlane = 0.3f;
-            camera.farClipPlane = 50f;
+            camera.farClipPlane = 100f;
 
             go.AddComponent<AudioListener>();
 
             SetReferences(go.AddComponent<CameraFollow>(), ("target", followTarget));
+            return go.transform;
         }
 
         private static void CreateGround(Material material)
         {
-            GameObject ground = GameObject.CreatePrimitive(PrimitiveType.Plane);
+            GameObject ground = GameObject.CreatePrimitive(PrimitiveType.Cube);
             ground.name = "Ground";
-            ground.transform.localScale = new Vector3(GroundScale, 1f, GroundScale);
+            float depth = GroundBackZ - GroundFrontZ;
+            // Top face sits at y = 0.
+            ground.transform.position = new Vector3(0f, -GroundThickness * 0.5f, GroundFrontZ + depth * 0.5f);
+            ground.transform.localScale = new Vector3(GroundWidth, GroundThickness, depth);
             ground.GetComponent<Renderer>().sharedMaterial = material;
+        }
+
+        /// <summary>Flat, layered hills behind the play area; further layers are paler and drift more with the camera.</summary>
+        private static void CreateBackdrop(Transform cameraTransform)
+        {
+            var root = new GameObject("Backdrop").transform;
+            CreateHillLayer(root, cameraTransform, "Far Hills", depth: 30f, followFactor: 0.8f,
+                new Color(0.74f, 0.85f, 0.84f), heightRange: new Vector2(4f, 6.5f), seed: 1);
+            CreateHillLayer(root, cameraTransform, "Mid Hills", depth: 18f, followFactor: 0.55f,
+                new Color(0.62f, 0.77f, 0.62f), heightRange: new Vector2(2.5f, 4f), seed: 2);
+            CreateHillLayer(root, cameraTransform, "Near Hills", depth: 8f, followFactor: 0.25f,
+                new Color(0.5f, 0.68f, 0.47f), heightRange: new Vector2(1.2f, 2.2f), seed: 3);
+        }
+
+        private static void CreateHillLayer(Transform parent, Transform cameraTransform, string layerName,
+            float depth, float followFactor, Color color, Vector2 heightRange, int seed)
+        {
+            // Unlit flat colors read as painted cutouts rather than lit 3D shapes.
+            Material material = GetOrCreateMaterial(layerName, color, unlit: true);
+
+            var layer = new GameObject(layerName).transform;
+            layer.SetParent(parent, false);
+            // With the camera pitched down, distant objects appear higher on screen; lowering the layer by
+            // the same amount lines its base up with the ground line.
+            layer.position = new Vector3(0f, -depth * Mathf.Tan(CameraPitch * Mathf.Deg2Rad), depth);
+
+            var random = new System.Random(seed);
+            for (float x = -BackdropHalfWidth; x <= BackdropHalfWidth; x += random.NextFloat(5f, 9f))
+            {
+                float height = random.NextFloat(heightRange.x, heightRange.y);
+                float width = height * random.NextFloat(2f, 3f);
+
+                // A flattened sphere centered on the base line shows as a soft hill silhouette; the ground hides its lower half.
+                GameObject hill = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                hill.name = "Hill";
+                hill.transform.SetParent(layer, false);
+                hill.transform.localPosition = new Vector3(x, 0f, 0f);
+                hill.transform.localScale = new Vector3(width, height * 2f, 0.1f);
+                Object.DestroyImmediate(hill.GetComponent<Collider>());
+
+                var renderer = hill.GetComponent<Renderer>();
+                renderer.sharedMaterial = material;
+                renderer.shadowCastingMode = ShadowCastingMode.Off;
+                renderer.receiveShadows = false;
+            }
+
+            var parallax = layer.gameObject.AddComponent<ParallaxLayer>();
+            SetReferences(parallax, ("cameraTransform", cameraTransform));
+            var serializedParallax = new SerializedObject(parallax);
+            serializedParallax.FindProperty("followFactor").floatValue = followFactor;
+            serializedParallax.ApplyModifiedPropertiesWithoutUndo();
         }
 
         private static Transform CreatePlayer(GameConfig config, Material material)
@@ -159,7 +221,7 @@ namespace TreeGame.EditorTools
                 ("config", config));
             var serializedMovement = new SerializedObject(movement);
             serializedMovement.FindProperty("walkableRangeX").vector2Value =
-                new Vector2(-GroundHalfWidth + WalkableMargin, GroundHalfWidth - WalkableMargin);
+                new Vector2(-WalkableHalfWidth, WalkableHalfWidth);
             serializedMovement.ApplyModifiedPropertiesWithoutUndo();
 
             return player.transform;
@@ -409,7 +471,7 @@ namespace TreeGame.EditorTools
             return config;
         }
 
-        private static Material GetOrCreateMaterial(string materialName, Color color)
+        private static Material GetOrCreateMaterial(string materialName, Color color, bool unlit = false)
         {
             string path = $"{MaterialsFolder}/{materialName}.mat";
             var material = AssetDatabase.LoadAssetAtPath<Material>(path);
@@ -423,7 +485,7 @@ namespace TreeGame.EditorTools
                 AssetDatabase.CreateFolder("Assets", "Materials");
             }
 
-            Shader shader = Shader.Find("Universal Render Pipeline/Lit");
+            Shader shader = Shader.Find(unlit ? "Universal Render Pipeline/Unlit" : "Universal Render Pipeline/Lit");
             if (shader == null)
             {
                 Debug.LogWarning("URP Lit shader not found; falling back to the render pipeline's default shader.");
