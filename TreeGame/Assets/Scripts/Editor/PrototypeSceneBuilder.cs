@@ -86,6 +86,7 @@ namespace TreeGame.EditorTools
             TreeResource nutrients = CreateResource(tree.transform, TreeResourceType.Nutrients, config);
             Transform player = CreatePlayer(config);
             Transform camera = CreateCamera(player);
+            SetReferences(player.GetComponent<CharacterHeadLook>(), ("viewCamera", camera.GetComponent<Camera>()));
             CreateBackdrop(camera);
 
             CreateEventSystem();
@@ -204,15 +205,21 @@ namespace TreeGame.EditorTools
             var player = new GameObject("Player");
             player.transform.position = PlayerStartPosition;
 
-            CreateCharacterModel(player.transform, out Transform body, out Transform leftLeg, out Transform rightLeg,
-                out Transform leftArm, out Transform rightArm);
+            CharacterRig rig = CreateCharacterModel(player.transform);
 
-            SetReferences(player.AddComponent<CharacterWalkAnimation>(),
-                ("body", body),
-                ("leftLeg", leftLeg),
-                ("rightLeg", rightLeg),
-                ("leftArm", leftArm),
-                ("rightArm", rightArm));
+            var walkAnimation = player.AddComponent<CharacterWalkAnimation>();
+            SetReferences(walkAnimation,
+                ("body", rig.Body),
+                ("leftLeg", rig.LeftLeg),
+                ("rightLeg", rig.RightLeg),
+                ("leftArm", rig.LeftArm),
+                ("rightArm", rig.RightArm));
+
+            // The camera is assigned once it exists; see CreatePrototypeScene.
+            SetReferences(player.AddComponent<CharacterHeadLook>(),
+                ("pointAction", FindActionReference("UI", "Point")),
+                ("head", rig.Head),
+                ("walkAnimation", walkAnimation));
 
             var movement = player.AddComponent<PlayerMovement>();
             SetReferences(movement,
@@ -226,13 +233,34 @@ namespace TreeGame.EditorTools
             return player.transform;
         }
 
+        /// <summary>The animated pivots of the placeholder character.</summary>
+        private readonly struct CharacterRig
+        {
+            public readonly Transform Body;
+            public readonly Transform Head;
+            public readonly Transform LeftLeg;
+            public readonly Transform RightLeg;
+            public readonly Transform LeftArm;
+            public readonly Transform RightArm;
+
+            public CharacterRig(Transform body, Transform head, Transform leftLeg, Transform rightLeg,
+                Transform leftArm, Transform rightArm)
+            {
+                Body = body;
+                Head = head;
+                LeftLeg = leftLeg;
+                RightLeg = rightLeg;
+                LeftArm = leftArm;
+                RightArm = rightArm;
+            }
+        }
+
         /// <summary>
         /// Placeholder gardener built from primitives, about 1.8 units tall with its feet at the origin.
         /// The front faces local -Z (toward the camera); the walk animation turns it toward the walking direction.
-        /// Limbs hang from empty pivots at the hips and shoulders so they swing from the joint, not their middle.
+        /// Limbs and head hang from empty pivots at the joints (hips, shoulders, neck) so they rotate from there.
         /// </summary>
-        private static void CreateCharacterModel(Transform parent, out Transform body,
-            out Transform leftLeg, out Transform rightLeg, out Transform leftArm, out Transform rightArm)
+        private static CharacterRig CreateCharacterModel(Transform parent)
         {
             Material skin = GetOrCreateMaterial("Player Skin", new Color(0.96f, 0.8f, 0.66f));
             Material shirt = GetOrCreateMaterial("Player Shirt", new Color(0.86f, 0.46f, 0.36f));
@@ -240,28 +268,31 @@ namespace TreeGame.EditorTools
             Material hat = GetOrCreateMaterial("Player Hat", new Color(0.88f, 0.75f, 0.45f));
             Material eyes = GetOrCreateMaterial("Player Eyes", new Color(0.12f, 0.1f, 0.1f));
 
-            body = new GameObject("Body").transform;
+            Transform body = new GameObject("Body").transform;
             body.SetParent(parent, false);
 
             // Unity's capsule and cylinder are 2 units tall at scale 1, so a Y scale of h/2 gives height h.
-            leftLeg = CreatePivot("Left Leg", body, new Vector3(-0.1f, 0.5f, 0f));
-            rightLeg = CreatePivot("Right Leg", body, new Vector3(0.1f, 0.5f, 0f));
+            Transform leftLeg = CreatePivot("Left Leg", body, new Vector3(-0.1f, 0.5f, 0f));
+            Transform rightLeg = CreatePivot("Right Leg", body, new Vector3(0.1f, 0.5f, 0f));
             CreatePart(PrimitiveType.Capsule, "Leg", leftLeg, new Vector3(0f, -0.25f, 0f), new Vector3(0.16f, 0.25f, 0.16f), pants);
             CreatePart(PrimitiveType.Capsule, "Leg", rightLeg, new Vector3(0f, -0.25f, 0f), new Vector3(0.16f, 0.25f, 0.16f), pants);
 
             CreatePart(PrimitiveType.Capsule, "Torso", body, new Vector3(0f, 0.85f, 0f), new Vector3(0.42f, 0.38f, 0.34f), shirt);
 
-            leftArm = CreatePivot("Left Arm", body, new Vector3(-0.27f, 1.12f, 0f));
-            rightArm = CreatePivot("Right Arm", body, new Vector3(0.27f, 1.12f, 0f));
+            Transform leftArm = CreatePivot("Left Arm", body, new Vector3(-0.27f, 1.12f, 0f));
+            Transform rightArm = CreatePivot("Right Arm", body, new Vector3(0.27f, 1.12f, 0f));
             CreatePart(PrimitiveType.Capsule, "Arm", leftArm, new Vector3(0f, -0.2f, 0f), new Vector3(0.12f, 0.2f, 0.12f), skin);
             CreatePart(PrimitiveType.Capsule, "Arm", rightArm, new Vector3(0f, -0.2f, 0f), new Vector3(0.12f, 0.2f, 0.12f), skin);
 
-            CreatePart(PrimitiveType.Sphere, "Head", body, new Vector3(0f, 1.47f, 0f), Vector3.one * 0.42f, skin);
-            CreatePart(PrimitiveType.Sphere, "Left Eye", body, new Vector3(-0.08f, 1.5f, -0.19f), Vector3.one * 0.06f, eyes);
-            CreatePart(PrimitiveType.Sphere, "Right Eye", body, new Vector3(0.08f, 1.5f, -0.19f), Vector3.one * 0.06f, eyes);
+            // Eyes and hat are children of the neck pivot so they turn with the head.
+            Transform head = CreatePivot("Head", body, new Vector3(0f, 1.28f, 0f));
+            CreatePart(PrimitiveType.Sphere, "Skull", head, new Vector3(0f, 0.19f, 0f), Vector3.one * 0.42f, skin);
+            CreatePart(PrimitiveType.Sphere, "Left Eye", head, new Vector3(-0.08f, 0.22f, -0.19f), Vector3.one * 0.06f, eyes);
+            CreatePart(PrimitiveType.Sphere, "Right Eye", head, new Vector3(0.08f, 0.22f, -0.19f), Vector3.one * 0.06f, eyes);
+            CreatePart(PrimitiveType.Cylinder, "Hat Brim", head, new Vector3(0f, 0.38f, 0f), new Vector3(0.56f, 0.015f, 0.56f), hat);
+            CreatePart(PrimitiveType.Cylinder, "Hat Crown", head, new Vector3(0f, 0.46f, 0f), new Vector3(0.32f, 0.08f, 0.32f), hat);
 
-            CreatePart(PrimitiveType.Cylinder, "Hat Brim", body, new Vector3(0f, 1.66f, 0f), new Vector3(0.56f, 0.015f, 0.56f), hat);
-            CreatePart(PrimitiveType.Cylinder, "Hat Crown", body, new Vector3(0f, 1.74f, 0f), new Vector3(0.32f, 0.08f, 0.32f), hat);
+            return new CharacterRig(body, head, leftLeg, rightLeg, leftArm, rightArm);
         }
 
         private static Transform CreatePivot(string objectName, Transform parent, Vector3 localPosition)

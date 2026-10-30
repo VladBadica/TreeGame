@@ -31,6 +31,9 @@ namespace TreeGame.Player
         [SerializeField, Min(0f)] private float stepsPerSecond = 4f;
         [SerializeField, Min(0f)] private float bobHeight = 0.05f;
 
+        /// <summary>True while the character is moving, e.g. so other animation can react.</summary>
+        public bool IsWalking { get; private set; }
+
         private Vector3 bodyRestPosition;
         private float lastX;
         private float facingSign = 1f;
@@ -62,6 +65,7 @@ namespace TreeGame.Player
             lastX = transform.position.x;
 
             bool isMoving = Mathf.Abs(velocityX) > MovingThreshold;
+            IsWalking = isMoving;
             if (isMoving)
             {
                 facingSign = Mathf.Sign(velocityX);
