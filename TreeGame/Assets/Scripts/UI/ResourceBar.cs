@@ -1,6 +1,6 @@
+using TMPro;
 using TreeGame.Care;
 using UnityEngine;
-using UnityEngine.UI;
 
 namespace TreeGame.UI
 {
@@ -12,7 +12,7 @@ namespace TreeGame.UI
     {
         [SerializeField] private TreeResource resource;
         [SerializeField] private RectTransform fill;
-        [SerializeField] private Text label;
+        [SerializeField] private TMP_Text label;
 
         private void OnEnable()
         {

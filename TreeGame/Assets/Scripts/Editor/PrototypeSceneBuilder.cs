@@ -1,4 +1,5 @@
 using System.Linq;
+using TMPro;
 using TreeGame.Cameras;
 using TreeGame.Care;
 using TreeGame.Core;
@@ -306,10 +307,8 @@ namespace TreeGame.EditorTools
             DefaultControls.Resources resources = GetUIResources();
             GameObject panel = CreatePanel(canvas, "Growth Debug Panel", new Vector2(0f, 1f), new Vector2(24f, -24f), new Vector2(420f, 160f));
 
-            Text label = DefaultControls.CreateText(resources).GetComponent<Text>();
-            label.name = "Growth Label";
+            TMP_Text label = CreateText("Growth Label", 24f, Color.white, TextAlignmentOptions.MidlineLeft);
             AddToLayout(label.gameObject, panel.transform, 32f);
-            StyleText(label, 24, Color.white, TextAnchor.MiddleLeft);
             label.text = "Growth: 0%";
 
             Slider slider = DefaultControls.CreateSlider(resources).GetComponent<Slider>();
@@ -362,10 +361,9 @@ namespace TreeGame.EditorTools
             RectTransform fillRect = StretchInParent(fill, bar.transform);
             StyleImage(fill.GetComponent<Image>(), fillColor);
 
-            var labelGo = new GameObject("Label", typeof(RectTransform), typeof(Text), typeof(Shadow));
-            StretchInParent(labelGo, bar.transform);
-            var label = labelGo.GetComponent<Text>();
-            StyleText(label, 20, Color.white, TextAnchor.MiddleCenter);
+            TMP_Text label = CreateText("Label", 20f, Color.white, TextAlignmentOptions.Center);
+            StretchInParent(label.gameObject, bar.transform);
+            label.fontStyle = FontStyles.Bold;
             label.text = resource.Type.ToString(); // Placeholder; the bar formats the value at runtime.
 
             var resourceBar = bar.AddComponent<ResourceBar>();
@@ -409,15 +407,25 @@ namespace TreeGame.EditorTools
 
         private static Button CreateButton(DefaultControls.Resources resources, Transform parent, string objectName, string caption)
         {
-            GameObject go = DefaultControls.CreateButton(resources);
+            // TMP's variant of the standard button, so its caption is a TextMeshPro label.
+            GameObject go = TMP_DefaultControls.CreateButton(new TMP_DefaultControls.Resources { standard = resources.standard });
             go.name = objectName;
             go.transform.SetParent(parent, false);
 
-            Text text = go.GetComponentInChildren<Text>();
-            StyleText(text, 20, new Color(0.2f, 0.2f, 0.2f), TextAnchor.MiddleCenter);
+            TMP_Text text = go.GetComponentInChildren<TMP_Text>();
+            StyleText(text, 20f, new Color(0.2f, 0.2f, 0.2f), TextAlignmentOptions.Center);
             text.text = caption;
 
             return go.GetComponent<Button>();
+        }
+
+        /// <summary>A TextMeshPro label; TMP renders crisp text at any size and resolution.</summary>
+        private static TMP_Text CreateText(string objectName, float fontSize, Color color, TextAlignmentOptions alignment)
+        {
+            var go = new GameObject(objectName, typeof(RectTransform), typeof(TextMeshProUGUI));
+            TMP_Text text = go.GetComponent<TMP_Text>();
+            StyleText(text, fontSize, color, alignment);
+            return text;
         }
 
         private static void AddToLayout(GameObject go, Transform parent, float preferredHeight)
@@ -433,9 +441,9 @@ namespace TreeGame.EditorTools
             image.color = color;
         }
 
-        private static void StyleText(Text text, int fontSize, Color color, TextAnchor alignment)
+        private static void StyleText(TMP_Text text, float fontSize, Color color, TextAlignmentOptions alignment)
         {
-            text.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            // The font comes from TMP's default (set up by Window > TextMeshPro > Import TMP Essential Resources).
             text.fontSize = fontSize;
             text.color = color;
             text.alignment = alignment;

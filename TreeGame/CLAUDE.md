@@ -8,7 +8,7 @@ The project is at an early prototype stage. Design so the game can still change 
 
 - **Unity 6** with the **Universal Render Pipeline (URP)**, written in **C#**.
 - **Input System package** for input. The legacy Input Manager is disabled, so do not use `UnityEngine.Input` or `StandaloneInputModule`.
-- **uGUI** (`UnityEngine.UI`) for UI.
+- **uGUI** (`UnityEngine.UI`) for UI, with **TextMeshPro** (`TMPro`) for all text. Do not use the legacy `UnityEngine.UI.Text`.
 - No third-party dependencies unless explicitly agreed.
 
 ## Code principles

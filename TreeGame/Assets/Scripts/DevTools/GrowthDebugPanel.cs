@@ -1,3 +1,4 @@
+using TMPro;
 using TreeGame.Trees;
 using UnityEngine;
 using UnityEngine.UI;
@@ -14,7 +15,7 @@ namespace TreeGame.DevTools
         [SerializeField] private Slider growthSlider;
         [SerializeField] private Button addGrowthButton;
         [SerializeField] private Button resetButton;
-        [SerializeField] private Text growthLabel;
+        [SerializeField] private TMP_Text growthLabel;
         [SerializeField, Range(0.01f, 0.5f)] private float growthStep = 0.05f;
 
         private void OnEnable()
@@ -37,7 +38,7 @@ namespace TreeGame.DevTools
                 addGrowthButton.onClick.AddListener(AddGrowthStep);
 
                 // Caption is derived from the step so the two can't drift apart.
-                Text caption = addGrowthButton.GetComponentInChildren<Text>();
+                TMP_Text caption = addGrowthButton.GetComponentInChildren<TMP_Text>();
                 if (caption != null)
                 {
                     caption.text = $"Grow +{growthStep * 100f:0}%";
