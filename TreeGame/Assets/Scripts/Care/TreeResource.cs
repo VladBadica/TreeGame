@@ -1,36 +1,40 @@
 using System;
+using TreeGame.Core;
 using UnityEngine;
 
 namespace TreeGame.Care
 {
     /// <summary>
-    /// A single stock of a care resource (e.g. water) between 0 and <see cref="MaxAmount"/>.
+    /// A single stock of a care resource (e.g. water) between 0 and <see cref="MaxAmount"/>, starting full.
     /// It doesn't know who fills or drains it: future minigames call <see cref="Add"/>,
-    /// future depletion/growth rules call <see cref="Consume"/>, and UI listens to <see cref="Changed"/>.
+    /// depletion and future growth rules call <see cref="Consume"/>, and UI listens to <see cref="Changed"/>.
     /// </summary>
     public class TreeResource : MonoBehaviour
     {
         [SerializeField] private TreeResourceType type;
-        [SerializeField, Min(0.01f)] private float maxAmount = 100f;
-        [SerializeField] private float amount = 100f;
+        [SerializeField] private GameConfig config;
+
+        // Stored as a 0..1 fill level rather than an amount: valid before any initialization order,
+        // and changing the maximum in the config keeps the same proportion.
+        private float fill = 1f;
 
         /// <summary>Raised with this resource whenever its amount changes.</summary>
         public event Action<TreeResource> Changed;
 
         public TreeResourceType Type => type;
 
-        public float Amount => amount;
+        public float MaxAmount => config.GetResourceSettings(type).MaxAmount;
 
-        public float MaxAmount => maxAmount;
+        public float Amount => fill * MaxAmount;
 
-        public float Normalized => amount / maxAmount;
+        public float Normalized => fill;
 
         /// <summary>Adds a non-negative amount, clamped to the maximum.</summary>
         public void Add(float value)
         {
             if (IsValidDelta(value))
             {
-                SetAmount(amount + value);
+                SetAmount(Amount + value);
             }
         }
 
@@ -39,7 +43,7 @@ namespace TreeGame.Care
         {
             if (IsValidDelta(value))
             {
-                SetAmount(amount - value);
+                SetAmount(Amount - value);
             }
         }
 
@@ -52,13 +56,13 @@ namespace TreeGame.Care
                 return;
             }
 
-            float clamped = Mathf.Clamp(value, 0f, maxAmount);
-            if (clamped == amount)
+            float newFill = Mathf.Clamp01(value / MaxAmount);
+            if (newFill == fill)
             {
                 return;
             }
 
-            amount = clamped;
+            fill = newFill;
             Changed?.Invoke(this);
         }
 
@@ -73,14 +77,11 @@ namespace TreeGame.Care
             return true;
         }
 
-        private void OnValidate()
+        private void Awake()
         {
-            amount = Mathf.Clamp(amount, 0f, maxAmount);
-
-            // Lets Inspector edits during Play Mode reach listeners like the HUD bars.
-            if (Application.isPlaying)
+            if (config == null)
             {
-                Changed?.Invoke(this);
+                Debug.LogError($"{type}: no {nameof(GameConfig)} assigned; the resource cannot work without one.", this);
             }
         }
     }

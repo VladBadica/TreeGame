@@ -1,5 +1,6 @@
 using System.Linq;
 using TreeGame.Care;
+using TreeGame.Core;
 using TreeGame.DevTools;
 using TreeGame.Trees;
 using TreeGame.UI;
@@ -22,6 +23,8 @@ namespace TreeGame.EditorTools
     {
         private const string ScenePath = "Assets/Scenes/TreeGame.unity";
         private const string MaterialsFolder = "Assets/Materials";
+        private const string ConfigFolder = "Assets/Config";
+        private const string ConfigPath = ConfigFolder + "/GameConfig.asset";
 
         // Camera framing: looks slightly down at the tree for a 2.5D feel.
         private static readonly Vector3 CameraTarget = new Vector3(0f, 2.2f, 0f);
@@ -43,20 +46,24 @@ namespace TreeGame.EditorTools
                 return;
             }
 
-            // Existing materials are reused so manual tweaks to them survive regenerating the scene.
+            // Opening a new scene unloads unused assets, so assets must be loaded or created after this point;
+            // otherwise freshly created ones are gone by the time they are assigned.
+            Scene scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+
+            // Existing assets are reused so manual tweaks to them survive regenerating the scene.
+            GameConfig config = GetOrCreateConfig();
             Material bark = GetOrCreateMaterial("Bark", new Color(0.45f, 0.3f, 0.2f));
             Material leaves = GetOrCreateMaterial("Leaves", new Color(0.36f, 0.62f, 0.3f));
             Material ground = GetOrCreateMaterial("Ground", new Color(0.58f, 0.72f, 0.42f));
-
-            Scene scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            AssetDatabase.SaveAssets();
 
             ConfigureEnvironment();
             CreateSun();
             CreateCamera();
             CreateGround(ground);
-            GameObject tree = CreateTree(bark, leaves);
-            TreeResource water = AddResource(tree, TreeResourceType.Water);
-            TreeResource nutrients = AddResource(tree, TreeResourceType.Nutrients);
+            GameObject tree = CreateTree(config, bark, leaves);
+            TreeResource water = CreateResource(tree.transform, TreeResourceType.Water, config);
+            TreeResource nutrients = CreateResource(tree.transform, TreeResourceType.Nutrients, config);
 
             CreateEventSystem();
             CreateResourceHud(CreateCanvas("HUD", 0), water, nutrients);
@@ -117,7 +124,7 @@ namespace TreeGame.EditorTools
             ground.GetComponent<Renderer>().sharedMaterial = material;
         }
 
-        private static GameObject CreateTree(Material bark, Material leaves)
+        private static GameObject CreateTree(GameConfig config, Material bark, Material leaves)
         {
             var go = new GameObject("Tree");
             var growth = go.AddComponent<TreeGrowth>();
@@ -128,15 +135,29 @@ namespace TreeGame.EditorTools
                 ("barkMaterial", bark),
                 ("foliageMaterial", leaves));
 
+            SetReferences(go.AddComponent<PassiveGrowth>(),
+                ("treeGrowth", growth),
+                ("config", config));
+
             return go;
         }
 
-        private static TreeResource AddResource(GameObject owner, TreeResourceType type)
+        /// <summary>A child object per resource keeps each resource easy to find in the Hierarchy.</summary>
+        private static TreeResource CreateResource(Transform owner, TreeResourceType type, GameConfig config)
         {
-            var resource = owner.AddComponent<TreeResource>();
-            var serializedObject = new SerializedObject(resource);
-            serializedObject.FindProperty("type").enumValueIndex = (int)type;
-            serializedObject.ApplyModifiedPropertiesWithoutUndo();
+            var go = new GameObject(type.ToString());
+            go.transform.SetParent(owner, false);
+
+            var resource = go.AddComponent<TreeResource>();
+            SetReferences(resource, ("config", config));
+            var serializedResource = new SerializedObject(resource);
+            serializedResource.FindProperty("type").enumValueIndex = (int)type;
+            serializedResource.ApplyModifiedPropertiesWithoutUndo();
+
+            SetReferences(go.AddComponent<ResourceDepletion>(),
+                ("resource", resource),
+                ("config", config));
+
             return resource;
         }
 
@@ -306,6 +327,25 @@ namespace TreeGame.EditorTools
             };
         }
 
+        private static GameConfig GetOrCreateConfig()
+        {
+            var config = AssetDatabase.LoadAssetAtPath<GameConfig>(ConfigPath);
+            if (config != null)
+            {
+                return config;
+            }
+
+            if (!AssetDatabase.IsValidFolder(ConfigFolder))
+            {
+                AssetDatabase.CreateFolder("Assets", "Config");
+            }
+
+            // Default values come from GameConfig's field initializers, so they live in one place.
+            config = ScriptableObject.CreateInstance<GameConfig>();
+            AssetDatabase.CreateAsset(config, ConfigPath);
+            return config;
+        }
+
         private static Material GetOrCreateMaterial(string materialName, Color color)
         {
             string path = $"{MaterialsFolder}/{materialName}.mat";
@@ -355,6 +395,11 @@ namespace TreeGame.EditorTools
                 {
                     Debug.LogError($"{target.GetType().Name} has no serialized field '{propertyName}'.", target);
                     continue;
+                }
+
+                if (value == null)
+                {
+                    Debug.LogError($"{target.GetType().Name}.{propertyName}: tried to assign a missing object.", target);
                 }
 
                 property.objectReferenceValue = value;
