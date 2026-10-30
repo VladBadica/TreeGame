@@ -13,8 +13,10 @@ namespace TreeGame.Player
         [Tooltip("A Vector2 action; only its horizontal part is used.")]
         [SerializeField] private InputActionReference moveAction;
         [SerializeField] private GameConfig config;
-        [Tooltip("How far the player can walk along X, in world units (left limit, right limit).")]
-        [SerializeField] private Vector2 walkableRangeX = new Vector2(-13f, 13f);
+        [Tooltip("What the walkable area is centered on (e.g. the tree). Empty = the world origin.")]
+        [SerializeField] private Transform walkAreaCenter;
+        [Tooltip("How far the player can walk to either side of the center, in world units.")]
+        [SerializeField, Min(0f)] private float maxDistanceFromCenter = 8f;
 
         private void OnEnable()
         {
@@ -44,11 +46,12 @@ namespace TreeGame.Player
                 return;
             }
 
+            float centerX = walkAreaCenter != null ? walkAreaCenter.position.x : 0f;
             Vector3 position = transform.position;
             position.x = Mathf.Clamp(
                 position.x + direction * config.PlayerMoveSpeed * Time.deltaTime,
-                walkableRangeX.x,
-                walkableRangeX.y);
+                centerX - maxDistanceFromCenter,
+                centerX + maxDistanceFromCenter);
             transform.position = position;
         }
     }

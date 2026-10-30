@@ -4,6 +4,7 @@ using TreeGame.Cameras;
 using TreeGame.Care;
 using TreeGame.Core;
 using TreeGame.DevTools;
+using TreeGame.Interaction;
 using TreeGame.Player;
 using TreeGame.Trees;
 using TreeGame.UI;
@@ -32,13 +33,28 @@ namespace TreeGame.EditorTools
 
         private const string InputActionsPath = "Assets/InputSystem_Actions.inputactions";
 
+        // How far the player may walk to either side of the tree (which sits at the origin).
+        // Ground and backdrop are sized from this so the world never ends on screen.
+        private const float MaxDistanceFromTree = 8f;
+        // Extra world beyond the walk limit, wider than half the camera view, so no edge is ever visible.
+        private const float WorldEdgeMargin = 20f;
+        // Space between the walk limit and a fence's inner edge, about half the character's width,
+        // so the player stops just in front of the fence instead of inside it.
+        private const float FenceClearance = 0.35f;
+
+        // The well stands just inside the right fence, a little behind the player's walking line (level with the tree),
+        // so the player walks past in front of it.
+        private static readonly Vector3 WellPosition = new Vector3(MaxDistanceFromTree - 1.8f, 0f, 0.3f);
+
+        // The compost heap sits just left of the tree, at the same depth as the well, clear of the trunk and lowest branches.
+        private static readonly Vector3 CompostPosition = new Vector3(-2.5f, 0f, 0.3f);
+
         // The ground is a shallow strip seen almost side-on, like a stage: wide along X, shallow in depth (Z).
         // It is thick so its front face always fills the bottom of the screen.
-        private const float GroundWidth = 80f;
+        private const float GroundWidth = 2f * (MaxDistanceFromTree + WorldEdgeMargin);
         private const float GroundThickness = 4f;
         private const float GroundFrontZ = -3.5f;
         private const float GroundBackZ = 1.5f;
-        private const float WalkableHalfWidth = 13f;
 
         // The player walks in front of the tree (negative Z is toward the camera) and starts just left of it.
         // The player's origin is at its feet.
@@ -49,9 +65,6 @@ namespace TreeGame.EditorTools
         private const float CameraPitch = 5f;
         private const float CameraDistance = 20f;
         private const float CameraOrthographicSize = 3f;
-
-        // Background hills are generated across this X range on each side of the origin.
-        private const float BackdropHalfWidth = 40f;
 
         [MenuItem("Tree Game/Create Prototype Scene")]
         private static void CreatePrototypeScene()
@@ -76,21 +89,28 @@ namespace TreeGame.EditorTools
             Material bark = GetOrCreateMaterial("Bark", new Color(0.45f, 0.3f, 0.2f));
             Material leaves = GetOrCreateMaterial("Leaves", new Color(0.36f, 0.62f, 0.3f));
             Material ground = GetOrCreateMaterial("Ground", new Color(0.58f, 0.72f, 0.42f));
+            PlaceholderArt.GetOrCreateFenceSprites(out Sprite fenceNear, out Sprite fenceFar);
             AssetDatabase.SaveAssets();
 
             ConfigureEnvironment();
             CreateSun();
             CreateGround(ground);
+            CreateFences(fenceNear, fenceFar);
+            CreateWell();
+            CreateCompostHeap();
             GameObject tree = CreateTree(config, bark, leaves);
             TreeResource water = CreateResource(tree.transform, TreeResourceType.Water, config);
             TreeResource nutrients = CreateResource(tree.transform, TreeResourceType.Nutrients, config);
-            Transform player = CreatePlayer(config);
+            Transform player = CreatePlayer(config, tree.transform);
             Transform camera = CreateCamera(player);
-            SetReferences(player.GetComponent<CharacterHeadLook>(), ("viewCamera", camera.GetComponent<Camera>()));
+            var viewCamera = camera.GetComponent<Camera>();
+            SetReferences(player.GetComponent<CharacterHeadLook>(), ("viewCamera", viewCamera));
             CreateBackdrop(camera);
 
             CreateEventSystem();
-            CreateResourceHud(CreateCanvas("HUD", 0), water, nutrients);
+            Transform hud = CreateCanvas("HUD", 0);
+            CreateResourceHud(hud, water, nutrients);
+            CreateInteractionPrompt(hud, player.GetComponent<Interactor>(), viewCamera);
             // Own canvas, drawn on top, so all dev tooling can be removed by deleting one object.
             CreateDebugPanel(CreateCanvas("Debug UI", 100), tree.GetComponent<TreeGrowth>());
 
@@ -154,6 +174,113 @@ namespace TreeGame.EditorTools
             ground.GetComponent<Renderer>().sharedMaterial = material;
         }
 
+        /// <summary>
+        /// A fence at each end of the walkable area that recedes from near the camera into the distance.
+        /// The perspective is painted into two sprites (see PlaceholderArt), both pivoted where the fence crosses
+        /// the player's walking line, which is placed at the walk limit.
+        /// </summary>
+        private static void CreateFences(Sprite near, Sprite far)
+        {
+            if (near == null || far == null)
+            {
+                Debug.LogError("Fence sprites missing; fences were not created.");
+                return;
+            }
+
+            // The far half sits just behind the player so the player is drawn in front of it.
+            float farZ = PlayerStartPosition.z + 0.1f;
+            // The near half sits in front of the ground's front edge, otherwise the ground would hide its lower part.
+            float nearZ = GroundFrontZ - 0.1f;
+            // Moving it toward the camera along the view direction keeps it on the same spot on screen;
+            // with the camera pitched down, that means raising it slightly.
+            float nearLift = (farZ - nearZ) * Mathf.Tan(CameraPitch * Mathf.Deg2Rad);
+
+            var root = new GameObject("Fences").transform;
+            foreach ((string fenceName, float side) in new[] { ("Left Fence", -1f), ("Right Fence", 1f) })
+            {
+                var fence = new GameObject(fenceName).transform;
+                fence.SetParent(root, false);
+                float x = side * (MaxDistanceFromTree + FenceClearance);
+
+                // The art recedes toward the tree as drawn for the right side; the left side is mirrored.
+                bool mirrored = side < 0f;
+                CreateFenceHalf("Near", near, fence, new Vector3(x, nearLift, nearZ), mirrored);
+                CreateFenceHalf("Far", far, fence, new Vector3(x, 0f, farZ), mirrored);
+            }
+        }
+
+        /// <summary>Placeholder compost heap: a single box of dark soil resting on the ground.</summary>
+        private static void CreateCompostHeap()
+        {
+            Material compost = GetOrCreateMaterial("Compost", new Color(0.36f, 0.26f, 0.18f));
+
+            var heap = new GameObject("Compost Heap").transform;
+            heap.position = CompostPosition;
+            // Raised by half its height so the box rests on the ground.
+            CreatePart(PrimitiveType.Cube, "Heap", heap, new Vector3(0f, 0.3f, 0f), new Vector3(1f, 0.6f, 0.8f), compost);
+        }
+
+        /// <summary>Placeholder well built from boxes, about 2.2 units tall with its base at ground level.</summary>
+        private static void CreateWell()
+        {
+            Material stone = GetOrCreateMaterial("Well Stone", new Color(0.62f, 0.6f, 0.58f));
+            Material rim = GetOrCreateMaterial("Well Rim", new Color(0.5f, 0.48f, 0.47f));
+            Material wood = GetOrCreateMaterial("Well Wood", new Color(0.55f, 0.38f, 0.24f));
+            Material roof = GetOrCreateMaterial("Well Roof", new Color(0.66f, 0.3f, 0.24f));
+            Material rope = GetOrCreateMaterial("Well Rope", new Color(0.85f, 0.76f, 0.56f));
+
+            var well = new GameObject("Well").transform;
+            well.position = WellPosition;
+
+            // Cube primitives are 1 unit, so scale is size and position is the box's center.
+            CreatePart(PrimitiveType.Cube, "Base", well, new Vector3(0f, 0.35f, 0f), new Vector3(1.2f, 0.7f, 0.8f), stone);
+            CreatePart(PrimitiveType.Cube, "Rim", well, new Vector3(0f, 0.75f, 0f), new Vector3(1.3f, 0.1f, 0.9f), rim);
+
+            // Posts end where they meet the underside of the roof.
+            CreatePart(PrimitiveType.Cube, "Left Post", well, new Vector3(-0.5f, 1.3f, 0f), new Vector3(0.1f, 1f, 0.1f), wood);
+            CreatePart(PrimitiveType.Cube, "Right Post", well, new Vector3(0.5f, 1.3f, 0f), new Vector3(0.1f, 1f, 0.1f), wood);
+            CreatePart(PrimitiveType.Cube, "Crossbeam", well, new Vector3(0f, 1.55f, 0f), new Vector3(1.1f, 0.08f, 0.08f), wood);
+
+            CreatePart(PrimitiveType.Cube, "Rope", well, new Vector3(0f, 1.33f, 0f), new Vector3(0.02f, 0.36f, 0.02f), rope);
+            CreatePart(PrimitiveType.Cube, "Bucket", well, new Vector3(0f, 1.05f, 0f), new Vector3(0.2f, 0.2f, 0.2f), wood);
+
+            // Two panels tilted 35 degrees meet at a ridge above the center; their outer ends overhang the posts.
+            const float roofPitch = 35f;
+            Transform leftRoof = CreatePart(PrimitiveType.Cube, "Left Roof", well,
+                new Vector3(-0.33f, 1.92f, 0f), new Vector3(0.8f, 0.06f, 1f), roof);
+            leftRoof.localRotation = Quaternion.Euler(0f, 0f, roofPitch);
+            Transform rightRoof = CreatePart(PrimitiveType.Cube, "Right Roof", well,
+                new Vector3(0.33f, 1.92f, 0f), new Vector3(0.8f, 0.06f, 1f), roof);
+            rightRoof.localRotation = Quaternion.Euler(0f, 0f, -roofPitch);
+
+            // Interaction zone: a little wider than the well, and deep enough to reach the player's walking line.
+            var zone = new GameObject("Interaction Zone", typeof(BoxCollider));
+            zone.transform.SetParent(well, false);
+            var zoneCollider = zone.GetComponent<BoxCollider>();
+            zoneCollider.isTrigger = true;
+            zoneCollider.center = new Vector3(0f, 1f, 0f);
+            zoneCollider.size = new Vector3(2.4f, 2f, 6f);
+
+            Transform promptAnchor = CreatePivot("Prompt Anchor", well, new Vector3(0f, 2.5f, 0f));
+            var interactable = zone.AddComponent<Interactable>();
+            SetReferences(interactable, ("promptAnchor", promptAnchor));
+            var serializedInteractable = new SerializedObject(interactable);
+            serializedInteractable.FindProperty("actionDescription").stringValue = "get water";
+            serializedInteractable.ApplyModifiedPropertiesWithoutUndo();
+        }
+
+        private static void CreateFenceHalf(string objectName, Sprite sprite, Transform parent, Vector3 position, bool mirrored)
+        {
+            var half = new GameObject(objectName, typeof(SpriteRenderer));
+            half.transform.SetParent(parent, false);
+            half.transform.position = position;
+
+            var spriteRenderer = half.GetComponent<SpriteRenderer>();
+            spriteRenderer.sprite = sprite;
+            // Flips around the pivot (the crossing point), so the mirrored fence still meets the walk limit.
+            spriteRenderer.flipX = mirrored;
+        }
+
         /// <summary>Flat, layered hills behind the play area; further layers are paler and drift more with the camera.</summary>
         private static void CreateBackdrop(Transform cameraTransform)
         {
@@ -179,7 +306,9 @@ namespace TreeGame.EditorTools
             layer.position = new Vector3(0f, -depth * Mathf.Tan(CameraPitch * Mathf.Deg2Rad), depth);
 
             var random = new System.Random(seed);
-            for (float x = -BackdropHalfWidth; x <= BackdropHalfWidth; x += random.NextFloat(5f, 9f))
+            // A layer drifts with the camera, so it only needs to cover the part of the walk range it doesn't follow.
+            float halfWidth = MaxDistanceFromTree * (1f - followFactor) + WorldEdgeMargin;
+            for (float x = -halfWidth; x <= halfWidth; x += random.NextFloat(5f, 9f))
             {
                 float height = random.NextFloat(heightRange.x, heightRange.y);
                 float width = height * random.NextFloat(2f, 3f);
@@ -200,7 +329,7 @@ namespace TreeGame.EditorTools
             serializedParallax.ApplyModifiedPropertiesWithoutUndo();
         }
 
-        private static Transform CreatePlayer(GameConfig config)
+        private static Transform CreatePlayer(GameConfig config, Transform tree)
         {
             var player = new GameObject("Player");
             player.transform.position = PlayerStartPosition;
@@ -221,13 +350,25 @@ namespace TreeGame.EditorTools
                 ("head", rig.Head),
                 ("walkAnimation", walkAnimation));
 
+            // Trigger capsule + kinematic body: detects interaction zones without any physical collisions.
+            var body = player.AddComponent<CapsuleCollider>();
+            body.isTrigger = true;
+            body.center = new Vector3(0f, 0.9f, 0f);
+            body.height = 1.8f;
+            body.radius = 0.3f;
+            var rigidbody = player.AddComponent<Rigidbody>();
+            rigidbody.isKinematic = true;
+            rigidbody.useGravity = false;
+
+            SetReferences(player.AddComponent<Interactor>(), ("interactAction", FindActionReference("Player", "Interact")));
+
             var movement = player.AddComponent<PlayerMovement>();
             SetReferences(movement,
                 ("moveAction", FindActionReference("Player", "Move")),
-                ("config", config));
+                ("config", config),
+                ("walkAreaCenter", tree));
             var serializedMovement = new SerializedObject(movement);
-            serializedMovement.FindProperty("walkableRangeX").vector2Value =
-                new Vector2(-WalkableHalfWidth, WalkableHalfWidth);
+            serializedMovement.FindProperty("maxDistanceFromCenter").floatValue = MaxDistanceFromTree;
             serializedMovement.ApplyModifiedPropertiesWithoutUndo();
 
             return player.transform;
@@ -442,6 +583,39 @@ namespace TreeGame.EditorTools
             GameObject panel = CreatePanel(canvas, "Tree Needs", new Vector2(1f, 1f), new Vector2(-24f, -24f), new Vector2(360f, 120f));
             CreateResourceBar(panel.transform, water, new Color(0.36f, 0.64f, 0.93f));
             CreateResourceBar(panel.transform, nutrients, new Color(0.9f, 0.68f, 0.28f));
+        }
+
+        /// <summary>A small rounded popup that the prompt component moves above whatever the player can interact with.</summary>
+        private static void CreateInteractionPrompt(Transform canvas, Interactor interactor, Camera viewCamera)
+        {
+            // The component lives on an always-active object; it shows and hides the popup child.
+            var promptRoot = new GameObject("Interaction Prompt", typeof(RectTransform));
+            StretchInParent(promptRoot, canvas);
+
+            var popup = new GameObject("Popup", typeof(RectTransform), typeof(Image), typeof(HorizontalLayoutGroup), typeof(ContentSizeFitter));
+            var popupRect = (RectTransform)popup.transform;
+            popupRect.SetParent(promptRoot.transform, false);
+            // Anchored at one point and pivoted at its bottom center, so it sits just above the target position.
+            popupRect.anchorMin = popupRect.anchorMax = Vector2.zero;
+            popupRect.pivot = new Vector2(0.5f, 0f);
+            StyleImage(popup.GetComponent<Image>(), new Color(0f, 0f, 0f, 0.6f));
+
+            var layout = popup.GetComponent<HorizontalLayoutGroup>();
+            layout.padding = new RectOffset(18, 18, 8, 8);
+            layout.childControlWidth = layout.childControlHeight = true;
+            var fitter = popup.GetComponent<ContentSizeFitter>();
+            fitter.horizontalFit = fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
+            TMP_Text label = CreateText("Label", 24f, Color.white, TextAlignmentOptions.Center);
+            label.transform.SetParent(popupRect, false);
+            label.text = "Press F to interact"; // Placeholder; the prompt builds the real text from the binding.
+            popup.SetActive(false);
+
+            SetReferences(promptRoot.AddComponent<InteractionPrompt>(),
+                ("interactor", interactor),
+                ("viewCamera", viewCamera),
+                ("popup", popupRect),
+                ("label", label));
         }
 
         private static void CreateResourceBar(Transform parent, TreeResource resource, Color fillColor)
