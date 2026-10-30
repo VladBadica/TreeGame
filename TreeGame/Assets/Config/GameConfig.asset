@@ -17,7 +17,7 @@ MonoBehaviour:
     maxAmount: 200
     secondsToEmpty: 120
   nutrients:
-    maxAmount: 100
+    maxAmount: 500
     secondsToEmpty: 240
   playerMoveSpeed: 4
   inventorySlotCount: 9

@@ -16,6 +16,7 @@ namespace TreeGame.UI
 
         private Transform target;
         private Vector3 offset;
+        private Vector2 screenOffset;
 
         // Not hiding here: a prompt may already have shown the popup before this Awake runs.
         // The panel is saved inactive instead.
@@ -41,8 +42,12 @@ namespace TreeGame.UI
             }
         }
 
-        /// <summary>Shows the text above a target, offset in world units (e.g. up from a leaf on the ground).</summary>
-        public void Show(Transform newTarget, string text, Vector3 worldOffset = default)
+        /// <summary>
+        /// Shows the text above a target. <paramref name="worldOffset"/> moves the anchor point in world units
+        /// (e.g. up from a leaf on the ground); <paramref name="canvasOffset"/> moves the popup on screen in canvas
+        /// units, which keeps stacked popups evenly spaced at any resolution.
+        /// </summary>
+        public void Show(Transform newTarget, string text, Vector3 worldOffset = default, Vector2 canvasOffset = default)
         {
             if (viewCamera == null || newTarget == null)
             {
@@ -52,6 +57,7 @@ namespace TreeGame.UI
 
             target = newTarget;
             offset = worldOffset;
+            screenOffset = canvasOffset;
             label.text = text;
             panel.gameObject.SetActive(true);
             FollowTarget();
@@ -68,8 +74,9 @@ namespace TreeGame.UI
 
         private void FollowTarget()
         {
-            // On a screen-space overlay canvas, positions are in screen pixels.
-            panel.position = viewCamera.WorldToScreenPoint(target.position + offset);
+            // On a screen-space overlay canvas, positions are in screen pixels; the panel's scale is the canvas scale.
+            Vector3 screenPoint = viewCamera.WorldToScreenPoint(target.position + offset);
+            panel.position = screenPoint + (Vector3)(screenOffset * panel.lossyScale.y);
         }
     }
 }

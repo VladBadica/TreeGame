@@ -158,6 +158,28 @@ namespace TreeGame.Items
         }
 
         /// <summary>
+        /// Takes every item of a type out of the inventory, emptying their slots. Returns how many were removed
+        /// (a stack counts as its size, e.g. a slot of 12 leaves is 12).
+        /// </summary>
+        public int RemoveAll(ItemDefinition definition)
+        {
+            int removed = 0;
+            for (int i = 0; i < Slots.Length; i++)
+            {
+                Item item = Slots[i];
+                if (item == null || item.Definition != definition)
+                {
+                    continue;
+                }
+
+                removed += item is StackableItem stack ? stack.Count : 1;
+                ClearSlot(i);
+            }
+
+            return removed;
+        }
+
+        /// <summary>
         /// Uses the item in a slot, with this inventory's owner as the user. Empty slots still raise
         /// <see cref="SlotActivated"/>; indexes beyond the slot count are ignored (e.g. pressing 9 with only 5 slots).
         /// </summary>

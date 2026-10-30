@@ -22,7 +22,8 @@ namespace TreeGame.Core
         [Header("Resources")]
         [Tooltip("Water is measured in liters, the same unit as a bucket, so pouring moves liters one to one.")]
         [SerializeField] private ResourceSettings water = new ResourceSettings(maxAmount: 200f, secondsToEmpty: 120f);
-        [SerializeField] private ResourceSettings nutrients = new ResourceSettings(maxAmount: 100f, secondsToEmpty: 240f);
+        [Tooltip("Nutrients are measured in grams, the same unit as compost, so feeding moves grams one to one.")]
+        [SerializeField] private ResourceSettings nutrients = new ResourceSettings(maxAmount: 500f, secondsToEmpty: 240f);
 
         [Header("Player")]
         [Tooltip("Walking speed in world units per second.")]
@@ -37,6 +38,12 @@ namespace TreeGame.Core
         [Header("Well")]
         [Tooltip("How much water one use of the well adds to a bucket, as a fraction of the bucket's capacity.")]
         [SerializeField, Range(0f, 1f)] private float wellFillPerUse = 0.1f;
+
+        [Header("Composter")]
+        [Tooltip("How long a batch of dropped-in leaves takes to become compost, in seconds.")]
+        [SerializeField, Min(0f)] private float secondsToCompost = 30f;
+        [Tooltip("Grams of compost made from each dropped-in leaf.")]
+        [SerializeField, Min(0f)] private float compostGramsPerLeaf = 20f;
 
         [Header("Fallen Leaves")]
         [SerializeField] private FallenLeafSettings fallenLeaves = new FallenLeafSettings();
@@ -54,6 +61,10 @@ namespace TreeGame.Core
         public IReadOnlyList<ItemDefinition> StartingItems => startingItems;
 
         public float WellFillPerUse => wellFillPerUse;
+
+        public float SecondsToCompost => secondsToCompost;
+
+        public float CompostGramsPerLeaf => compostGramsPerLeaf;
 
         public FallenLeafSettings FallenLeaves => fallenLeaves;
 

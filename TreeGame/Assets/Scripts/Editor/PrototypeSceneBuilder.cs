@@ -96,8 +96,8 @@ namespace TreeGame.EditorTools
                 GetOrCreateItem<WaterBucketDefinition>("WaterBucket", "Water Bucket", PlaceholderArt.GetOrCreateWaterBucketIcon()),
                 GetOrCreateItem<CompostBucketDefinition>("CompostBucket", "Compost Bucket", PlaceholderArt.GetOrCreateCompostBucketIcon()));
             Sprite brownLeaf = PlaceholderArt.GetOrCreateBrownLeafSprite();
-            ItemPickup fallenLeafPrefab = GetOrCreateFallenLeafPrefab(
-                GetOrCreateItem<StackableItemDefinition>("BrownLeaves", "Brown Leaves", brownLeaf), brownLeaf);
+            var brownLeaves = GetOrCreateItem<StackableItemDefinition>("BrownLeaves", "Brown Leaves", brownLeaf);
+            ItemPickup fallenLeafPrefab = GetOrCreateFallenLeafPrefab(brownLeaves, brownLeaf);
             Material bark = GetOrCreateMaterial("Bark", new Color(0.45f, 0.3f, 0.2f));
             Material leaves = GetOrCreateMaterial("Leaves", new Color(0.36f, 0.62f, 0.3f));
             Material ground = GetOrCreateMaterial("Ground", new Color(0.58f, 0.72f, 0.42f));
@@ -109,16 +109,22 @@ namespace TreeGame.EditorTools
             CreateGround(ground);
             CreateFences(fenceNear, fenceFar);
             CreateWell(config);
-            CreateCompostHeap();
+            CreateCompostHeap(config, brownLeaves);
             GameObject tree = CreateTree(config, bark, leaves);
             TreeResource water = CreateResource(tree.transform, TreeResourceType.Water, config);
             TreeResource nutrients = CreateResource(tree.transform, TreeResourceType.Nutrients, config);
-            CreateTreeWatering(tree.transform, water);
+            CreateTreeCare(tree.transform, water, nutrients);
             CreateFallenLeafSpawner(tree, config, fallenLeafPrefab);
             Transform player = CreatePlayer(config, tree.transform);
             Transform camera = CreateCamera(player);
             var viewCamera = camera.GetComponent<Camera>();
             SetReferences(player.GetComponent<CharacterHeadLook>(), ("viewCamera", viewCamera));
+            SetReferences(player.gameObject.AddComponent<ClickToInteract>(),
+                ("clickAction", FindActionReference("UI", "Click")),
+                ("pointAction", FindActionReference("UI", "Point")),
+                ("viewCamera", viewCamera),
+                ("interactor", player.GetComponent<Interactor>()),
+                ("collector", player.GetComponent<ItemCollector>()));
             CreateBackdrop(camera);
 
             CreateEventSystem();
@@ -225,8 +231,11 @@ namespace TreeGame.EditorTools
             }
         }
 
-        /// <summary>Placeholder compost heap: a single box of dark soil resting on the ground.</summary>
-        private static void CreateCompostHeap()
+        /// <summary>
+        /// Placeholder compost heap: a single box of dark soil resting on the ground. Leaves dropped in turn into
+        /// compost that the player collects into the compost bucket.
+        /// </summary>
+        private static void CreateCompostHeap(GameConfig config, ItemDefinition leaves)
         {
             Material compost = GetOrCreateMaterial("Compost", new Color(0.36f, 0.26f, 0.18f));
 
@@ -234,6 +243,53 @@ namespace TreeGame.EditorTools
             heap.position = CompostPosition;
             // Raised by half its height so the box rests on the ground.
             CreatePart(PrimitiveType.Cube, "Heap", heap, new Vector3(0f, 0.3f, 0f), new Vector3(1f, 0.6f, 0.8f), compost);
+
+            // As wide as the heap; the Composter sets the prompt's wording for each of its states.
+            Interactable interactable = CreateInteractionZone(heap, width: 1f, promptHeight: 1.2f, "drop leaves");
+            var composter = heap.gameObject.AddComponent<Composter>();
+            SetReferences(composter,
+                ("interactable", interactable),
+                ("config", config),
+                ("compostableItem", leaves));
+
+            CreateCompostProgressBar(heap, composter);
+        }
+
+        /// <summary>
+        /// A small world-space bar just above the heap (below its prompt), so it stays with the heap on screen
+        /// without any following code. Hidden until the composter starts working.
+        /// </summary>
+        private static void CreateCompostProgressBar(Transform heap, Composter composter)
+        {
+            // Canvas units are scaled down to world units: 100 x 12 units becomes 1 x 0.12 world units.
+            const float worldUnitsPerCanvasUnit = 0.01f;
+
+            var canvasObject = new GameObject("Progress Bar", typeof(RectTransform), typeof(Canvas));
+            var canvasRect = (RectTransform)canvasObject.transform;
+            canvasRect.SetParent(heap, false);
+            // Above the heap's top (0.6) and just in front of its face, so the box never cuts through the bar.
+            canvasRect.localPosition = new Vector3(0f, 0.85f, -0.45f);
+            canvasRect.localScale = Vector3.one * worldUnitsPerCanvasUnit;
+            canvasRect.sizeDelta = new Vector2(100f, 12f);
+            canvasObject.GetComponent<Canvas>().renderMode = RenderMode.WorldSpace;
+
+            var background = new GameObject("Background", typeof(RectTransform), typeof(Image));
+            StretchInParent(background, canvasRect);
+            StyleImage(background.GetComponent<Image>(), new Color(0f, 0f, 0f, 0.5f));
+
+            var fill = new GameObject("Fill", typeof(RectTransform), typeof(Image));
+            RectTransform fillRect = StretchInParent(fill, background.transform);
+            StyleImage(fill.GetComponent<Image>(), new Color(0.56f, 0.74f, 0.32f));
+
+            var fillBar = background.AddComponent<FillBar>();
+            SetReferences(fillBar, ("fill", fillRect));
+            canvasObject.SetActive(false); // Shown by the progress bar component once composting starts.
+
+            // On the heap itself (always active) so it can show and hide the bar's canvas.
+            SetReferences(heap.gameObject.AddComponent<CompostProgressBar>(),
+                ("composter", composter),
+                ("bar", fillBar),
+                ("barRoot", canvasObject));
         }
 
         /// <summary>Placeholder well built from boxes, about 2.2 units tall with its base at ground level.</summary>
@@ -278,13 +334,25 @@ namespace TreeGame.EditorTools
         }
 
         /// <summary>Lets the player pour water onto the tree by using the bucket (hotbar slot 1) next to it.</summary>
-        private static void CreateTreeWatering(Transform tree, TreeResource water)
+        /// <summary>
+        /// Lets the player water the tree (water bucket, hotbar slot 1) and feed it compost (compost bucket, slot 2)
+        /// while standing at the trunk.
+        /// </summary>
+        private static void CreateTreeCare(Transform tree, TreeResource water, TreeResource nutrients)
         {
-            // Watering uses the bucket's hotbar key rather than the interact key, so the prompt names that key.
+            // Both actions use the buckets' hotbar keys rather than the interact key, so the prompts name those keys.
             // Narrow, so the player has to stand almost at the trunk, leaving room for other interactables nearby.
             // The player's own trigger capsule (radius 0.3) adds to this, so it triggers within about 0.7 of the trunk.
             Interactable interactable = CreateInteractionZone(tree, width: 0.8f, promptHeight: 2.5f, "Water", promptKeyOverride: "1");
-            SetReferences(interactable.gameObject.AddComponent<WaterReceiver>(), ("water", water));
+            var serializedInteractable = new SerializedObject(interactable);
+            SerializedProperty extraPrompts = serializedInteractable.FindProperty("extraPrompts");
+            extraPrompts.arraySize = 1;
+            extraPrompts.GetArrayElementAtIndex(0).FindPropertyRelative("key").stringValue = "2";
+            extraPrompts.GetArrayElementAtIndex(0).FindPropertyRelative("actionDescription").stringValue = "Feed";
+            serializedInteractable.ApplyModifiedPropertiesWithoutUndo();
+
+            SetReferences(interactable.gameObject.AddComponent<ResourceReceiver>(), ("resource", water));
+            SetReferences(interactable.gameObject.AddComponent<ResourceReceiver>(), ("resource", nutrients));
         }
 
         /// <summary>Leaves fall around the tree once it has grown; they collect under their own root, not the tree.</summary>
@@ -691,10 +759,25 @@ namespace TreeGame.EditorTools
         /// <summary>The prompt above whatever the player can interact with (F, or a named key such as 1).</summary>
         private static void CreateInteractionPrompt(Transform canvas, Interactor interactor, Camera viewCamera)
         {
-            WorldPopup popup = CreateWorldPopup(canvas, "Interaction Prompt", viewCamera);
-            SetReferences(popup.gameObject.AddComponent<InteractionPrompt>(),
-                ("interactor", interactor),
-                ("popup", popup));
+            // One popup per line: the main prompt plus one extra (e.g. the tree's "Press 2 to feed").
+            const int lineCount = 2;
+            var popups = new WorldPopup[lineCount];
+            for (int i = 0; i < lineCount; i++)
+            {
+                popups[i] = CreateWorldPopup(canvas, i == 0 ? "Interaction Prompt" : $"Interaction Prompt {i + 1}", viewCamera);
+            }
+
+            var prompt = popups[0].gameObject.AddComponent<InteractionPrompt>();
+            SetReferences(prompt, ("interactor", interactor));
+            var serializedPrompt = new SerializedObject(prompt);
+            SerializedProperty popupsProperty = serializedPrompt.FindProperty("popups");
+            popupsProperty.arraySize = lineCount;
+            for (int i = 0; i < lineCount; i++)
+            {
+                popupsProperty.GetArrayElementAtIndex(i).objectReferenceValue = popups[i];
+            }
+
+            serializedPrompt.ApplyModifiedPropertiesWithoutUndo();
         }
 
         /// <summary>The prompt above the nearest item the player can pick up with the collect key (E).</summary>
@@ -820,10 +903,11 @@ namespace TreeGame.EditorTools
             label.fontStyle = FontStyles.Bold;
             label.text = resource.Type.ToString(); // Placeholder; the bar formats the value at runtime.
 
-            var resourceBar = bar.AddComponent<ResourceBar>();
-            SetReferences(resourceBar,
+            var fillBar = bar.AddComponent<FillBar>();
+            SetReferences(fillBar, ("fill", fillRect));
+            SetReferences(bar.AddComponent<ResourceBar>(),
                 ("resource", resource),
-                ("fill", fillRect),
+                ("bar", fillBar),
                 ("label", label));
         }
 

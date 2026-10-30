@@ -4,14 +4,11 @@ using UnityEngine;
 
 namespace TreeGame.UI
 {
-    /// <summary>
-    /// Shows one <see cref="TreeResource"/> as a horizontal fill bar with a label.
-    /// The fill is a child stretched by its right anchor, so it works with any sprite (or none).
-    /// </summary>
+    /// <summary>Shows one <see cref="TreeResource"/> as a horizontal fill bar with a label.</summary>
     public class ResourceBar : MonoBehaviour
     {
         [SerializeField] private TreeResource resource;
-        [SerializeField] private RectTransform fill;
+        [SerializeField] private FillBar bar;
         [SerializeField] private TMP_Text label;
 
         private void OnEnable()
@@ -38,10 +35,9 @@ namespace TreeGame.UI
         {
             float normalized = Mathf.Clamp01(source.Normalized);
 
-            if (fill != null)
+            if (bar != null)
             {
-                fill.anchorMin = Vector2.zero;
-                fill.anchorMax = new Vector2(normalized, 1f);
+                bar.SetFill(normalized);
             }
 
             if (label != null)

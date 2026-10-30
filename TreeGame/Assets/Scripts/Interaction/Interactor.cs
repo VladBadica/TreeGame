@@ -57,6 +57,21 @@ namespace TreeGame.Interaction
             }
         }
 
+        /// <summary>
+        /// Interacts with a specific interactable (e.g. one the player clicked), but only if it is in range,
+        /// the same rule as pressing the interact key. Returns whether it interacted.
+        /// </summary>
+        public bool TryInteract(Interactable target)
+        {
+            if (!enabled || !interactablesInRange.IsInRange(target))
+            {
+                return false;
+            }
+
+            target.Interact(gameObject);
+            return true;
+        }
+
         private void SetFocus(Interactable interactable)
         {
             if (interactable == Focused)

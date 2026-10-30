@@ -52,6 +52,12 @@ namespace TreeGame.Core
             return active;
         }
 
+        /// <summary>True if this component is in range and enabled.</summary>
+        public bool IsInRange(T component)
+        {
+            return component != null && component.isActiveAndEnabled && inRange.Contains(component);
+        }
+
         /// <summary>The active entry closest along X (side-on game: only horizontal distance matters), or null.</summary>
         public T FindNearest(float x)
         {

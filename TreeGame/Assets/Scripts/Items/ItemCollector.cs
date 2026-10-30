@@ -62,6 +62,21 @@ namespace TreeGame.Items
             }
         }
 
+        /// <summary>
+        /// Collects one specific pickup (e.g. one the player clicked), but only if it is in reach, the same rule as
+        /// pressing the collect key. Returns whether it was in reach.
+        /// </summary>
+        public bool TryCollect(ItemPickup pickup)
+        {
+            if (!enabled || !pickupsInRange.IsInRange(pickup))
+            {
+                return false;
+            }
+
+            pickup.CollectInto(inventory);
+            return true;
+        }
+
         private void OnCollectPerformed(InputAction.CallbackContext context)
         {
             foreach (ItemPickup pickup in pickupsInRange.GetActive())

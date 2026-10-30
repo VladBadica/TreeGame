@@ -1,10 +1,13 @@
+using TreeGame.Care;
+using TreeGame.Interaction;
 using UnityEngine;
 
 namespace TreeGame.Items
 {
     /// <summary>
     /// Base for items that hold an amount of something, from empty up to their definition's capacity
-    /// (e.g. liters of water, grams of compost). Shows how full it is as its display text. Starts empty.
+    /// (e.g. liters of water, grams of compost). Shows how full it is as its display text, and pours everything
+    /// out when used. Starts empty.
     /// </summary>
     public abstract class ContainerItem : Item
     {
@@ -28,6 +31,28 @@ namespace TreeGame.Items
         public bool IsFull => StoredAmount >= Capacity;
 
         public override string DisplayText => $"{Fill * 100f:0}%";
+
+        /// <summary>
+        /// Pours all the contents onto whatever the user is standing at, if it accepts this container's resource
+        /// (e.g. the tree accepts water and nutrients). Otherwise nothing happens and the contents stay.
+        /// </summary>
+        public override void OnUse(GameObject user)
+        {
+            if (IsEmpty || !user.TryGetComponent(out Interactor interactor) || interactor.Focused == null)
+            {
+                return;
+            }
+
+            foreach (ResourceReceiver receiver in interactor.Focused.GetComponents<ResourceReceiver>())
+            {
+                if (receiver.IsAvailable && receiver.ResourceType == definition.PouredResource)
+                {
+                    receiver.Receive(StoredAmount);
+                    SetStoredAmount(0f);
+                    return;
+                }
+            }
+        }
 
         /// <summary>Adds a non-negative amount, clamped to the capacity.</summary>
         public void AddAmount(float amount)
