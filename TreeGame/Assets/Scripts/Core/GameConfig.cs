@@ -25,6 +25,10 @@ namespace TreeGame.Core
         [Tooltip("Walking speed in world units per second.")]
         [SerializeField, Min(0.1f)] private float playerMoveSpeed = 4f;
 
+        [Header("Inventory")]
+        [Tooltip("Number of inventory slots. The number keys 1-9 can reach at most 9.")]
+        [SerializeField, Range(1, 9)] private int inventorySlotCount = 9;
+
         [Header("Wind")]
         [Tooltip("Shared by everything the wind moves, so it all sways together.")]
         [SerializeField] private WindSettings wind = new WindSettings();
@@ -32,6 +36,8 @@ namespace TreeGame.Core
         public float SecondsToFullyGrow => secondsToFullyGrow;
 
         public float PlayerMoveSpeed => playerMoveSpeed;
+
+        public int InventorySlotCount => inventorySlotCount;
 
         public WindSettings Wind => wind;
 

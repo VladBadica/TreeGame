@@ -5,6 +5,7 @@ using TreeGame.Care;
 using TreeGame.Core;
 using TreeGame.DevTools;
 using TreeGame.Interaction;
+using TreeGame.Items;
 using TreeGame.Player;
 using TreeGame.Trees;
 using TreeGame.UI;
@@ -111,6 +112,7 @@ namespace TreeGame.EditorTools
             Transform hud = CreateCanvas("HUD", 0);
             CreateResourceHud(hud, water, nutrients);
             CreateInteractionPrompt(hud, player.GetComponent<Interactor>(), viewCamera);
+            CreateInventoryBar(hud, player.GetComponent<Inventory>());
             // Own canvas, drawn on top, so all dev tooling can be removed by deleting one object.
             CreateDebugPanel(CreateCanvas("Debug UI", 100), tree.GetComponent<TreeGrowth>());
 
@@ -361,6 +363,12 @@ namespace TreeGame.EditorTools
             rigidbody.useGravity = false;
 
             SetReferences(player.AddComponent<Interactor>(), ("interactAction", FindActionReference("Player", "Interact")));
+
+            var inventory = player.AddComponent<Inventory>();
+            SetReferences(inventory, ("config", config));
+            SetReferences(player.AddComponent<HotbarInput>(),
+                ("hotbarAction", FindActionReference("Player", "Hotbar")),
+                ("inventory", inventory));
 
             var movement = player.AddComponent<PlayerMovement>();
             SetReferences(movement,
@@ -616,6 +624,61 @@ namespace TreeGame.EditorTools
                 ("viewCamera", viewCamera),
                 ("popup", popupRect),
                 ("label", label));
+        }
+
+        /// <summary>
+        /// A row of square slots centered at the bottom of the screen. Only one inactive template slot is built here;
+        /// the bar copies it once per inventory slot at startup.
+        /// </summary>
+        private static void CreateInventoryBar(Transform canvas, Inventory inventory)
+        {
+            const float slotSize = 72f;
+
+            var bar = new GameObject("Inventory Bar", typeof(RectTransform), typeof(HorizontalLayoutGroup), typeof(ContentSizeFitter));
+            var barRect = (RectTransform)bar.transform;
+            barRect.SetParent(canvas, false);
+            barRect.anchorMin = barRect.anchorMax = barRect.pivot = new Vector2(0.5f, 0f);
+            barRect.anchoredPosition = new Vector2(0f, 20f);
+
+            var layout = bar.GetComponent<HorizontalLayoutGroup>();
+            layout.spacing = 8f;
+            layout.childControlWidth = layout.childControlHeight = true;
+            layout.childForceExpandWidth = layout.childForceExpandHeight = false;
+            // Grows with the number of slots and stays centered thanks to the bottom-center pivot.
+            var fitter = bar.GetComponent<ContentSizeFitter>();
+            fitter.horizontalFit = fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
+            var slot = new GameObject("Slot Template", typeof(RectTransform), typeof(Image), typeof(LayoutElement));
+            slot.transform.SetParent(barRect, false);
+            var slotLayout = slot.GetComponent<LayoutElement>();
+            slotLayout.preferredWidth = slotLayout.preferredHeight = slotSize;
+            var background = slot.GetComponent<Image>();
+            StyleImage(background, new Color(0f, 0f, 0f, 0.45f));
+
+            var iconObject = new GameObject("Icon", typeof(RectTransform), typeof(Image));
+            RectTransform iconRect = StretchInParent(iconObject, slot.transform);
+            iconRect.offsetMin = new Vector2(10f, 10f);
+            iconRect.offsetMax = new Vector2(-10f, -10f);
+            var icon = iconObject.GetComponent<Image>();
+            icon.preserveAspect = true;
+            icon.enabled = false; // Empty until an item is placed in the slot.
+
+            TMP_Text keyLabel = CreateText("Key", 18f, new Color(1f, 1f, 1f, 0.8f), TextAlignmentOptions.TopLeft);
+            RectTransform keyRect = StretchInParent(keyLabel.gameObject, slot.transform);
+            keyRect.offsetMin = new Vector2(7f, 0f);
+            keyRect.offsetMax = new Vector2(0f, -4f);
+            keyLabel.text = "1"; // Placeholder; each copy gets its own number at runtime.
+
+            var slotView = slot.AddComponent<InventorySlotView>();
+            SetReferences(slotView,
+                ("background", background),
+                ("icon", icon),
+                ("keyLabel", keyLabel));
+            slot.SetActive(false);
+
+            SetReferences(bar.AddComponent<InventoryBar>(),
+                ("inventory", inventory),
+                ("slotTemplate", slotView));
         }
 
         private static void CreateResourceBar(Transform parent, TreeResource resource, Color fillColor)
