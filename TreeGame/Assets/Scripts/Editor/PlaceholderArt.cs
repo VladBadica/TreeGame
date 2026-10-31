@@ -326,10 +326,7 @@ namespace TreeGame.EditorTools
         private static void SaveSprite(string path, int width, int height, Color32[] pixels, Vector2 pivot,
             float pixelsPerUnit = PixelsPerUnit)
         {
-            if (!AssetDatabase.IsValidFolder(ArtFolder))
-            {
-                AssetDatabase.CreateFolder("Assets", "Art");
-            }
+            BuilderHelpers.EnsureFolder(ArtFolder);
 
             var texture = new Texture2D(width, height, TextureFormat.RGBA32, mipChain: false);
             texture.SetPixels32(pixels);
