@@ -52,8 +52,8 @@ namespace TreeGame.EditorTools
             Button credits = CreateMenuButton(resources, mainPanel.transform, "Credits");
             Button quit = CreateMenuButton(resources, mainPanel.transform, "Quit");
 
-            // Placeholder text until the settings panel exists and there are credits to show.
-            GameObject settingsPanel = CreateInfoPanel(canvas, "Settings Panel", "Settings", "Coming soon.");
+            GameObject settingsPanel = CreateSettingsPanel(canvas);
+            // Placeholder text until there are credits to show.
             GameObject creditsPanel = CreateInfoPanel(canvas, "Credits Panel", "Credits", "Coming soon.");
             Button settingsBack = CreateMenuButton(resources, settingsPanel.transform, "Back");
             Button creditsBack = CreateMenuButton(resources, creditsPanel.transform, "Back");

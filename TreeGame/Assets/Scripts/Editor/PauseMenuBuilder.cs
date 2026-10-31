@@ -30,8 +30,7 @@ namespace TreeGame.EditorTools
             Button settings = CreateMenuButton(resources, mainPanel.transform, "Settings");
             Button quitToMenu = CreateMenuButton(resources, mainPanel.transform, "Quit to Menu");
 
-            // Placeholder text until the settings panel exists.
-            GameObject settingsPanel = CreateInfoPanel(canvas, "Settings Panel", "Settings", "Coming soon.");
+            GameObject settingsPanel = CreateSettingsPanel(canvas);
             Button settingsBack = CreateMenuButton(resources, settingsPanel.transform, "Back");
 
             GameObject confirmPanel = CreateInfoPanel(canvas, "Confirm Quit Panel", "Quit to Menu?",

@@ -78,6 +78,36 @@ namespace TreeGame.EditorTools
             return go.GetComponent<Button>();
         }
 
+        /// <summary>A TextMeshPro dropdown with larger text and rows than Unity's defaults. Options are set at runtime.</summary>
+        public static TMP_Dropdown CreateDropdown(string objectName, float fontSize)
+        {
+            const float rowHeight = 40f;
+            const float listHeight = 240f;
+
+            GameObject go = TMP_DefaultControls.CreateDropdown(new TMP_DefaultControls.Resources
+            {
+                standard = GetUIResources().standard,
+                background = GetUIResources().background,
+                checkmark = AssetDatabase.GetBuiltinExtraResource<Sprite>("UI/Skin/Checkmark.psd"),
+                dropdown = AssetDatabase.GetBuiltinExtraResource<Sprite>("UI/Skin/DropdownArrow.psd"),
+                mask = AssetDatabase.GetBuiltinExtraResource<Sprite>("UI/Skin/UIMask.psd"),
+            });
+            go.name = objectName;
+
+            var dropdown = go.GetComponent<TMP_Dropdown>();
+            dropdown.captionText.fontSize = fontSize;
+            dropdown.itemText.fontSize = fontSize;
+
+            // The row is the item text's parent, inside a scrolling content area; each must fit the larger text.
+            var row = (RectTransform)dropdown.itemText.transform.parent;
+            row.sizeDelta = new Vector2(row.sizeDelta.x, rowHeight);
+            var content = (RectTransform)row.parent;
+            content.sizeDelta = new Vector2(content.sizeDelta.x, rowHeight);
+            dropdown.template.sizeDelta = new Vector2(dropdown.template.sizeDelta.x, listHeight);
+
+            return dropdown;
+        }
+
         /// <summary>A TextMeshPro label; TMP renders crisp text at any size and resolution.</summary>
         public static TMP_Text CreateText(string objectName, float fontSize, Color color, TextAlignmentOptions alignment)
         {

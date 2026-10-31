@@ -43,6 +43,31 @@ namespace TreeGame.EditorTools
             return panel;
         }
 
+        /// <summary>The settings screen, the same in every menu. The caller adds its Back button.</summary>
+        public static GameObject CreateSettingsPanel(Transform canvas)
+        {
+            GameObject panel = CreateScreenPanel(canvas, "Settings Panel", "Settings", height: 380f);
+
+            TMP_Dropdown resolution = CreateLabeledDropdown(panel.transform, "Resolution");
+            TMP_Dropdown displayMode = CreateLabeledDropdown(panel.transform, "Display Mode");
+            SetReferences(panel.AddComponent<SettingsPanel>(),
+                ("resolutionDropdown", resolution),
+                ("displayModeDropdown", displayMode));
+
+            return panel;
+        }
+
+        private static TMP_Dropdown CreateLabeledDropdown(Transform panel, string caption)
+        {
+            TMP_Text label = CreateText($"{caption} Label", 22f, Color.white, TextAlignmentOptions.MidlineLeft);
+            AddToLayout(label.gameObject, panel, 32f);
+            label.text = caption;
+
+            TMP_Dropdown dropdown = CreateDropdown($"{caption} Dropdown", 22f);
+            AddToLayout(dropdown.gameObject, panel, 44f);
+            return dropdown;
+        }
+
         public static Button CreateMenuButton(DefaultControls.Resources resources, Transform panel, string caption)
         {
             Button button = CreateButton(resources, panel, $"{caption} Button", caption, ButtonFontSize);
