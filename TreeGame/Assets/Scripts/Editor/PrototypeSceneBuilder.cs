@@ -66,6 +66,7 @@ namespace TreeGame.EditorTools
             HudBuilder.CreateInventoryBar(hud, player.GetComponent<Inventory>());
             // Own canvas, drawn on top, so all dev tooling can be removed by deleting one object.
             DebugPanelBuilder.CreateDebugPanel(UIFactory.CreateCanvas("Debug UI", 100), tree.GetComponent<TreeGrowth>());
+            PauseMenuBuilder.CreatePauseMenu(player);
 
             BuilderHelpers.SaveGeneratedScene(scene, scenePath);
 
