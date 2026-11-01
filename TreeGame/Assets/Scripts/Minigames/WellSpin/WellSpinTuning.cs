@@ -11,6 +11,9 @@ namespace TreeGame.Minigames.WellSpin
         /// <summary>A game also ends early once this many presses have missed.</summary>
         public int MaxMisses { get; set; } = 3;
 
+        /// <summary>A game also ends once this many seconds of play have passed.</summary>
+        public float TimeLimitSeconds { get; set; } = 30f;
+
         /// <summary>The indicator's starting speed, in degrees per second.</summary>
         public float DegreesPerSecond { get; set; } = 180f;
 
@@ -32,6 +35,11 @@ namespace TreeGame.Minigames.WellSpin
             if (MaxTries < 1 || MaxMisses < 1)
             {
                 throw new ArgumentException("Tries and misses must be at least 1.");
+            }
+
+            if (!(TimeLimitSeconds > 0f))
+            {
+                throw new ArgumentException("The time limit must be positive.");
             }
 
             if (!(DegreesPerSecond > 0f) || !(SpeedUpMultiplier > 0f))

@@ -38,6 +38,7 @@ namespace TreeGame.Minigames.WellSpin
             tuning.Validate();
 
             Direction = Clockwise;
+            TimeLeft = tuning.TimeLimitSeconds;
             MoveTarget();
         }
 
@@ -62,7 +63,14 @@ namespace TreeGame.Minigames.WellSpin
 
         public int MaxMisses => tuning.MaxMisses;
 
-        public bool IsFinished => Tries >= tuning.MaxTries || Misses >= tuning.MaxMisses;
+        /// <summary>Seconds of play remaining, down to 0.</summary>
+        public float TimeLeft { get; private set; }
+
+        public float TimeLimit => tuning.TimeLimitSeconds;
+
+        public bool IsOutOfTime => TimeLeft <= 0f;
+
+        public bool IsFinished => Tries >= tuning.MaxTries || Misses >= tuning.MaxMisses || IsOutOfTime;
 
         public bool IsIndicatorInTarget => DistanceBetween(IndicatorAngle, TargetCenter) <= tuning.TargetWidth / 2f;
 
@@ -84,13 +92,15 @@ namespace TreeGame.Minigames.WellSpin
             }
         }
 
-        /// <summary>Moves the indicator on by this many seconds. Does nothing once the game is over.</summary>
+        /// <summary>Moves the indicator and the clock on by this many seconds. Does nothing once the game is over.</summary>
         public void Tick(float deltaSeconds)
         {
             if (IsFinished || !float.IsFinite(deltaSeconds) || deltaSeconds <= 0f)
             {
                 return;
             }
+
+            TimeLeft = MathF.Max(0f, TimeLeft - deltaSeconds);
 
             IndicatorAngle = WrapAngle(IndicatorAngle + Direction * CurrentSpeed * deltaSeconds);
         }

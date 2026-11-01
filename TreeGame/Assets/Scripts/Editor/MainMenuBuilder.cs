@@ -12,15 +12,20 @@ namespace TreeGame.EditorTools
     /// <summary>Generates the main menu scene: one canvas with a panel per screen (main, settings, credits).</summary>
     public static class MainMenuBuilder
     {
-        [MenuItem("Tree Game/Create Main Menu Scene")]
+        [MenuItem("Tree Game/Create Main Menu Scene", false, AllScenesBuilder.SingleSceneMenuPriority)]
         private static void CreateMainMenuScene()
         {
-            const string scenePath = BuildSceneList.MainMenuPath;
-
-            if (!TryStartNewScene(scenePath, "Create Main Menu Scene", out Scene scene))
+            if (ConfirmGenerating("Create Main Menu Scene", BuildSceneList.MainMenuPath))
             {
-                return;
+                Build();
             }
+        }
+
+        /// <summary>Generates the scene without asking; callers confirm first.</summary>
+        internal static void Build()
+        {
+            const string scenePath = BuildSceneList.MainMenuPath;
+            Scene scene = StartNewScene();
 
             CreateCamera();
             CreateEventSystem();

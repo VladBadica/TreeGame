@@ -109,6 +109,13 @@ namespace TreeGame.Minigames.WellSpin
                     }
 
                     Rules.Tick(Time.deltaTime);
+
+                    // The clock can end the game without any press.
+                    if (Rules.IsFinished && Phase == WellSpinPhase.Playing)
+                    {
+                        ShowResults();
+                    }
+
                     break;
 
                 case WellSpinPhase.Results:
@@ -128,14 +135,19 @@ namespace TreeGame.Minigames.WellSpin
 
             if (Rules.IsFinished)
             {
-                // Players are often still pressing when the game ends; don't let that skip past their score.
-                resultsCanCloseTime = Time.time + settings.SecondsBeforeResultsCanClose;
-                SetPhase(WellSpinPhase.Results);
+                ShowResults();
             }
             else
             {
                 Changed?.Invoke();
             }
+        }
+
+        private void ShowResults()
+        {
+            // Players are often still pressing when the game ends; don't let that skip past their score.
+            resultsCanCloseTime = Time.time + settings.SecondsBeforeResultsCanClose;
+            SetPhase(WellSpinPhase.Results);
         }
 
         private void ShowIntro()

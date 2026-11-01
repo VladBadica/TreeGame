@@ -10,7 +10,7 @@ namespace TreeGame.Trees
     /// (settings in <see cref="GameConfig"/>), up to a maximum lying around at once. Each leaf is a copy of a
     /// pickup prefab, so how a leaf looks and what it gives is edited on the prefab, not here.
     /// </summary>
-    public class FallenLeafSpawner : MonoBehaviour
+    public class FallenLeafSpawner : MonoBehaviour, IAdvancesWithTime
     {
         [SerializeField] private TreeGrowth treeGrowth;
         [SerializeField] private GameConfig config;
@@ -24,7 +24,6 @@ namespace TreeGame.Trees
         [SerializeField] private Color darkTint = new Color(0.75f, 0.7f, 0.65f);
 
         private readonly List<ItemPickup> leavesOnGround = new List<ItemPickup>();
-        // Counted down rather than compared with the game clock, so it stops while the world is frozen for a minigame.
         private float secondsUntilNextLeaf;
 
         private void OnEnable()
@@ -38,18 +37,28 @@ namespace TreeGame.Trees
 
         private void Start()
         {
-            ScheduleNextLeaf();
+            secondsUntilNextLeaf = config.FallenLeaves.RandomSecondsBetweenLeaves();
         }
 
         private void Update()
         {
-            secondsUntilNextLeaf -= Time.deltaTime;
-            if (secondsUntilNextLeaf > 0f)
-            {
-                return;
-            }
+            Advance(Time.deltaTime);
+        }
 
-            ScheduleNextLeaf();
+        public void Advance(float seconds)
+        {
+            secondsUntilNextLeaf -= seconds;
+
+            // A loop, because catching up after a long time can mean several leaves are due at once.
+            while (secondsUntilNextLeaf <= 0f)
+            {
+                DropLeaf();
+                secondsUntilNextLeaf += config.FallenLeaves.RandomSecondsBetweenLeaves();
+            }
+        }
+
+        private void DropLeaf()
+        {
             FallenLeafSettings settings = config.FallenLeaves;
             if (treeGrowth.Growth < settings.MinGrowth)
             {
@@ -62,11 +71,6 @@ namespace TreeGame.Trees
             {
                 leavesOnGround.Add(SpawnLeaf(settings.SpreadFromTrunk));
             }
-        }
-
-        private void ScheduleNextLeaf()
-        {
-            secondsUntilNextLeaf = config.FallenLeaves.RandomSecondsBetweenLeaves();
         }
 
         private ItemPickup SpawnLeaf(float spread)

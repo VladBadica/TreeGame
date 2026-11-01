@@ -18,15 +18,20 @@ namespace TreeGame.EditorTools
     /// </summary>
     public static class PrototypeSceneBuilder
     {
-        [MenuItem("Tree Game/Create Prototype Scene")]
+        [MenuItem("Tree Game/Create Prototype Scene", false, AllScenesBuilder.SingleSceneMenuPriority)]
         private static void CreatePrototypeScene()
         {
-            const string scenePath = BuildSceneList.TreeGamePath;
-
-            if (!BuilderHelpers.TryStartNewScene(scenePath, "Create Prototype Scene", out Scene scene))
+            if (BuilderHelpers.ConfirmGenerating("Create Prototype Scene", BuildSceneList.TreeGamePath))
             {
-                return;
+                Build();
             }
+        }
+
+        /// <summary>Generates the scene without asking; callers confirm first.</summary>
+        internal static void Build()
+        {
+            const string scenePath = BuildSceneList.TreeGamePath;
+            Scene scene = BuilderHelpers.StartNewScene();
 
             // Existing assets are reused so manual tweaks to them survive regenerating the scene.
             GameConfig config = GameAssets.GetOrCreateConfig();

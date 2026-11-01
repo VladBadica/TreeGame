@@ -24,7 +24,7 @@ namespace TreeGame.World
     /// Collecting more than the bucket can hold leaves the rest in the heap. Drives the heap's
     /// <see cref="Interactable"/> prompt for each state; connects interaction and inventory at this level.
     /// </summary>
-    public class Composter : MonoBehaviour
+    public class Composter : MonoBehaviour, IAdvancesWithTime
     {
         [SerializeField] private Interactable interactable;
         [SerializeField] private GameConfig config;
@@ -36,7 +36,6 @@ namespace TreeGame.World
         [SerializeField] private string workingStatus = "Composting...";
         [SerializeField] private string collectAction = "collect";
 
-        // Counted rather than compared with the game clock, so composting stops while the world is frozen for a minigame.
         private float workSeconds;
         private float workDuration;
         private float compostGrams;
@@ -86,13 +85,18 @@ namespace TreeGame.World
 
         private void Update()
         {
+            // Scaled time, so pausing via Time.timeScale also pauses composting.
+            Advance(Time.deltaTime);
+        }
+
+        public void Advance(float seconds)
+        {
             if (State != CompostState.Working)
             {
                 return;
             }
 
-            // Scaled time, so pausing via Time.timeScale also pauses composting.
-            workSeconds += Time.deltaTime;
+            workSeconds += seconds;
             if (workSeconds >= workDuration)
             {
                 SetState(CompostState.Done);

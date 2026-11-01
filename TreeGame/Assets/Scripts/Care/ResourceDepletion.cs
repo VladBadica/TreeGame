@@ -8,7 +8,7 @@ namespace TreeGame.Care
     /// The rate comes from <see cref="GameConfig"/> as a duration, so it stays meaningful if the maximum changes.
     /// Disable the component to pause depletion.
     /// </summary>
-    public class ResourceDepletion : MonoBehaviour
+    public class ResourceDepletion : MonoBehaviour, IAdvancesWithTime
     {
         [SerializeField] private TreeResource resource;
         [SerializeField] private GameConfig config;
@@ -25,8 +25,13 @@ namespace TreeGame.Care
         private void Update()
         {
             // Scaled time, so pausing via Time.timeScale also pauses depletion.
+            Advance(Time.deltaTime);
+        }
+
+        public void Advance(float seconds)
+        {
             float secondsToEmpty = config.GetResourceSettings(resource.Type).SecondsToEmpty;
-            resource.Consume(resource.MaxAmount * Time.deltaTime / secondsToEmpty);
+            resource.Consume(resource.MaxAmount * seconds / secondsToEmpty);
         }
     }
 }

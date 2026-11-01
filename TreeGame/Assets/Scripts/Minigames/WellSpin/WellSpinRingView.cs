@@ -22,6 +22,10 @@ namespace TreeGame.Minigames.WellSpin
         [SerializeField] private TMP_Text statusLabel;
         [SerializeField] private TMP_Text hintLabel;
 
+        [Header("Timer")]
+        [SerializeField] private FillBar timerBar;
+        [SerializeField] private TMP_Text timerLabel;
+
         [Header("Press Feedback")]
         [Tooltip("Flashes the ring's track when a press is judged.")]
         [SerializeField] private ImageFlash trackFlash;
@@ -29,12 +33,14 @@ namespace TreeGame.Minigames.WellSpin
         [SerializeField] private Color missColor = new Color(0.95f, 0.3f, 0.25f);
         [SerializeField, Min(0.01f)] private float flashSeconds = 0.3f;
 
+        private int shownSecondsLeft = -1;
+
         private void OnEnable()
         {
             if (game == null || target == null || indicatorPivot == null || scoreLabel == null ||
-                statusLabel == null || hintLabel == null || trackFlash == null)
+                statusLabel == null || hintLabel == null || trackFlash == null || timerBar == null || timerLabel == null)
             {
-                Debug.LogWarning($"{nameof(WellSpinRingView)}: needs a game, target, indicator pivot, labels and a track flash.", this);
+                Debug.LogWarning($"{nameof(WellSpinRingView)}: needs a game, target, indicator pivot, labels, a track flash and a timer.", this);
                 enabled = false;
                 return;
             }
@@ -58,7 +64,22 @@ namespace TreeGame.Minigames.WellSpin
             if (game.Rules != null)
             {
                 indicatorPivot.localRotation = ClockwiseRotation(game.Rules.IndicatorAngle);
+                ShowTimer(game.Rules);
             }
+        }
+
+        /// <summary>Moves in whole seconds, so the bar and the number always agree.</summary>
+        private void ShowTimer(WellSpinRules rules)
+        {
+            int secondsLeft = Mathf.CeilToInt(rules.TimeLeft);
+            if (secondsLeft == shownSecondsLeft)
+            {
+                return;
+            }
+
+            shownSecondsLeft = secondsLeft;
+            timerLabel.text = $"{secondsLeft}s";
+            timerBar.SetFill(secondsLeft / rules.TimeLimit);
         }
 
         private void ShowFeedback(WellSpinPress result)
@@ -105,7 +126,12 @@ namespace TreeGame.Minigames.WellSpin
                 return "Perfect!";
             }
 
-            return rules.Misses >= rules.MaxMisses ? "Too many misses" : "Well done!";
+            if (rules.Misses >= rules.MaxMisses)
+            {
+                return "Too many misses";
+            }
+
+            return rules.IsOutOfTime ? "Time's up!" : "Well done!";
         }
 
         // Game angles increase clockwise, while a positive UI rotation turns counterclockwise.

@@ -17,6 +17,8 @@ namespace TreeGame.Minigames.WellSpin
         [SerializeField, Min(1)] private int maxTries = Defaults.MaxTries;
         [Tooltip("A game also ends early once this many presses have missed.")]
         [SerializeField, Min(1)] private int maxMisses = Defaults.MaxMisses;
+        [Tooltip("A game also ends once this many seconds of play have passed.")]
+        [SerializeField, Min(1f)] private float timeLimitSeconds = Defaults.TimeLimitSeconds;
 
         [Header("Speed")]
         [Tooltip("The indicator's starting speed, in degrees per second. 360 is one full turn per second.")]
@@ -44,6 +46,7 @@ namespace TreeGame.Minigames.WellSpin
             {
                 MaxTries = maxTries,
                 MaxMisses = maxMisses,
+                TimeLimitSeconds = timeLimitSeconds,
                 DegreesPerSecond = degreesPerSecond,
                 SpeedUpAfterHits = speedUpAfterHits,
                 SpeedUpMultiplier = speedUpMultiplier,

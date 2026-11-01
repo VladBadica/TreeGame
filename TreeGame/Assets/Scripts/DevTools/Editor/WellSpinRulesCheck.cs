@@ -29,6 +29,7 @@ namespace TreeGame.DevTools
             CheckNewTargetsKeepTheirDistance(failures);
             CheckEndsAfterMaxTries(failures);
             CheckEndsAfterMaxMisses(failures);
+            CheckEndsWhenTimeRunsOut(failures);
             CheckSpeedUps(failures);
             CheckBadTimeIsIgnored(failures);
             CheckSameSeedPlaysTheSame(failures);
@@ -267,6 +268,44 @@ namespace TreeGame.DevTools
             Expect(failures, game.Tries == 4, $"this game should have ended after 4 tries, got {game.Tries}");
         }
 
+        private static void CheckEndsWhenTimeRunsOut(List<string> failures)
+        {
+            WellSpinRules game = NewGame();
+            Expect(failures, Near(game.TimeLeft, 30f), $"a game should start with 30 seconds, got {game.TimeLeft}");
+
+            game.Tick(10f);
+            Expect(failures, Near(game.TimeLeft, 20f), $"10 seconds of play should leave 20, got {game.TimeLeft}");
+
+            game = NewGame();
+            for (int i = 0; i < 299; i++)
+            {
+                game.Tick(0.1f);
+            }
+
+            Expect(failures, !game.IsFinished, "the game should still run just before the time limit");
+            game.Tick(0.2f);
+            Expect(failures, game.IsFinished && game.IsOutOfTime, "the game should end when the time limit is reached");
+            Expect(failures, game.TimeLeft == 0f, $"the time left should stop at 0, got {game.TimeLeft}");
+            Expect(failures, game.Tries == 0, "running out of time should not count as a try");
+
+            float angle = game.IndicatorAngle;
+            game.Tick(1f);
+            Expect(failures, game.IndicatorAngle == angle, "the indicator should stop when time runs out");
+            Expect(failures, game.Press() == WellSpinPress.Ignored, "a press after time runs out should be ignored");
+
+            // Pressing doesn't use up time, and hits and misses don't refill it.
+            game = NewGame();
+            TickUntil(game, insideTarget: true);
+            float timeLeft = game.TimeLeft;
+            game.Press();
+            Expect(failures, game.TimeLeft == timeLeft, "a press should not change the time left");
+
+            // A custom limit is respected.
+            game = NewGame(tuning: new WellSpinTuning { TimeLimitSeconds = 5f });
+            game.Tick(5f);
+            Expect(failures, game.IsOutOfTime, "a 5 second limit should end the game after 5 seconds");
+        }
+
         private static void CheckSpeedUps(List<string> failures)
         {
             var tuning = new WellSpinTuning();
@@ -332,6 +371,7 @@ namespace TreeGame.DevTools
         {
             ExpectRejected(failures, new WellSpinTuning { MaxTries = 0 }, "zero tries");
             ExpectRejected(failures, new WellSpinTuning { MaxMisses = 0 }, "zero misses");
+            ExpectRejected(failures, new WellSpinTuning { TimeLimitSeconds = 0f }, "no time");
             ExpectRejected(failures, new WellSpinTuning { DegreesPerSecond = 0f }, "zero speed");
             ExpectRejected(failures, new WellSpinTuning { DegreesPerSecond = float.NaN }, "NaN speed");
             ExpectRejected(failures, new WellSpinTuning { TargetWidth = 0f }, "zero target width");

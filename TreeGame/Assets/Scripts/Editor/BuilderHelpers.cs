@@ -1,4 +1,5 @@
 using System.IO;
+using System.Linq;
 using TreeGame.Interaction;
 using UnityEditor;
 using UnityEditor.SceneManagement;
@@ -54,27 +55,43 @@ namespace TreeGame.EditorTools
         }
 
         /// <summary>
-        /// Starts generating a scene: asks before replacing an existing one and offers to save open changes, then
-        /// opens an empty scene. Returns false if the user cancelled. Opening a scene unloads unused assets, so
-        /// callers must load or create assets after this; otherwise fresh ones are gone by the time they are assigned.
+        /// Asks once before generating scenes: confirms replacing any that already exist and offers to save open
+        /// changes. Returns false if the user cancelled.
         /// </summary>
-        public static bool TryStartNewScene(string scenePath, string dialogTitle, out Scene scene)
+        public static bool ConfirmGenerating(string dialogTitle, params string[] scenePaths)
         {
-            scene = default;
-
-            if (AssetDatabase.LoadAssetAtPath<SceneAsset>(scenePath) != null &&
-                !EditorUtility.DisplayDialog(dialogTitle, $"{scenePath} already exists. Replace it?", "Replace", "Cancel"))
+            // New code isn't in use until compiling and reloading finish. Generating before that runs the old builder,
+            // producing scenes that don't match the new code.
+            if (EditorApplication.isCompiling || EditorApplication.isUpdating)
             {
+                EditorUtility.DisplayDialog(dialogTitle, "Unity is still compiling. Wait for it to finish, then try again.", "OK");
                 return false;
             }
 
-            if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo())
+            string[] existing = scenePaths
+                .Where(path => AssetDatabase.LoadAssetAtPath<SceneAsset>(path) != null)
+                .ToArray();
+
+            if (existing.Length > 0)
             {
-                return false;
+                string message = $"This replaces:\n{string.Join("\n", existing)}\n\nChanges made by hand in these scenes are lost. " +
+                                 "Settings, items and materials are kept.";
+                if (!EditorUtility.DisplayDialog(dialogTitle, message, "Replace", "Cancel"))
+                {
+                    return false;
+                }
             }
 
-            scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
-            return true;
+            return EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo();
+        }
+
+        /// <summary>
+        /// Opens an empty scene to generate into. Opening a scene unloads unused assets, so callers must load or
+        /// create assets after this; otherwise fresh ones are gone by the time they are assigned.
+        /// </summary>
+        public static Scene StartNewScene()
+        {
+            return EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
         }
 
         /// <summary>Saves a generated scene and makes sure it is in the build.</summary>

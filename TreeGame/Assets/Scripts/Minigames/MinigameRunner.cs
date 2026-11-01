@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using TreeGame.Core;
 using TreeGame.UI;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -9,8 +10,10 @@ namespace TreeGame.Minigames
 {
     /// <summary>
     /// Plays a minigame on top of the current scene. It fades out, loads the minigame's scene additively and switches
-    /// off everything else in the current scene meanwhile, which freezes the world and takes its camera, HUD and input
-    /// out of the way without losing any state. It has to sit on its own root object, so it stays on itself.
+    /// off everything else in the current scene meanwhile, which takes the world's objects, camera, HUD and input out
+    /// of the way without losing any state. When it comes back, everything that changes with time catches up on the
+    /// time that passed, so from the player's view the world kept running. It has to sit on its own root object, so
+    /// it stays on itself.
     /// </summary>
     public class MinigameRunner : MonoBehaviour
     {
@@ -57,7 +60,8 @@ namespace TreeGame.Minigames
             yield return screenFade.FadeTo(Covered, fadeSeconds);
 
             Scene world = gameObject.scene;
-            List<GameObject> frozen = FreezeWorld(world);
+            List<GameObject> switchedOff = SwitchOffWorld(world);
+            float switchedOffAt = Time.time;
 
             yield return SceneManager.LoadSceneAsync(sceneName, LoadSceneMode.Additive);
             Scene minigameScene = SceneManager.GetSceneByName(sceneName);
@@ -91,7 +95,10 @@ namespace TreeGame.Minigames
             SceneManager.SetActiveScene(world);
             yield return SceneManager.UnloadSceneAsync(minigameScene);
 
-            foreach (GameObject root in frozen)
+            // Before switching back on, so the world never shows its old state, not even for a frame.
+            CatchUp(switchedOff, Time.time - switchedOffAt);
+
+            foreach (GameObject root in switchedOff)
             {
                 root.SetActive(true);
             }
@@ -104,19 +111,34 @@ namespace TreeGame.Minigames
         }
 
         /// <summary>Switches off the scene's root objects, returning those that were on so only they come back.</summary>
-        private List<GameObject> FreezeWorld(Scene world)
+        private List<GameObject> SwitchOffWorld(Scene world)
         {
-            var frozen = new List<GameObject>();
+            var switchedOff = new List<GameObject>();
             foreach (GameObject root in world.GetRootGameObjects())
             {
                 if (root != gameObject && root.activeSelf)
                 {
                     root.SetActive(false);
-                    frozen.Add(root);
+                    switchedOff.Add(root);
                 }
             }
 
-            return frozen;
+            return switchedOff;
+        }
+
+        private static void CatchUp(List<GameObject> roots, float seconds)
+        {
+            foreach (GameObject root in roots)
+            {
+                foreach (IAdvancesWithTime component in root.GetComponentsInChildren<IAdvancesWithTime>(true))
+                {
+                    // A component switched off on purpose (e.g. to pause growth) stays paused.
+                    if (component is Behaviour { enabled: true })
+                    {
+                        component.Advance(seconds);
+                    }
+                }
+            }
         }
 
         private static Minigame FindMinigame(Scene scene)
