@@ -16,6 +16,7 @@ namespace TreeGame.EditorTools
         private const string WaterBucketIconPath = ArtFolder + "/WaterBucketIcon.png";
         private const string CompostBucketIconPath = ArtFolder + "/CompostBucketIcon.png";
         private const string BrownLeafPath = ArtFolder + "/BrownLeaf.png";
+        private const string RingPath = ArtFolder + "/Ring.png";
         private const float PixelsPerUnit = 100f;
 
         // The camera is orthographic, so depth has to be painted in. The fence is drawn in one-point perspective:
@@ -198,6 +199,43 @@ namespace TreeGame.EditorTools
             }
 
             SaveSprite(BrownLeafPath, width, height, pixels, new Vector2(0.5f, 0f), pixelsPerUnit: 160f);
+        }
+
+        /// <summary>
+        /// A flat white ring with smooth edges, tinted by whatever displays it. The band's inner edge is at
+        /// <paramref name="innerRadiusRatio"/> of the outer radius.
+        /// </summary>
+        public static Sprite GetOrCreateRingSprite(float innerRadiusRatio)
+        {
+            if (!File.Exists(RingPath))
+            {
+                PaintRing(innerRadiusRatio);
+            }
+
+            return AssetDatabase.LoadAssetAtPath<Sprite>(RingPath);
+        }
+
+        private static void PaintRing(float innerRadiusRatio)
+        {
+            const int size = 1024;
+            const float center = size / 2f;
+            const float outerRadius = center - 2f; // Leaves a transparent margin, so the edge stays smooth.
+            float innerRadius = outerRadius * innerRadiusRatio;
+
+            var pixels = new Color32[size * size];
+            for (int y = 0; y < size; y++)
+            {
+                for (int x = 0; x < size; x++)
+                {
+                    float distance = Vector2.Distance(new Vector2(x + 0.5f, y + 0.5f), new Vector2(center, center));
+
+                    // Fades over one pixel at each edge, which smooths the circle.
+                    float coverage = Mathf.Clamp01(outerRadius - distance) * Mathf.Clamp01(distance - innerRadius);
+                    pixels[y * size + x] = new Color32(255, 255, 255, (byte)(coverage * 255f));
+                }
+            }
+
+            SaveSprite(RingPath, size, size, pixels, new Vector2(0.5f, 0.5f));
         }
 
         /// <summary>True for pixels inside a shape but within <paramref name="distance"/> of its edge, used for outlines.</summary>

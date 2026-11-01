@@ -122,9 +122,9 @@ namespace TreeGame.EditorTools
         }
 
         /// <summary>Finds the reference asset Unity generates for an action inside the project's input actions.</summary>
-        public static InputActionReference FindActionReference(string mapName, string actionName)
+        public static InputActionReference FindActionReference(string mapName, string actionName, string assetPath = InputActionsPath)
         {
-            foreach (Object asset in AssetDatabase.LoadAllAssetsAtPath(InputActionsPath))
+            foreach (Object asset in AssetDatabase.LoadAllAssetsAtPath(assetPath))
             {
                 if (asset is InputActionReference reference && reference.action != null &&
                     reference.action.name == actionName && reference.action.actionMap.name == mapName)
@@ -133,7 +133,7 @@ namespace TreeGame.EditorTools
                 }
             }
 
-            Debug.LogError($"No '{mapName}/{actionName}' action found in {InputActionsPath}.");
+            Debug.LogError($"No '{mapName}/{actionName}' action found in {assetPath}.");
             return null;
         }
 
