@@ -132,7 +132,7 @@ namespace TreeGame.EditorTools
             camera.orthographicSize = CameraOrthographicSize;
             camera.clearFlags = CameraClearFlags.SolidColor;
             camera.backgroundColor = SceneLayout.SkyColor;
-            // No AudioListener: the game scene's stays on during minigames, and a scene may only have one.
+            go.AddComponent<AudioListener>();
         }
 
         private static void CreateRingUI(Transform canvas, WellSpinGame game, Sprite ringSprite, Sprite discSprite)

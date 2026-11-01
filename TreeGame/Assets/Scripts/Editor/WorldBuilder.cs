@@ -48,7 +48,8 @@ namespace TreeGame.EditorTools
             camera.nearClipPlane = 0.3f;
             camera.farClipPlane = 100f;
 
-            // No AudioListener here: it stays on with the background music, while this camera switches off for minigames.
+            go.AddComponent<AudioListener>();
+
             SetReferences(go.AddComponent<CameraFollow>(), ("target", followTarget));
             return go.transform;
         }

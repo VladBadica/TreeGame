@@ -18,7 +18,13 @@ namespace TreeGame.EditorTools
             "Alexandr Zhelanov, https://soundcloud.com/alexandr-zhelanov\n" +
             "https://opengameart.org/content/path-to-lake-land\n" +
             "Licensed under CC BY 3.0\n" +
-            "https://creativecommons.org/licenses/by/3.0/";
+            "https://creativecommons.org/licenses/by/3.0/\n" +
+            "\n" +
+            "Music: \"Menu/Town Music\"\n" +
+            "Gigawowski, https://opengameart.org/users/gigawowski\n" +
+            "https://opengameart.org/content/menutown-music\n" +
+            "Licensed under CC BY 4.0\n" +
+            "https://creativecommons.org/licenses/by/4.0/";
 
         [MenuItem("Tree Game/Create Main Menu Scene", false, AllScenesBuilder.SingleSceneMenuPriority)]
         private static void CreateMainMenuScene()
@@ -36,6 +42,7 @@ namespace TreeGame.EditorTools
             Scene scene = StartNewScene();
 
             CreateCamera();
+            MusicBuilder.CreateMenuMusic();
             CreateEventSystem();
             Transform canvas = CreateCanvas("Menu", 0);
             CreateScreens(canvas);
@@ -66,8 +73,7 @@ namespace TreeGame.EditorTools
             Button quit = CreateMenuButton(resources, mainPanel.transform, "Quit");
 
             GameObject settingsPanel = CreateSettingsPanel(canvas);
-            GameObject creditsPanel = CreateInfoPanel(canvas, "Credits Panel", "Credits", CreditsText,
-                height: 420f, bodyFontSize: 20f, bodyHeight: 200f);
+            GameObject creditsPanel = CreateTextPagePanel(canvas, "Credits Panel", "Credits", CreditsText);
             Button settingsBack = CreateMenuButton(resources, settingsPanel.transform, "Back");
             Button creditsBack = CreateMenuButton(resources, creditsPanel.transform, "Back");
 

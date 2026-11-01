@@ -11,6 +11,15 @@ Every asset in the game that wasn't made for this project, with what its license
 - **Changes:** none
 - **In the game:** credited on the Credits screen
 
+## Music: Menu/Town Music
+
+- **File:** `Assets/Audio/Music/Menu_Town.mp3`
+- **Author:** Gigawowski, https://opengameart.org/users/gigawowski
+- **Source:** https://opengameart.org/content/menutown-music
+- **License:** CC BY 4.0, https://creativecommons.org/licenses/by/4.0/
+- **Changes:** none
+- **In the game:** credited on the Credits screen
+
 ## Font: Liberation Sans
 
 - **File:** `Assets/TextMesh Pro/Fonts/LiberationSans.ttf`, via TextMesh Pro's essential resources

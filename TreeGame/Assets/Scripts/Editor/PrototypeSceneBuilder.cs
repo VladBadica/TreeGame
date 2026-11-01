@@ -54,7 +54,7 @@ namespace TreeGame.EditorTools
             WorldBuilder.CreateGround(ground);
             WorldBuilder.CreateFences(fenceNear, fenceFar);
             MinigameRunner minigameRunner = CreateMinigameRunner();
-            MusicBuilder.CreateBackgroundMusic(minigameRunner.transform);
+            MusicBuilder.CreateGameMusic();
             WaterWell well = StationBuilder.CreateWell(config, minigameRunner, wellMinigame);
             StationBuilder.CreateCompostHeap(config, brownLeaves);
             GameObject tree = TreeBuilder.CreateTree(config, bark, leaves);

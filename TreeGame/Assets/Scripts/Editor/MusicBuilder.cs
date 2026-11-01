@@ -3,35 +3,44 @@ using UnityEngine;
 
 namespace TreeGame.EditorTools
 {
-    /// <summary>Adds the game's background music to a scene. Its credit is in MainMenuBuilder and THIRD_PARTY_NOTICES.md.</summary>
+    /// <summary>Adds looping music to a scene. Each track's credit is in MainMenuBuilder and THIRD_PARTY_NOTICES.md.</summary>
     internal static class MusicBuilder
     {
-        private const string BackgroundMusicPath = "Assets/Audio/Music/Path to Lake Land.ogg";
-        private const float BackgroundMusicVolume = 0.5f;
+        private const string GameMusicPath = "Assets/Audio/Music/Path to Lake Land.ogg";
+        private const string MenuMusicPath = "Assets/Audio/Music/Menu_Town.mp3";
+        private const float MusicVolume = 0.5f;
 
         /// <summary>
-        /// Puts the music under an object that stays on during minigames, so it keeps playing through them. The scene's
-        /// listener goes with it, because a listener on the camera would switch off with the world and cut the music
-        /// while the minigame's scene loads.
+        /// On its own root object, so the minigame runner switches it off with the rest of the world: minigames are
+        /// silent for now, until they get music of their own.
         /// </summary>
-        public static void CreateBackgroundMusic(Transform parent)
+        public static void CreateGameMusic()
         {
-            AudioClip clip = LoadStreamedClip(BackgroundMusicPath);
+            CreateMusic("Game Music", GameMusicPath);
+        }
+
+        public static void CreateMenuMusic()
+        {
+            CreateMusic("Menu Music", MenuMusicPath);
+        }
+
+        private static void CreateMusic(string objectName, string clipPath)
+        {
+            AudioClip clip = LoadStreamedClip(clipPath);
             if (clip == null)
             {
-                Debug.LogError($"No music found at {BackgroundMusicPath}; the scene will be silent.");
+                Debug.LogError($"No music found at {clipPath}; the scene will be silent.");
             }
 
-            var music = new GameObject("Background Music", typeof(AudioSource), typeof(AudioListener));
-            music.transform.SetParent(parent, false);
+            var music = new GameObject(objectName, typeof(AudioSource));
             var source = music.GetComponent<AudioSource>();
             source.clip = clip;
-            source.volume = BackgroundMusicVolume;
+            source.volume = MusicVolume;
             source.loop = true;
             source.playOnAwake = true;
         }
 
-        /// <summary>Streaming reads a long track from disk as it plays, instead of holding all of it in memory.</summary>
+        /// <summary>Streaming reads a track from disk as it plays, instead of holding all of it in memory.</summary>
         private static AudioClip LoadStreamedClip(string path)
         {
             if (AssetImporter.GetAtPath(path) is AudioImporter importer &&
