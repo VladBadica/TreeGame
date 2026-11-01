@@ -17,6 +17,7 @@ namespace TreeGame.EditorTools
         private const string CompostBucketIconPath = ArtFolder + "/CompostBucketIcon.png";
         private const string BrownLeafPath = ArtFolder + "/BrownLeaf.png";
         private const string RingPath = ArtFolder + "/Ring.png";
+        private const string DiscPath = ArtFolder + "/Disc.png";
         private const float PixelsPerUnit = 100f;
 
         // The camera is orthographic, so depth has to be painted in. The fence is drawn in one-point perspective:
@@ -209,18 +210,31 @@ namespace TreeGame.EditorTools
         {
             if (!File.Exists(RingPath))
             {
-                PaintRing(innerRadiusRatio);
+                PaintRing(RingPath, innerRadiusRatio);
             }
 
             return AssetDatabase.LoadAssetAtPath<Sprite>(RingPath);
         }
 
-        private static void PaintRing(float innerRadiusRatio)
+        /// <summary>A flat white circle with a smooth edge, tinted by whatever displays it.</summary>
+        public static Sprite GetOrCreateDiscSprite()
+        {
+            if (!File.Exists(DiscPath))
+            {
+                PaintRing(DiscPath, innerRadiusRatio: 0f);
+            }
+
+            return AssetDatabase.LoadAssetAtPath<Sprite>(DiscPath);
+        }
+
+        private static void PaintRing(string path, float innerRadiusRatio)
         {
             const int size = 1024;
             const float center = size / 2f;
             const float outerRadius = center - 2f; // Leaves a transparent margin, so the edge stays smooth.
-            float innerRadius = outerRadius * innerRadiusRatio;
+
+            // A ratio of 0 means no hole; going below 0 keeps the very center fully solid too.
+            float innerRadius = innerRadiusRatio > 0f ? outerRadius * innerRadiusRatio : -1f;
 
             var pixels = new Color32[size * size];
             for (int y = 0; y < size; y++)
@@ -235,7 +249,7 @@ namespace TreeGame.EditorTools
                 }
             }
 
-            SaveSprite(RingPath, size, size, pixels, new Vector2(0.5f, 0.5f));
+            SaveSprite(path, size, size, pixels, new Vector2(0.5f, 0.5f));
         }
 
         /// <summary>True for pixels inside a shape but within <paramref name="distance"/> of its edge, used for outlines.</summary>

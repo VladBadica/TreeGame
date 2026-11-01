@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using TreeGame.Minigames;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.UI;
@@ -21,6 +22,8 @@ namespace TreeGame.Menus
         [SerializeField] private Button resumeButton;
         [Tooltip("Components that take player input, switched off while paused.")]
         [SerializeField] private Behaviour[] gameplayInput = new Behaviour[0];
+        [Tooltip("Pausing is ignored while this plays a minigame.")]
+        [SerializeField] private MinigameRunner minigameRunner;
 
         private readonly List<Behaviour> switchedOff = new List<Behaviour>();
         private bool isPaused;
@@ -61,6 +64,12 @@ namespace TreeGame.Menus
         private void Update()
         {
             if (!pauseAction.action.WasPressedThisFrame())
+            {
+                return;
+            }
+
+            // During the fades the world is still on, but pausing then would freeze it with no way to resume.
+            if (minigameRunner != null && minigameRunner.IsRunning)
             {
                 return;
             }

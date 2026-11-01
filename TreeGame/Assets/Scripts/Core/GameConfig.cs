@@ -36,7 +36,8 @@ namespace TreeGame.Core
         [SerializeField] private ItemDefinition[] startingItems = new ItemDefinition[0];
 
         [Header("Well")]
-        [Tooltip("How much water one use of the well adds to a bucket, as a fraction of the bucket's capacity.")]
+        [Tooltip("How much water a perfect minigame at the well adds to a bucket, as a fraction of the bucket's capacity. " +
+                 "Lower scores add proportionally less.")]
         [SerializeField, Range(0f, 1f)] private float wellFillPerUse = 0.1f;
 
         [Header("Composter")]

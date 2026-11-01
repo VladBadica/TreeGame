@@ -1,6 +1,7 @@
 using TreeGame.Interaction;
 using TreeGame.Items;
 using TreeGame.Menus;
+using TreeGame.Minigames;
 using TreeGame.Player;
 using UnityEngine;
 using UnityEngine.UI;
@@ -16,7 +17,7 @@ namespace TreeGame.EditorTools
         // Above the HUD and the debug panel, so the background blocks clicks on both.
         private const int CanvasSortingOrder = 200;
 
-        public static void CreatePauseMenu(Transform player)
+        public static void CreatePauseMenu(Transform player, MinigameRunner minigameRunner)
         {
             DefaultControls.Resources resources = GetUIResources();
             Transform canvas = CreateCanvas("Pause Menu", CanvasSortingOrder);
@@ -54,7 +55,8 @@ namespace TreeGame.EditorTools
                 ("panels", panels),
                 ("mainPanel", mainPanel),
                 ("background", background),
-                ("resumeButton", resume));
+                ("resumeButton", resume),
+                ("minigameRunner", minigameRunner));
             SetReferenceArray(pauseMenu, "gameplayInput",
                 player.GetComponent<PlayerMovement>(),
                 player.GetComponent<Interactor>(),

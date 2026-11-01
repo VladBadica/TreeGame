@@ -24,7 +24,8 @@ namespace TreeGame.Trees
         [SerializeField] private Color darkTint = new Color(0.75f, 0.7f, 0.65f);
 
         private readonly List<ItemPickup> leavesOnGround = new List<ItemPickup>();
-        private float nextLeafTime;
+        // Counted down rather than compared with the game clock, so it stops while the world is frozen for a minigame.
+        private float secondsUntilNextLeaf;
 
         private void OnEnable()
         {
@@ -32,15 +33,18 @@ namespace TreeGame.Trees
             {
                 Debug.LogWarning($"{nameof(FallenLeafSpawner)}: needs a {nameof(TreeGrowth)}, a {nameof(GameConfig)} and a leaf prefab.", this);
                 enabled = false;
-                return;
             }
+        }
 
+        private void Start()
+        {
             ScheduleNextLeaf();
         }
 
         private void Update()
         {
-            if (Time.time < nextLeafTime)
+            secondsUntilNextLeaf -= Time.deltaTime;
+            if (secondsUntilNextLeaf > 0f)
             {
                 return;
             }
@@ -62,7 +66,7 @@ namespace TreeGame.Trees
 
         private void ScheduleNextLeaf()
         {
-            nextLeafTime = Time.time + config.FallenLeaves.RandomSecondsBetweenLeaves();
+            secondsUntilNextLeaf = config.FallenLeaves.RandomSecondsBetweenLeaves();
         }
 
         private ItemPickup SpawnLeaf(float spread)

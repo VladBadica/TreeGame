@@ -157,7 +157,7 @@ namespace TreeGame.EditorTools
 
             var slotView = slot.AddComponent<InventorySlotView>();
             SetReferences(slotView,
-                ("background", background),
+                ("backgroundFlash", slot.AddComponent<ImageFlash>()),
                 ("icon", icon),
                 ("keyLabel", keyLabel),
                 ("displayTextLabel", displayTextLabel));

@@ -1,4 +1,5 @@
 using TMPro;
+using TreeGame.UI;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -29,6 +30,25 @@ namespace TreeGame.EditorTools
             scaler.matchWidthOrHeight = 0.5f;
 
             return canvasGo.transform;
+        }
+
+        /// <summary>A full-screen black fade above all other UI, starting clear.</summary>
+        public static ScreenFade CreateScreenFade(Transform parent)
+        {
+            const int sortingOrder = 1000;
+
+            Transform canvas = CreateCanvas("Screen Fade", sortingOrder);
+            canvas.SetParent(parent, false);
+
+            var cover = new GameObject("Cover", typeof(RectTransform), typeof(Image));
+            StretchInParent(cover, canvas);
+            var image = cover.GetComponent<Image>();
+            image.color = new Color(0f, 0f, 0f, 0f);
+            image.enabled = false; // Off while clear, so it doesn't block clicks.
+
+            var fade = canvas.gameObject.AddComponent<ScreenFade>();
+            BuilderHelpers.SetReferences(fade, ("image", image));
+            return fade;
         }
 
         /// <summary>Semi-transparent, vertically stacking panel anchored to a screen corner.</summary>

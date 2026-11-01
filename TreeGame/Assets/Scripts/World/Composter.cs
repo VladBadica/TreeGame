@@ -36,8 +36,9 @@ namespace TreeGame.World
         [SerializeField] private string workingStatus = "Composting...";
         [SerializeField] private string collectAction = "collect";
 
-        private float workStartTime;
-        private float readyTime;
+        // Counted rather than compared with the game clock, so composting stops while the world is frozen for a minigame.
+        private float workSeconds;
+        private float workDuration;
         private float compostGrams;
 
         /// <summary>Raised with the new state whenever it changes, e.g. so visuals can react.</summary>
@@ -53,8 +54,7 @@ namespace TreeGame.World
                 switch (State)
                 {
                     case CompostState.Working:
-                        float duration = readyTime - workStartTime;
-                        return duration > 0f ? Mathf.Clamp01((Time.time - workStartTime) / duration) : 1f;
+                        return workDuration > 0f ? Mathf.Clamp01(workSeconds / workDuration) : 1f;
                     case CompostState.Done:
                         return 1f;
                     default:
@@ -86,8 +86,14 @@ namespace TreeGame.World
 
         private void Update()
         {
+            if (State != CompostState.Working)
+            {
+                return;
+            }
+
             // Scaled time, so pausing via Time.timeScale also pauses composting.
-            if (State == CompostState.Working && Time.time >= readyTime)
+            workSeconds += Time.deltaTime;
+            if (workSeconds >= workDuration)
             {
                 SetState(CompostState.Done);
             }
@@ -121,8 +127,8 @@ namespace TreeGame.World
             }
 
             compostGrams = leaves * config.CompostGramsPerLeaf;
-            workStartTime = Time.time;
-            readyTime = workStartTime + config.SecondsToCompost;
+            workSeconds = 0f;
+            workDuration = config.SecondsToCompost;
             SetState(CompostState.Working);
         }
 

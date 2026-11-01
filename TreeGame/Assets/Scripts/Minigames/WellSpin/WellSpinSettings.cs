@@ -32,6 +32,12 @@ namespace TreeGame.Minigames.WellSpin
         [Tooltip("The least distance between the indicator and the edge of a new target, in degrees.")]
         [SerializeField, Range(0f, 90f)] private float minTargetGap = Defaults.MinTargetGap;
 
+        [Header("Flow")]
+        [Tooltip("How long the results ignore the press key, so a press just after the game ends can't skip them.")]
+        [SerializeField, Min(0f)] private float secondsBeforeResultsCanClose = 0.5f;
+
+        public float SecondsBeforeResultsCanClose => secondsBeforeResultsCanClose;
+
         public WellSpinTuning ToTuning()
         {
             return new WellSpinTuning

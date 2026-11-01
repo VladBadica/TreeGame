@@ -1,6 +1,7 @@
 using TreeGame.Core;
 using TreeGame.Interaction;
 using TreeGame.Items;
+using TreeGame.Minigames;
 using TreeGame.UI;
 using TreeGame.World;
 using UnityEngine;
@@ -75,17 +76,38 @@ namespace TreeGame.EditorTools
                 ("barRoot", canvasObject));
         }
 
-        /// <summary>Placeholder well built from boxes, about 2.2 units tall with its base at ground level.</summary>
-        public static void CreateWell(GameConfig config)
+        /// <summary>The well in the game scene: its model plus the zone where the player can use it.</summary>
+        public static WaterWell CreateWell(GameConfig config, MinigameRunner minigameRunner, MinigameDefinition minigame)
+        {
+            var well = new GameObject("Well").transform;
+            well.position = WellPosition;
+
+            CreateWellModel(well);
+
+            // As wide as the well's base, so the prompt appears once the player reaches the well's edge
+            // (the player's own trigger capsule, radius 0.3, adds to this), leaving room for other interactables.
+            Interactable interactable = CreateInteractionZone(well, width: 1.2f, promptHeight: 2.5f, "get water");
+            // The inventory is assigned once the player exists; see CreatePrototypeScene.
+            var waterWell = well.gameObject.AddComponent<WaterWell>();
+            SetReferences(waterWell,
+                ("interactable", interactable),
+                ("config", config),
+                ("minigameRunner", minigameRunner),
+                ("minigame", minigame));
+            return waterWell;
+        }
+
+        /// <summary>
+        /// The look of the well, shared by the game scene and the Well Spin minigame: placeholder boxes, about
+        /// 2.2 units tall with the base at the parent's origin. The front faces the camera in both.
+        /// </summary>
+        public static void CreateWellModel(Transform well)
         {
             Material stone = GetOrCreateMaterial("Well Stone", new Color(0.62f, 0.6f, 0.58f));
             Material rim = GetOrCreateMaterial("Well Rim", new Color(0.5f, 0.48f, 0.47f));
             Material wood = GetOrCreateMaterial("Well Wood", new Color(0.55f, 0.38f, 0.24f));
             Material roof = GetOrCreateMaterial("Well Roof", new Color(0.66f, 0.3f, 0.24f));
             Material rope = GetOrCreateMaterial("Well Rope", new Color(0.85f, 0.76f, 0.56f));
-
-            var well = new GameObject("Well").transform;
-            well.position = WellPosition;
 
             // Cube primitives are 1 unit, so scale is size and position is the box's center.
             CreatePart(PrimitiveType.Cube, "Base", well, new Vector3(0f, 0.35f, 0f), new Vector3(1.2f, 0.7f, 0.8f), stone);
@@ -107,13 +129,6 @@ namespace TreeGame.EditorTools
             Transform rightRoof = CreatePart(PrimitiveType.Cube, "Right Roof", well,
                 new Vector3(0.33f, 1.92f, 0f), new Vector3(0.8f, 0.06f, 1f), roof);
             rightRoof.localRotation = Quaternion.Euler(0f, 0f, -roofPitch);
-
-            // As wide as the well's base, so the prompt appears once the player reaches the well's edge
-            // (the player's own trigger capsule, radius 0.3, adds to this), leaving room for other interactables.
-            Interactable interactable = CreateInteractionZone(well, width: 1.2f, promptHeight: 2.5f, "get water");
-            SetReferences(well.gameObject.AddComponent<WaterWell>(),
-                ("interactable", interactable),
-                ("config", config));
         }
     }
 }
