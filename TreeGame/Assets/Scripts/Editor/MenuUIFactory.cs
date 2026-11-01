@@ -32,12 +32,13 @@ namespace TreeGame.EditorTools
         }
 
         /// <summary>A screen with a title and a block of text, ready for its buttons.</summary>
-        public static GameObject CreateInfoPanel(Transform canvas, string objectName, string title, string body, float height = 320f)
+        public static GameObject CreateInfoPanel(Transform canvas, string objectName, string title, string body, float height = 320f,
+            float bodyFontSize = 26f, float bodyHeight = 120f)
         {
             GameObject panel = CreateScreenPanel(canvas, objectName, title, height);
 
-            TMP_Text bodyLabel = CreateText("Body", 26f, Color.white, TextAlignmentOptions.Center);
-            AddToLayout(bodyLabel.gameObject, panel.transform, 120f);
+            TMP_Text bodyLabel = CreateText("Body", bodyFontSize, Color.white, TextAlignmentOptions.Center);
+            AddToLayout(bodyLabel.gameObject, panel.transform, bodyHeight);
             bodyLabel.text = body;
 
             return panel;

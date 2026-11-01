@@ -12,6 +12,14 @@ namespace TreeGame.EditorTools
     /// <summary>Generates the main menu scene: one canvas with a panel per screen (main, settings, credits).</summary>
     public static class MainMenuBuilder
     {
+        // Required by the music's license. Keep in step with THIRD_PARTY_NOTICES.md.
+        private const string CreditsText =
+            "Music: \"Path to Lake Land\"\n" +
+            "Alexandr Zhelanov, https://soundcloud.com/alexandr-zhelanov\n" +
+            "https://opengameart.org/content/path-to-lake-land\n" +
+            "Licensed under CC BY 3.0\n" +
+            "https://creativecommons.org/licenses/by/3.0/";
+
         [MenuItem("Tree Game/Create Main Menu Scene", false, AllScenesBuilder.SingleSceneMenuPriority)]
         private static void CreateMainMenuScene()
         {
@@ -58,8 +66,8 @@ namespace TreeGame.EditorTools
             Button quit = CreateMenuButton(resources, mainPanel.transform, "Quit");
 
             GameObject settingsPanel = CreateSettingsPanel(canvas);
-            // Placeholder text until there are credits to show.
-            GameObject creditsPanel = CreateInfoPanel(canvas, "Credits Panel", "Credits", "Coming soon.");
+            GameObject creditsPanel = CreateInfoPanel(canvas, "Credits Panel", "Credits", CreditsText,
+                height: 420f, bodyFontSize: 20f, bodyHeight: 200f);
             Button settingsBack = CreateMenuButton(resources, settingsPanel.transform, "Back");
             Button creditsBack = CreateMenuButton(resources, creditsPanel.transform, "Back");
 
