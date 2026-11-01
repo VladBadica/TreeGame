@@ -80,6 +80,10 @@ namespace TreeGame.EditorTools
             var menu = canvas.gameObject.AddComponent<MenuPanels>();
             SetReferenceArray(menu, "panels", mainPanel, settingsPanel, creditsPanel);
             SetReferences(menu, ("startPanel", mainPanel));
+            SetReferences(canvas.gameObject.AddComponent<MenuBackInput>(),
+                ("backAction", FindActionReference("UI", "Cancel")),
+                ("panels", menu),
+                ("homePanel", mainPanel));
 
             ConnectPanelButton(settings, menu, settingsPanel);
             ConnectPanelButton(credits, menu, creditsPanel);
