@@ -64,9 +64,12 @@ namespace TreeGame.EditorTools
 
             TMP_Dropdown resolution = CreateLabeledDropdown(panel.transform, "Resolution");
             TMP_Dropdown displayMode = CreateLabeledDropdown(panel.transform, "Display Mode");
+            Slider volume = CreateLabeledSlider(panel.transform, "Volume", out TMP_Text volumeLabel);
             SetReferences(panel.AddComponent<SettingsPanel>(),
                 ("resolutionDropdown", resolution),
-                ("displayModeDropdown", displayMode));
+                ("displayModeDropdown", displayMode),
+                ("volumeSlider", volume),
+                ("volumeLabel", volumeLabel));
 
             var spacer = new GameObject("Spacer", typeof(RectTransform));
             AddToLayout(spacer, panel.transform, 0f);
@@ -102,11 +105,27 @@ namespace TreeGame.EditorTools
             return titleLabel;
         }
 
-        private static TMP_Dropdown CreateLabeledDropdown(Transform panel, string caption)
+        private static TMP_Text CreateControlLabel(Transform panel, string caption)
         {
             TMP_Text label = CreateText($"{caption} Label", 22f, Color.white, TextAlignmentOptions.MidlineLeft);
             AddControlToLayout(label.gameObject, panel, 32f);
             label.text = caption;
+            return label;
+        }
+
+        private static Slider CreateLabeledSlider(Transform panel, string caption, out TMP_Text label)
+        {
+            label = CreateControlLabel(panel, caption);
+
+            Slider slider = DefaultControls.CreateSlider(GetUIResources()).GetComponent<Slider>();
+            slider.name = $"{caption} Slider";
+            AddControlToLayout(slider.gameObject, panel, 30f);
+            return slider;
+        }
+
+        private static TMP_Dropdown CreateLabeledDropdown(Transform panel, string caption)
+        {
+            CreateControlLabel(panel, caption);
 
             TMP_Dropdown dropdown = CreateDropdown($"{caption} Dropdown", 22f);
             AddControlToLayout(dropdown.gameObject, panel, 44f);

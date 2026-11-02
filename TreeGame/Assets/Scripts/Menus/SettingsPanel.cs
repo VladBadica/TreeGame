@@ -2,13 +2,15 @@ using System.Collections.Generic;
 using System.Linq;
 using TMPro;
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace TreeGame.Menus
 {
     /// <summary>
-    /// The settings screen, used by both the main menu and the pause menu. It works directly on Unity's screen state,
-    /// which the standalone player remembers between runs, so nothing needs saving yet. Reads the current state each
-    /// time it opens. These changes have no effect on the Editor's Game view; test them in a build.
+    /// The settings screen, used by both the main menu and the pause menu. Resolution and display mode work directly on
+    /// Unity's screen state, which the standalone player remembers between runs; they have no effect on the Editor's
+    /// Game view, so test them in a build. Volume goes through <see cref="GameVolume"/>. Reads the current state each
+    /// time it opens.
     /// </summary>
     public class SettingsPanel : MonoBehaviour
     {
@@ -30,23 +32,27 @@ namespace TreeGame.Menus
 
         [SerializeField] private TMP_Dropdown resolutionDropdown;
         [SerializeField] private TMP_Dropdown displayModeDropdown;
+        [SerializeField] private Slider volumeSlider;
+        [SerializeField] private TMP_Text volumeLabel;
 
         private readonly List<Vector2Int> resolutions = new List<Vector2Int>();
 
         private void OnEnable()
         {
-            if (resolutionDropdown == null || displayModeDropdown == null)
+            if (resolutionDropdown == null || displayModeDropdown == null || volumeSlider == null || volumeLabel == null)
             {
-                Debug.LogWarning($"{nameof(SettingsPanel)}: needs a resolution and a display mode dropdown.", this);
+                Debug.LogWarning($"{nameof(SettingsPanel)}: needs a resolution and a display mode dropdown, and a volume slider and label.", this);
                 enabled = false;
                 return;
             }
 
             ShowCurrentResolution();
             ShowCurrentDisplayMode();
+            ShowCurrentVolume();
 
             resolutionDropdown.onValueChanged.AddListener(ApplyResolution);
             displayModeDropdown.onValueChanged.AddListener(ApplyDisplayMode);
+            volumeSlider.onValueChanged.AddListener(ApplyVolume);
         }
 
         private void OnDisable()
@@ -60,6 +66,13 @@ namespace TreeGame.Menus
             {
                 displayModeDropdown.onValueChanged.RemoveListener(ApplyDisplayMode);
             }
+
+            if (volumeSlider != null)
+            {
+                volumeSlider.onValueChanged.RemoveListener(ApplyVolume);
+            }
+
+            GameVolume.Save();
         }
 
         private void ShowCurrentResolution()
@@ -107,6 +120,25 @@ namespace TreeGame.Menus
             int index = Screen.fullScreenMode == FullScreenMode.Windowed ? 1 : 0;
             displayModeDropdown.SetValueWithoutNotify(index);
             displayModeDropdown.RefreshShownValue();
+        }
+
+        private void ShowCurrentVolume()
+        {
+            volumeSlider.minValue = 0f;
+            volumeSlider.maxValue = 1f;
+            volumeSlider.SetValueWithoutNotify(GameVolume.Current);
+            ShowVolumeLabel();
+        }
+
+        private void ShowVolumeLabel()
+        {
+            volumeLabel.text = $"Volume {GameVolume.Current * 100f:0}%";
+        }
+
+        private void ApplyVolume(float volume)
+        {
+            GameVolume.Set(volume);
+            ShowVolumeLabel();
         }
 
         private void ApplyResolution(int index)
