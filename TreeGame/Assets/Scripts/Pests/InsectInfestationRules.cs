@@ -52,6 +52,21 @@ namespace TreeGame.Pests
             return true;
         }
 
+        /// <summary>
+        /// Removes a share of the insects (0 to 1), rounded up so any share above 0 removes at least one. The oldest go
+        /// first: they are the ones doing damage. An invalid share removes nothing.
+        /// </summary>
+        public void RemoveShare(float share)
+        {
+            if (!float.IsFinite(share) || share <= 0f)
+            {
+                return;
+            }
+
+            int count = (int)Math.Ceiling(Math.Min(share, 1f) * insectAges.Count);
+            insectAges.RemoveRange(0, count);
+        }
+
         /// <summary>Moves time forward, removing insects whose stay has ended. Returns the damage done in that time.</summary>
         public float Advance(float seconds)
         {

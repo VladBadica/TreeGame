@@ -16,6 +16,8 @@ namespace TreeGame.Minigames.InsectSwarm
         [Tooltip("The area of the screen showing the field.")]
         [SerializeField] private RectTransform field;
 
+        private int swarmSizeOverride;
+
         /// <summary>The current game. Available from Start on.</summary>
         public InsectSwarmRules Rules { get; private set; }
 
@@ -48,10 +50,27 @@ namespace TreeGame.Minigames.InsectSwarm
             }
         }
 
+        /// <summary>
+        /// Makes games use this many insects (at least 1) instead of the number in the settings. Meant to be called as
+        /// the scene loads, before play starts. That can be just before or after Start, so it covers both.
+        /// </summary>
+        public void UseSwarmSize(int swarmSize)
+        {
+            swarmSizeOverride = Mathf.Max(1, swarmSize);
+
+            if (Rules != null)
+            {
+                PrepareNewGame();
+                NotifyChanged();
+            }
+        }
+
         protected override void PrepareNewGame()
         {
+            int swarmSize = swarmSizeOverride > 0 ? swarmSizeOverride : settings.SwarmSize;
+
             // Not seeded on purpose: each game should use its cracks differently.
-            Rules = new InsectSwarmRules(settings.ToTuning(), settings.SwarmSize, new System.Random());
+            Rules = new InsectSwarmRules(settings.ToTuning(), swarmSize, new System.Random());
         }
 
         protected override void PlayFrame(bool pressed)

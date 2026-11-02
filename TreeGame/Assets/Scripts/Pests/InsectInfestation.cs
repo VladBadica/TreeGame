@@ -8,7 +8,8 @@ namespace TreeGame.Pests
     /// <summary>
     /// The insects currently on the tree, with timing and damage from <see cref="GameConfig"/>. It takes the damage
     /// they do from the tree's health. It doesn't know what brings insects or what removes them, and draws nothing:
-    /// visuals listen to <see cref="CountChanged"/>. Disable the component to pause the insects.
+    /// visuals listen to <see cref="CountChanged"/>. Disable the component to pause the insects; a catch-up after a
+    /// minigame skips it too, so they do no damage for time spent paused.
     /// </summary>
     public class InsectInfestation : MonoBehaviour, IAdvancesWithTime
     {
@@ -79,6 +80,18 @@ namespace TreeGame.Pests
 
             CountChanged?.Invoke(Rules.Count);
             return true;
+        }
+
+        /// <summary>Removes a share of the insects (0 to 1), rounded up, oldest first.</summary>
+        public void RemoveShare(float share)
+        {
+            int countBefore = Rules.Count;
+            Rules.RemoveShare(share);
+
+            if (Rules.Count != countBefore)
+            {
+                CountChanged?.Invoke(Rules.Count);
+            }
         }
     }
 }

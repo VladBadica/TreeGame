@@ -1,4 +1,5 @@
 using TMPro;
+using TreeGame.Minigames;
 using TreeGame.Minigames.InsectSwarm;
 using TreeGame.UI;
 using UnityEditor;
@@ -17,6 +18,7 @@ namespace TreeGame.EditorTools
         private const string Folder = MinigamesFolder + "/InsectSwarm";
         internal const string ScenePath = Folder + "/InsectSwarm.unity";
         private const string SettingsPath = Folder + "/InsectSwarmSettings.asset";
+        private const string DefinitionPath = Folder + "/InsectSwarmMinigame.asset";
         private const string InputActionsPath = Folder + "/InsectSwarm.inputactions";
 
         private static readonly Color BackgroundColor = new Color(0.2f, 0.13f, 0.09f);
@@ -69,6 +71,14 @@ namespace TreeGame.EditorTools
             SaveGeneratedScene(scene, ScenePath);
 
             Debug.Log($"Insect Swarm scene created at {ScenePath}. Press Play in it to test the minigame on its own.");
+        }
+
+        /// <summary>The asset other scenes use to start this minigame.</summary>
+        public static MinigameDefinition GetOrCreateDefinition()
+        {
+            EnsureFolder(MinigamesFolder);
+            EnsureFolder(Folder);
+            return GetOrCreateMinigameDefinition(DefinitionPath, ScenePath);
         }
 
         /// <summary>The largest area of the screen in the field's shape, so positions on it look the same on any screen.</summary>

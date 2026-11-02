@@ -1,4 +1,6 @@
+using System;
 using TreeGame.Core;
+using TreeGame.Interaction;
 using TreeGame.Trees;
 using UnityEngine;
 
@@ -7,7 +9,8 @@ namespace TreeGame.Pests
     /// <summary>
     /// Shows the insects on the trunk. Their spots come from a fixed seed and fill up in order, so the same number of
     /// insects always looks the same. Spots are relative to the trunk, so insects stay on it as it grows and leans.
-    /// Can be replaced by anything else listening to <see cref="InsectInfestation.CountChanged"/>.
+    /// Can be replaced by anything else listening to <see cref="InsectInfestation.CountChanged"/>. It only reports
+    /// clicks on insects; what they lead to is decided elsewhere.
     /// </summary>
     public class InsectVisuals : MonoBehaviour
     {
@@ -17,7 +20,7 @@ namespace TreeGame.Pests
         [SerializeField] private InsectInfestation infestation;
         [SerializeField] private TreeVisuals tree;
         [SerializeField] private GameConfig config;
-        [Tooltip("An inactive object, copied once per possible insect at startup.")]
+        [Tooltip("An inactive object with a Clickable, copied once per possible insect at startup.")]
         [SerializeField] private Transform insectTemplate;
         [Tooltip("Same seed = same spots.")]
         [SerializeField] private int seed = 4242;
@@ -39,6 +42,9 @@ namespace TreeGame.Pests
 
         private Spot[] spots;
         private int visibleCount;
+
+        /// <summary>Raised when the player clicks any insect.</summary>
+        public event Action InsectClicked;
 
         private void OnEnable()
         {
@@ -100,6 +106,7 @@ namespace TreeGame.Pests
                 Transform insect = Instantiate(insectTemplate, transform);
                 insect.name = $"Insect {i}";
                 insect.rotation = Quaternion.Euler(0f, 0f, random.NextFloat(-maxTurn, maxTurn));
+                insect.GetComponent<Clickable>().Clicked += () => InsectClicked?.Invoke();
 
                 spots[i] = new Spot
                 {

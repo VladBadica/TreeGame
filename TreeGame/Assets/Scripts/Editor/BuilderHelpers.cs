@@ -1,6 +1,7 @@
 using System.IO;
 using System.Linq;
 using TreeGame.Interaction;
+using TreeGame.Minigames;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -122,6 +123,24 @@ namespace TreeGame.EditorTools
             settings = ScriptableObject.CreateInstance<T>();
             AssetDatabase.CreateAsset(settings, path);
             return settings;
+        }
+
+        /// <summary>The asset other scenes use to start a minigame. Its folder must exist.</summary>
+        public static MinigameDefinition GetOrCreateMinigameDefinition(string path, string scenePath)
+        {
+            var definition = AssetDatabase.LoadAssetAtPath<MinigameDefinition>(path);
+            if (definition != null)
+            {
+                return definition;
+            }
+
+            definition = ScriptableObject.CreateInstance<MinigameDefinition>();
+            AssetDatabase.CreateAsset(definition, path);
+
+            var serializedDefinition = new SerializedObject(definition);
+            serializedDefinition.FindProperty("sceneName").stringValue = Path.GetFileNameWithoutExtension(scenePath);
+            serializedDefinition.ApplyModifiedPropertiesWithoutUndo();
+            return definition;
         }
 
         public static Material GetOrCreateMaterial(string materialName, Color color, bool unlit = false)

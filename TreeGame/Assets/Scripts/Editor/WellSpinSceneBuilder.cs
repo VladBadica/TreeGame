@@ -1,4 +1,3 @@
-using System.IO;
 using TMPro;
 using TreeGame.Minigames;
 using TreeGame.Minigames.WellSpin;
@@ -86,22 +85,9 @@ namespace TreeGame.EditorTools
         /// <summary>The asset other scenes use to start this minigame.</summary>
         public static MinigameDefinition GetOrCreateDefinition()
         {
-            var definition = AssetDatabase.LoadAssetAtPath<MinigameDefinition>(DefinitionPath);
-            if (definition != null)
-            {
-                return definition;
-            }
-
             EnsureFolder(MinigamesFolder);
             EnsureFolder(Folder);
-
-            definition = ScriptableObject.CreateInstance<MinigameDefinition>();
-            AssetDatabase.CreateAsset(definition, DefinitionPath);
-
-            var serializedDefinition = new SerializedObject(definition);
-            serializedDefinition.FindProperty("sceneName").stringValue = Path.GetFileNameWithoutExtension(ScenePath);
-            serializedDefinition.ApplyModifiedPropertiesWithoutUndo();
-            return definition;
+            return GetOrCreateMinigameDefinition(DefinitionPath, ScenePath);
         }
 
         private static void CreateCamera()

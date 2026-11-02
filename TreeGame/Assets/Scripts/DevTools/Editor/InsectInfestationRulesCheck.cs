@@ -33,6 +33,8 @@ namespace TreeGame.DevTools
             CheckCatchUpAcrossPartOfTheDamagePeriod(failures);
             CheckInsectsAreTimedSeparately(failures);
             CheckCountLimit(failures);
+            CheckRemovingAShare(failures);
+            CheckRemovingTakesTheOldestFirst(failures);
             CheckBadTimeIsIgnored(failures);
             CheckBadTuningIsRejected(failures);
             return failures;
@@ -168,6 +170,63 @@ namespace TreeGame.DevTools
 
             rules.Advance(Grace + DamagePeriod);
             Expect(failures, rules.TryAddInsect(), "no insect could be added after the others left");
+        }
+
+        private static InsectInfestationRules NewRulesWithInsects(int count)
+        {
+            var rules = new InsectInfestationRules(Grace, DamagePeriod, DamagePerInsect, count);
+            for (int i = 0; i < count; i++)
+            {
+                rules.TryAddInsect();
+            }
+
+            return rules;
+        }
+
+        private static void CheckRemovingAShare(List<string> failures)
+        {
+            // Half, rounded up: an odd number leaves the smaller part, and a lone insect always goes.
+            foreach ((int before, int after) in new[] { (5, 2), (4, 2), (3, 1), (2, 1), (1, 0), (0, 0) })
+            {
+                InsectInfestationRules half = NewRulesWithInsects(before);
+                half.RemoveShare(0.5f);
+                Expect(failures, half.Count == after, $"removing half of {before} left {half.Count}, expected {after}");
+            }
+
+            InsectInfestationRules rules = NewRulesWithInsects(5);
+            rules.RemoveShare(1f);
+            Expect(failures, rules.Count == 0, $"removing all of 5 left {rules.Count}");
+
+            rules = NewRulesWithInsects(5);
+            rules.RemoveShare(3f);
+            Expect(failures, rules.Count == 0, $"removing more than all of 5 left {rules.Count}");
+
+            // Any share at all removes at least one, while nothing or nonsense removes none.
+            rules = NewRulesWithInsects(5);
+            rules.RemoveShare(0.01f);
+            Expect(failures, rules.Count == 4, $"removing a tiny share of 5 left {rules.Count}, expected 4");
+
+            foreach (float badShare in new[] { 0f, -1f, float.NaN, float.PositiveInfinity, float.NegativeInfinity })
+            {
+                rules = NewRulesWithInsects(5);
+                rules.RemoveShare(badShare);
+                Expect(failures, rules.Count == 5, $"removing a share of {badShare} left {rules.Count}, expected 5");
+            }
+        }
+
+        private static void CheckRemovingTakesTheOldestFirst(List<string> failures)
+        {
+            // The older insect is doing damage and the newer one is still in its grace period.
+            InsectInfestationRules rules = NewRulesWithInsect();
+            rules.Advance(Grace + 1f);
+            rules.TryAddInsect();
+
+            rules.RemoveShare(0.5f);
+            Expect(failures, rules.Count == 1, $"removing half of 2 left {rules.Count}");
+            Expect(failures, rules.Advance(1f) == 0f, "the insect doing damage should have gone first, but damage continued");
+
+            // What's left still runs its full time.
+            ExpectDamage(failures, rules.Advance(Grace - 1f + DamagePeriod), DamagePerInsect, "the rest of the remaining insect's stay");
         }
 
         private static void CheckBadTimeIsIgnored(List<string> failures)

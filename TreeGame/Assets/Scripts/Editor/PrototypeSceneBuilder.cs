@@ -43,8 +43,7 @@ namespace TreeGame.EditorTools
             Sprite brownLeaf = PlaceholderArt.GetOrCreateBrownLeafSprite();
             var brownLeaves = GameAssets.GetOrCreateItem<StackableItemDefinition>("BrownLeaves", "Brown Leaves", brownLeaf);
             ItemPickup fallenLeafPrefab = TreeBuilder.GetOrCreateFallenLeafPrefab(brownLeaves, brownLeaf);
-            // Nothing awards coins yet, so the scene doesn't reference this asset.
-            GameAssets.GetOrCreateItem<StackableItemDefinition>("Coin", "Coin", PlaceholderArt.GetOrCreateCoinIcon());
+            var coin = GameAssets.GetOrCreateItem<StackableItemDefinition>("Coin", "Coin", PlaceholderArt.GetOrCreateCoinIcon());
             Sprite insect = PlaceholderArt.GetOrCreateInsectSprite();
             Sprite notificationBubble = PlaceholderArt.GetOrCreateNotificationBubbleSprite();
             Material bark = BuilderHelpers.GetOrCreateMaterial("Bark", new Color(0.45f, 0.3f, 0.2f));
@@ -52,6 +51,7 @@ namespace TreeGame.EditorTools
             Material ground = BuilderHelpers.GetOrCreateMaterial("Ground", new Color(0.58f, 0.72f, 0.42f));
             PlaceholderArt.GetOrCreateFenceSprites(out Sprite fenceNear, out Sprite fenceFar);
             MinigameDefinition wellMinigame = WellSpinSceneBuilder.GetOrCreateDefinition();
+            MinigameDefinition insectMinigame = InsectSwarmSceneBuilder.GetOrCreateDefinition();
             AssetDatabase.SaveAssets();
 
             WorldBuilder.ConfigureEnvironment();
@@ -68,9 +68,10 @@ namespace TreeGame.EditorTools
             TreeResource health = TreeBuilder.CreateResource(tree.transform, TreeResourceType.Health, config);
             TreeBuilder.CreateTreeCare(tree.transform, water, nutrients);
             TreeBuilder.CreateFallenLeafSpawner(tree, config, fallenLeafPrefab);
-            InsectInfestation insects = InsectBuilder.CreateInsects(tree, health, config, insect);
+            InsectInfestation insects = InsectBuilder.CreateInsects(tree, health, config, insect, out InsectVisuals insectVisuals);
             Transform player = PlayerBuilder.CreatePlayer(config, tree.transform);
             BuilderHelpers.SetReferences(well, ("inventory", player.GetComponent<Inventory>()));
+            InsectBuilder.CreateInsectDefense(insectVisuals, insects, config, minigameRunner, insectMinigame, player.GetComponent<Inventory>(), coin);
             Transform camera = WorldBuilder.CreateCamera(player);
             var viewCamera = camera.GetComponent<Camera>();
             PlayerBuilder.ConnectToCamera(player, viewCamera);

@@ -9,8 +9,8 @@ namespace TreeGame.Player
     /// <summary>
     /// Lets the player click things in the world as an alternative to their keys: clicking an interactable
     /// (e.g. the well) interacts like the interact key, clicking a pickup collects that pickup. The same range
-    /// rules apply as for the keys, and clicks on UI are ignored. Only connects input to the Interactor and
-    /// ItemCollector; it decides nothing itself.
+    /// rules apply as for the keys, and clicks on UI are ignored. A <see cref="Clickable"/> has no range and wins over
+    /// everything else under the pointer. Only connects input to the things clicked; it decides nothing itself.
     /// </summary>
     public class ClickToInteract : MonoBehaviour
     {
@@ -50,6 +50,16 @@ namespace TreeGame.Player
             Ray ray = viewCamera.ScreenPointToRay(pointAction.action.ReadValue<Vector2>());
             RaycastHit[] hits = Physics.RaycastAll(ray, MaxClickDistance, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Collide);
             System.Array.Sort(hits, (a, b) => a.distance.CompareTo(b.distance));
+
+            // Checked first, because interaction zones reach out toward the camera, in front of things like insects on the trunk.
+            foreach (RaycastHit hit in hits)
+            {
+                if (hit.collider.TryGetComponent(out Clickable clickable))
+                {
+                    clickable.Click();
+                    return;
+                }
+            }
 
             // The nearest clickable thing wins; anything else in the way (ground, the player itself) is ignored.
             foreach (RaycastHit hit in hits)

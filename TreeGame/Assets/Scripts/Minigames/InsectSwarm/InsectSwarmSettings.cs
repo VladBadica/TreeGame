@@ -13,7 +13,7 @@ namespace TreeGame.Minigames.InsectSwarm
         private static readonly InsectSwarmTuning Defaults = new InsectSwarmTuning();
 
         [Header("Swarm")]
-        [Tooltip("How many insects come in a game, while nothing else decides that.")]
+        [Tooltip("How many insects come when the scene is played on its own. In the game, GameConfig decides from how many are on the tree.")]
         [SerializeField, Min(1)] private int swarmSize = 6;
         [Tooltip("The first insect appears at once and the last after this many seconds, with the others evenly spaced between.")]
         [SerializeField, Min(0f)] private float arrivalSeconds = Defaults.ArrivalSeconds;

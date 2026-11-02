@@ -29,9 +29,10 @@ namespace TreeGame.Minigames
 
         /// <summary>
         /// Starts a minigame. When it ends, the world is back on before <paramref name="onFinished"/> is called, so
-        /// the caller can act on the result. Returns false if it couldn't start.
+        /// the caller can act on the result. <paramref name="onLoaded"/> is called once its scene has loaded, while the
+        /// screen is still covered, so the caller can set the game up. Returns false if it couldn't start.
         /// </summary>
-        public bool Launch(MinigameDefinition minigame, Action<MinigameResult> onFinished)
+        public bool Launch(MinigameDefinition minigame, Action<MinigameResult> onFinished, Action<Minigame> onLoaded = null)
         {
             if (IsRunning || minigame == null)
             {
@@ -50,11 +51,11 @@ namespace TreeGame.Minigames
                 return false;
             }
 
-            StartCoroutine(Run(minigame.SceneName, onFinished));
+            StartCoroutine(Run(minigame.SceneName, onFinished, onLoaded));
             return true;
         }
 
-        private IEnumerator Run(string sceneName, Action<MinigameResult> onFinished)
+        private IEnumerator Run(string sceneName, Action<MinigameResult> onFinished, Action<Minigame> onLoaded)
         {
             IsRunning = true;
             yield return screenFade.FadeTo(Covered, fadeSeconds);
@@ -67,11 +68,16 @@ namespace TreeGame.Minigames
             Scene minigameScene = SceneManager.GetSceneByName(sceneName);
             SceneManager.SetActiveScene(minigameScene); // So lighting comes from the minigame's own scene.
 
+            Minigame minigame = FindMinigame(minigameScene);
+            if (minigame != null)
+            {
+                onLoaded?.Invoke(minigame);
+            }
+
             yield return screenFade.FadeTo(Clear, fadeSeconds);
 
             // If the scene turns out to have no minigame, the world still has to come back.
             var result = new MinigameResult(completed: false, score: 0f);
-            Minigame minigame = FindMinigame(minigameScene);
             if (minigame == null)
             {
                 Debug.LogError($"{nameof(MinigameRunner)}: scene '{sceneName}' has no {nameof(Minigame)} component.", this);
