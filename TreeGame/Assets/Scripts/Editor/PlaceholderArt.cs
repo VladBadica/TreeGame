@@ -16,6 +16,9 @@ namespace TreeGame.EditorTools
         private const string WaterBucketIconPath = ArtFolder + "/WaterBucketIcon.png";
         private const string CompostBucketIconPath = ArtFolder + "/CompostBucketIcon.png";
         private const string BrownLeafPath = ArtFolder + "/BrownLeaf.png";
+        private const string CoinIconPath = ArtFolder + "/CoinIcon.png";
+        private const string InsectPath = ArtFolder + "/Insect.png";
+        private const string NotificationBubblePath = ArtFolder + "/NotificationBubble.png";
         private const string RingPath = ArtFolder + "/Ring.png";
         private const string DiscPath = ArtFolder + "/Disc.png";
         private const float PixelsPerUnit = 100f;
@@ -202,6 +205,143 @@ namespace TreeGame.EditorTools
             SaveSprite(BrownLeafPath, width, height, pixels, new Vector2(0.5f, 0f), pixelsPerUnit: 160f);
         }
 
+        /// <summary>The coin's inventory icon: a gold coin with a raised rim and a leaf stamped in its face.</summary>
+        public static Sprite GetOrCreateCoinIcon()
+        {
+            if (!File.Exists(CoinIconPath))
+            {
+                PaintCoinIcon();
+            }
+
+            return AssetDatabase.LoadAssetAtPath<Sprite>(CoinIconPath);
+        }
+
+        private static void PaintCoinIcon()
+        {
+            const int size = 128;
+            const float center = size / 2f;
+            const float outerRadius = 60f;
+            const float rimRadius = 55f;
+            const float faceRadius = 46f;
+            const float leafHalfLength = 28f;
+            const float leafHalfWidth = 15f;
+            var outlineColor = new Color32(138, 94, 26, 255);
+            var rimColor = new Color32(250, 208, 88, 255);
+            var faceColor = new Color32(232, 176, 58, 255);
+            var leafColor = new Color32(176, 124, 34, 255);
+
+            // Pointed at both ends, like the fallen leaf: the half-width shrinks toward the tips like a parabola.
+            bool IsLeaf(float dx, float dy)
+            {
+                float along = dy / leafHalfLength;
+                return Mathf.Abs(along) < 1f && Mathf.Abs(dx) < leafHalfWidth * (1f - along * along);
+            }
+
+            var pixels = new Color32[size * size];
+            for (int y = 0; y < size; y++)
+            {
+                for (int x = 0; x < size; x++)
+                {
+                    float dx = x + 0.5f - center;
+                    float dy = y + 0.5f - center;
+                    float distance = Mathf.Sqrt(dx * dx + dy * dy);
+
+                    Color32 color = distance >= rimRadius ? outlineColor
+                        : distance >= faceRadius ? rimColor
+                        : IsLeaf(dx, dy) ? leafColor
+                        : faceColor;
+
+                    // Fades over one pixel at the edge, which smooths the circle.
+                    color.a = (byte)(Mathf.Clamp01(outerRadius - distance) * 255f);
+                    pixels[y * size + x] = color;
+                }
+            }
+
+            SaveSprite(CoinIconPath, size, size, pixels, new Vector2(0.5f, 0.5f));
+        }
+
+        /// <summary>A small red beetle seen from above, head up, about 0.25 world units across. Pivoted at its center.</summary>
+        public static Sprite GetOrCreateInsectSprite()
+        {
+            if (!File.Exists(InsectPath))
+            {
+                PaintInsect();
+            }
+
+            return AssetDatabase.LoadAssetAtPath<Sprite>(InsectPath);
+        }
+
+        private static void PaintInsect()
+        {
+            const int size = 64;
+            const float centerX = size / 2f;
+            const float legWidth = 1.5f;
+            var shellColor = new Color32(186, 48, 54, 255);
+            var darkColor = new Color32(44, 30, 34, 255);
+
+            // One side's legs and feeler, as distances from the middle; the other side mirrors them.
+            (Vector2 from, Vector2 to)[] limbs =
+            {
+                (new Vector2(5f, 53f), new Vector2(11f, 62f)),
+                (new Vector2(11f, 37f), new Vector2(26f, 44f)),
+                (new Vector2(10f, 26f), new Vector2(26f, 26f)),
+                (new Vector2(11f, 14f), new Vector2(26f, 6f)),
+            };
+
+            bool IsShell(int x, int y)
+            {
+                float across = (x + 0.5f - centerX) / 15f;
+                float along = (y + 0.5f - 25f) / 20f;
+                return across * across + along * along < 1f;
+            }
+
+            bool IsHead(int x, int y) => Vector2.Distance(new Vector2(x + 0.5f, y + 0.5f), new Vector2(centerX, 50f)) < 8f;
+            bool IsBody(int x, int y) => IsShell(x, y) || IsHead(x, y);
+
+            bool IsLimb(int x, int y)
+            {
+                var point = new Vector2(Mathf.Abs(x + 0.5f - centerX), y + 0.5f);
+                foreach ((Vector2 from, Vector2 to) in limbs)
+                {
+                    if (DistanceToSegment(point, from, to) < legWidth)
+                    {
+                        return true;
+                    }
+                }
+
+                return false;
+            }
+
+            var pixels = new Color32[size * size];
+            for (int y = 0; y < size; y++)
+            {
+                for (int x = 0; x < size; x++)
+                {
+                    Color32 color = Transparent;
+                    if (IsShell(x, y) && !IsNearEdge(x, y, IsBody, 2))
+                    {
+                        // A dark line down the middle shows where the wing cases meet.
+                        color = Mathf.Abs(x + 0.5f - centerX) < 1f ? darkColor : shellColor;
+                    }
+                    else if (IsBody(x, y) || IsLimb(x, y))
+                    {
+                        color = darkColor;
+                    }
+
+                    pixels[y * size + x] = color;
+                }
+            }
+
+            SaveSprite(InsectPath, size, size, pixels, new Vector2(0.5f, 0.5f), pixelsPerUnit: 256f);
+        }
+
+        private static float DistanceToSegment(Vector2 point, Vector2 from, Vector2 to)
+        {
+            Vector2 segment = to - from;
+            float along = Mathf.Clamp01(Vector2.Dot(point - from, segment) / segment.sqrMagnitude);
+            return Vector2.Distance(point, from + segment * along);
+        }
+
         /// <summary>
         /// A flat white ring with smooth edges, tinted by whatever displays it. The band's inner edge is at
         /// <paramref name="innerRadiusRatio"/> of the outer radius.
@@ -227,11 +367,24 @@ namespace TreeGame.EditorTools
             return AssetDatabase.LoadAssetAtPath<Sprite>(DiscPath);
         }
 
-        private static void PaintRing(string path, float innerRadiusRatio)
+        /// <summary>
+        /// A small flat white circle with a smooth edge, tinted by whatever displays it. Separate from the disc because
+        /// that one is painted large for the minigame, and looks jagged when shrunk to the size of a notification.
+        /// </summary>
+        public static Sprite GetOrCreateNotificationBubbleSprite()
         {
-            const int size = 1024;
-            const float center = size / 2f;
-            const float outerRadius = center - 2f; // Leaves a transparent margin, so the edge stays smooth.
+            if (!File.Exists(NotificationBubblePath))
+            {
+                PaintRing(NotificationBubblePath, innerRadiusRatio: 0f, size: 128);
+            }
+
+            return AssetDatabase.LoadAssetAtPath<Sprite>(NotificationBubblePath);
+        }
+
+        private static void PaintRing(string path, float innerRadiusRatio, int size = 1024)
+        {
+            float center = size / 2f;
+            float outerRadius = center - 2f; // Leaves a transparent margin, so the edge stays smooth.
 
             // A ratio of 0 means no hole; going below 0 keeps the very center fully solid too.
             float innerRadius = innerRadiusRatio > 0f ? outerRadius * innerRadiusRatio : -1f;

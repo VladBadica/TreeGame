@@ -24,6 +24,8 @@ namespace TreeGame.Core
         [SerializeField] private ResourceSettings water = new ResourceSettings(maxAmount: 200f, secondsToEmpty: 120f);
         [Tooltip("Nutrients are measured in grams, the same unit as compost, so feeding moves grams one to one.")]
         [SerializeField] private ResourceSettings nutrients = new ResourceSettings(maxAmount: 500f, secondsToEmpty: 240f);
+        [Tooltip("Health is a plain 0 to 100 score. It doesn't drain on its own; only damage to the tree lowers it.")]
+        [SerializeField] private ResourceSettings health = new ResourceSettings(maxAmount: 100f, secondsToEmpty: 0f);
 
         [Header("Player")]
         [Tooltip("Walking speed in world units per second.")]
@@ -49,6 +51,9 @@ namespace TreeGame.Core
         [Header("Fallen Leaves")]
         [SerializeField] private FallenLeafSettings fallenLeaves = new FallenLeafSettings();
 
+        [Header("Insects")]
+        [SerializeField] private InsectSettings insects = new InsectSettings();
+
         [Header("Wind")]
         [Tooltip("Shared by everything the wind moves, so it all sways together.")]
         [SerializeField] private WindSettings wind = new WindSettings();
@@ -69,6 +74,8 @@ namespace TreeGame.Core
 
         public FallenLeafSettings FallenLeaves => fallenLeaves;
 
+        public InsectSettings Insects => insects;
+
         public WindSettings Wind => wind;
 
         public ResourceSettings GetResourceSettings(TreeResourceType type)
@@ -77,6 +84,7 @@ namespace TreeGame.Core
             {
                 TreeResourceType.Water => water,
                 TreeResourceType.Nutrients => nutrients,
+                TreeResourceType.Health => health,
                 _ => throw new ArgumentOutOfRangeException(nameof(type), type, "Add settings for this resource type to GameConfig."),
             };
         }

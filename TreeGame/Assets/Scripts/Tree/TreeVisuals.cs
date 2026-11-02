@@ -194,6 +194,18 @@ namespace TreeGame.Trees
             windStrength = float.IsFinite(strength) ? strength : 0f;
         }
 
+        /// <summary>
+        /// A world position on the trunk as it looks right now, for things that sit on it. Height is 0 at the base and
+        /// 1 at the top; side is -1 at its left edge and 1 at its right edge.
+        /// </summary>
+        public Vector3 GetTrunkPoint(float height, float side)
+        {
+            BuildIfNeeded();
+
+            // In its own space, Unity's cylinder runs from -1 to 1 in height and -0.5 to 0.5 in width.
+            return trunk.TransformPoint(new Vector3(side * 0.5f, height * 2f - 1f, 0f));
+        }
+
         private void OnGrowthChanged(float growth)
         {
             targetGrowth = growth;

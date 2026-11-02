@@ -1,9 +1,10 @@
 namespace TreeGame.Care
 {
-    /// <summary>Kinds of care the tree needs. Minigames will award these; growth will consume them.</summary>
+    /// <summary>What is tracked about the tree's care: what it needs (water, nutrients) and how it is doing (health).</summary>
     public enum TreeResourceType
     {
         Water,
         Nutrients,
+        Health,
     }
 }

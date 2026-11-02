@@ -2,6 +2,8 @@ using TMPro;
 using TreeGame.Care;
 using TreeGame.Interaction;
 using TreeGame.Items;
+using TreeGame.Pests;
+using TreeGame.Trees;
 using TreeGame.UI;
 using UnityEditor;
 using UnityEngine;
@@ -14,9 +16,10 @@ namespace TreeGame.EditorTools
     /// <summary>Builds the game scene's HUD: resource bars, prompts and the inventory bar.</summary>
     internal static class HudBuilder
     {
-        public static void CreateResourceHud(Transform canvas, TreeResource water, TreeResource nutrients)
+        public static void CreateResourceHud(Transform canvas, TreeResource health, TreeResource water, TreeResource nutrients)
         {
-            GameObject panel = CreatePanel(canvas, "Tree Needs", new Vector2(1f, 1f), new Vector2(-24f, -24f), new Vector2(360f, 120f));
+            GameObject panel = CreatePanel(canvas, "Tree Needs", new Vector2(1f, 1f), new Vector2(-24f, -24f), new Vector2(360f, 168f));
+            CreateResourceBar(panel.transform, health, new Color(0.85f, 0.36f, 0.38f));
             CreateResourceBar(panel.transform, water, new Color(0.36f, 0.64f, 0.93f));
             CreateResourceBar(panel.transform, nutrients, new Color(0.9f, 0.68f, 0.28f));
         }
@@ -101,6 +104,63 @@ namespace TreeGame.EditorTools
                 ("panel", panelRect),
                 ("label", label));
             return popup;
+        }
+
+        /// <summary>The bubble at the screen's edge that tells the player about insects on a tree that is out of view.</summary>
+        public static void CreateOffScreenInsectBubble(Transform canvas, InsectInfestation infestation, TreeVisuals tree,
+            Camera viewCamera, Sprite insectSprite, Sprite bubbleSprite)
+        {
+            const float bubbleSize = 96f;
+            const float outlineWidth = 4f;
+
+            // The component lives on an always-active object; it shows and hides the bubble child.
+            var root = new GameObject("Off-Screen Insect Bubble", typeof(RectTransform));
+            StretchInParent(root, canvas);
+
+            var bubble = new GameObject("Bubble", typeof(RectTransform), typeof(Image));
+            var bubbleRect = (RectTransform)bubble.transform;
+            bubbleRect.SetParent(root.transform, false);
+            bubbleRect.sizeDelta = Vector2.one * bubbleSize;
+            StyleBubbleImage(bubble.GetComponent<Image>(), bubbleSprite, new Color(0.16f, 0.2f, 0.25f));
+
+            var fill = new GameObject("Fill", typeof(RectTransform), typeof(Image));
+            RectTransform fillRect = StretchInParent(fill, bubbleRect);
+            fillRect.offsetMin = Vector2.one * outlineWidth;
+            fillRect.offsetMax = Vector2.one * -outlineWidth;
+            StyleBubbleImage(fill.GetComponent<Image>(), bubbleSprite, Color.white);
+
+            var iconObject = new GameObject("Icon", typeof(RectTransform), typeof(Image));
+            RectTransform iconRect = StretchInParent(iconObject, bubbleRect);
+            // Extra room at the bottom for the count.
+            iconRect.offsetMin = new Vector2(18f, 24f);
+            iconRect.offsetMax = new Vector2(-18f, -12f);
+            var icon = iconObject.GetComponent<Image>();
+            StyleBubbleImage(icon, insectSprite, Color.white);
+            icon.preserveAspect = true;
+
+            TMP_Text count = CreateText("Count", 20f, new Color(0.16f, 0.2f, 0.25f), TextAlignmentOptions.Bottom);
+            RectTransform countRect = StretchInParent(count.gameObject, bubbleRect);
+            countRect.offsetMin = new Vector2(0f, 6f);
+            count.fontStyle = FontStyles.Bold;
+            count.raycastTarget = false;
+            count.text = "x2"; // Placeholder; the component sets the real count at runtime.
+
+            bubble.SetActive(false); // Saved hidden; shown only while the tree is out of view.
+
+            SetReferences(root.AddComponent<OffScreenInsectBubble>(),
+                ("infestation", infestation),
+                ("tree", tree),
+                ("viewCamera", viewCamera),
+                ("bubble", bubbleRect),
+                ("countLabel", count));
+        }
+
+        /// <summary>Takes no clicks, so clicks on the world still work through the bubble.</summary>
+        private static void StyleBubbleImage(Image image, Sprite sprite, Color color)
+        {
+            image.sprite = sprite;
+            image.color = color;
+            image.raycastTarget = false;
         }
 
         /// <summary>

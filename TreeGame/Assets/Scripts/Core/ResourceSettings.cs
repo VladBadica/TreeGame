@@ -8,8 +8,8 @@ namespace TreeGame.Core
     public class ResourceSettings
     {
         [SerializeField, Min(0.01f)] private float maxAmount;
-        [Tooltip("Seconds of play time for the resource to drain from full to empty.")]
-        [SerializeField, Min(1f)] private float secondsToEmpty;
+        [Tooltip("Seconds of play time for the resource to drain from full to empty. 0 = it doesn't drain on its own.")]
+        [SerializeField, Min(0f)] private float secondsToEmpty;
 
         public ResourceSettings(float maxAmount, float secondsToEmpty)
         {

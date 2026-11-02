@@ -6,7 +6,7 @@ namespace TreeGame.Care
     /// <summary>
     /// Drains a <see cref="TreeResource"/> at a steady rate, giving the player a reason to replenish it.
     /// The rate comes from <see cref="GameConfig"/> as a duration, so it stays meaningful if the maximum changes.
-    /// Disable the component to pause depletion.
+    /// A duration of 0 means the resource doesn't drain on its own. Disable the component to pause depletion.
     /// </summary>
     public class ResourceDepletion : MonoBehaviour, IAdvancesWithTime
     {
@@ -31,7 +31,10 @@ namespace TreeGame.Care
         public void Advance(float seconds)
         {
             float secondsToEmpty = config.GetResourceSettings(resource.Type).SecondsToEmpty;
-            resource.Consume(resource.MaxAmount * seconds / secondsToEmpty);
+            if (secondsToEmpty > 0f)
+            {
+                resource.Consume(resource.MaxAmount * seconds / secondsToEmpty);
+            }
         }
     }
 }

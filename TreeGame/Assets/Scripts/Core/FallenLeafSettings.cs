@@ -22,12 +22,6 @@ namespace TreeGame.Core
 
         public float SpreadFromTrunk => spreadFromTrunk;
 
-        /// <summary>A random wait until the next leaf, tolerating a range entered the wrong way round.</summary>
-        public float RandomSecondsBetweenLeaves()
-        {
-            float shortest = Mathf.Max(0.1f, Mathf.Min(secondsBetweenLeaves.x, secondsBetweenLeaves.y));
-            float longest = Mathf.Max(shortest, Mathf.Max(secondsBetweenLeaves.x, secondsBetweenLeaves.y));
-            return UnityEngine.Random.Range(shortest, longest);
-        }
+        public float RandomSecondsBetweenLeaves() => RandomInterval.Pick(secondsBetweenLeaves);
     }
 }
