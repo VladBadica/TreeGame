@@ -144,6 +144,99 @@ namespace TreeGame.DevTools
 
                 resource.SetAmount(original);
             }
+
+            CheckHealthRegeneration(failures, resources);
+            CheckNeglectDamage(failures, resources);
+        }
+
+        private static void CheckNeglectDamage(List<string> failures, TreeResource[] resources)
+        {
+            NeglectDamage neglect = Object.FindAnyObjectByType<NeglectDamage>();
+            Expect(failures, neglect != null, "no neglect damage in the scene");
+            if (neglect == null)
+            {
+                return;
+            }
+
+            TreeResource health = System.Array.Find(resources, r => r.Type == TreeResourceType.Health);
+            TreeResource water = System.Array.Find(resources, r => r.Type == TreeResourceType.Water);
+            TreeResource nutrients = System.Array.Find(resources, r => r.Type == TreeResourceType.Nutrients);
+            float originalHealth = health.Amount;
+            float originalWater = water.Amount;
+            float originalNutrients = nutrients.Amount;
+
+            // Plays from half health, with water and nutrients as shares of their maximum.
+            float HealthLost(float waterShare, float nutrientsShare)
+            {
+                water.SetAmount(water.MaxAmount * waterShare);
+                nutrients.SetAmount(nutrients.MaxAmount * nutrientsShare);
+                health.SetAmount(health.MaxAmount * 0.5f);
+                neglect.Advance(10f);
+                return health.MaxAmount * 0.5f - health.Amount;
+            }
+
+            float waterEmptyLoss = HealthLost(0f, 1f);
+            float nutrientsEmptyLoss = HealthLost(1f, 0f);
+            float bothEmptyLoss = HealthLost(0f, 0f);
+
+            Expect(failures, waterEmptyLoss > 0f, "health should drop with water empty");
+            Expect(failures, nutrientsEmptyLoss > 0f, "health should drop with nutrients empty");
+            Expect(failures, Mathf.Approximately(waterEmptyLoss, nutrientsEmptyLoss), $"each empty resource should cost the same, got {waterEmptyLoss} and {nutrientsEmptyLoss}");
+            Expect(failures, Mathf.Abs(bothEmptyLoss - waterEmptyLoss * 2f) < 0.001f, $"both empty should cost double, got {bothEmptyLoss} against {waterEmptyLoss}");
+            Expect(failures, HealthLost(0.01f, 0.01f) == 0f, "health should not drop while water and nutrients aren't empty");
+
+            water.SetAmount(0f);
+            nutrients.SetAmount(0f);
+            health.SetAmount(health.MaxAmount * 0.01f);
+            neglect.Advance(100000f);
+            Expect(failures, health.Amount == 0f, $"health should stop at 0, got {health.Amount}");
+
+            health.SetAmount(originalHealth);
+            water.SetAmount(originalWater);
+            nutrients.SetAmount(originalNutrients);
+        }
+
+        private static void CheckHealthRegeneration(List<string> failures, TreeResource[] resources)
+        {
+            HealthRegeneration regeneration = Object.FindAnyObjectByType<HealthRegeneration>();
+            Expect(failures, regeneration != null, "no health regeneration in the scene");
+            if (regeneration == null)
+            {
+                return;
+            }
+
+            TreeResource health = System.Array.Find(resources, r => r.Type == TreeResourceType.Health);
+            TreeResource water = System.Array.Find(resources, r => r.Type == TreeResourceType.Water);
+            TreeResource nutrients = System.Array.Find(resources, r => r.Type == TreeResourceType.Nutrients);
+            float originalHealth = health.Amount;
+            float originalWater = water.Amount;
+            float originalNutrients = nutrients.Amount;
+
+            // Plays from half health, with water and nutrients as shares of their maximum.
+            float HealthGained(float waterShare, float nutrientsShare)
+            {
+                water.SetAmount(water.MaxAmount * waterShare);
+                nutrients.SetAmount(nutrients.MaxAmount * nutrientsShare);
+                health.SetAmount(health.MaxAmount * 0.5f);
+                regeneration.Advance(10f);
+                return health.Amount - health.MaxAmount * 0.5f;
+            }
+
+            Expect(failures, HealthGained(0.6f, 0.6f) > 0f, "health should regenerate with water and nutrients above half");
+            Expect(failures, HealthGained(0.4f, 0.6f) == 0f, "health should not regenerate with water below half");
+            Expect(failures, HealthGained(0.6f, 0.4f) == 0f, "health should not regenerate with nutrients below half");
+            Expect(failures, HealthGained(0.5f, 0.6f) == 0f, "health should not regenerate with water at exactly half");
+            Expect(failures, HealthGained(0.6f, 0.5f) == 0f, "health should not regenerate with nutrients at exactly half");
+
+            water.SetAmount(water.MaxAmount);
+            nutrients.SetAmount(nutrients.MaxAmount);
+            health.SetAmount(health.MaxAmount * 0.99f);
+            regeneration.Advance(100000f);
+            Expect(failures, health.Amount == health.MaxAmount, $"health should stop at its maximum, got {health.Amount}");
+
+            health.SetAmount(originalHealth);
+            water.SetAmount(originalWater);
+            nutrients.SetAmount(originalNutrients);
         }
 
         private static void Expect(List<string> failures, bool condition, string failure)

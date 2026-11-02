@@ -57,6 +57,29 @@ namespace TreeGame.EditorTools
             return resource;
         }
 
+        /// <summary>On the health resource's object, so it catches up after water and nutrients have drained.</summary>
+        public static void CreateHealthRegeneration(TreeResource health, TreeResource water, TreeResource nutrients, GameConfig config)
+        {
+            SetReferences(health.gameObject.AddComponent<HealthRegeneration>(),
+                ("health", health),
+                ("water", water),
+                ("nutrients", nutrients),
+                ("config", config));
+        }
+
+        /// <summary>
+        /// On the tree itself, so after a minigame it catches up before water and nutrients drain. A resource that ran
+        /// out partway through a minigame then costs nothing for that time, rather than counting as empty all along.
+        /// </summary>
+        public static void CreateNeglectDamage(GameObject tree, TreeResource health, TreeResource water, TreeResource nutrients, GameConfig config)
+        {
+            SetReferences(tree.AddComponent<NeglectDamage>(),
+                ("health", health),
+                ("water", water),
+                ("nutrients", nutrients),
+                ("config", config));
+        }
+
         /// <summary>
         /// Lets the player water the tree (water bucket, hotbar slot 1) and feed it compost (compost bucket, slot 2)
         /// while standing at the trunk.

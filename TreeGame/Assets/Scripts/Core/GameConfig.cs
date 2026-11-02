@@ -26,6 +26,13 @@ namespace TreeGame.Core
         [SerializeField] private ResourceSettings nutrients = new ResourceSettings(maxAmount: 500f, secondsToEmpty: 240f);
         [Tooltip("Health is a plain 0 to 100 score. It doesn't drain on its own; only damage to the tree lowers it.")]
         [SerializeField] private ResourceSettings health = new ResourceSettings(maxAmount: 100f, secondsToEmpty: 0f);
+        [Tooltip("Health only regenerates while water and nutrients are both above this share of their maximum (0..1).")]
+        [SerializeField, Range(0f, 1f)] private float healthRegenMinResourceShare = 0.5f;
+        [Tooltip("Seconds of play time for health to regenerate from 0 to full. Slower than insects do damage on average, " +
+                 "so ignoring them still costs something.")]
+        [SerializeField, Min(1f)] private float secondsToRegenFullHealth = 1800f;
+        [Tooltip("Seconds for health to go from full to 0 with one of water or nutrients empty. With both empty it takes half as long.")]
+        [SerializeField, Min(1f)] private float secondsToLoseFullHealthPerEmptyResource = 600f;
 
         [Header("Player")]
         [Tooltip("Walking speed in world units per second.")]
@@ -59,6 +66,12 @@ namespace TreeGame.Core
         [SerializeField] private WindSettings wind = new WindSettings();
 
         public float SecondsToFullyGrow => secondsToFullyGrow;
+
+        public float HealthRegenMinResourceShare => healthRegenMinResourceShare;
+
+        public float SecondsToRegenFullHealth => secondsToRegenFullHealth;
+
+        public float SecondsToLoseFullHealthPerEmptyResource => secondsToLoseFullHealthPerEmptyResource;
 
         public float PlayerMoveSpeed => playerMoveSpeed;
 
