@@ -1,0 +1,326 @@
+using System.Collections.Generic;
+using TreeGame.Care;
+using TreeGame.Items;
+using TreeGame.Pests;
+using TreeGame.Player;
+using TreeGame.Saving;
+using TreeGame.Trees;
+using TreeGame.World;
+using UnityEditor;
+using UnityEngine;
+
+namespace TreeGame.DevTools
+{
+    /// <summary>
+    /// Play Mode check that the game scene's systems can hand over their state and take it back. Puts everything back
+    /// as it found it, except that restored leaves may look a little different.
+    /// </summary>
+    public static class SaveStateSelfCheck
+    {
+        private const string MenuPath = "Tree Game/Run Save State Self-Check (Play Mode)";
+
+        [MenuItem(MenuPath, true)]
+        private static bool CanRun() => Application.isPlaying;
+
+        [MenuItem(MenuPath)]
+        private static void Run()
+        {
+            var composter = Object.FindAnyObjectByType<Composter>();
+            var insects = Object.FindAnyObjectByType<InsectInfestation>();
+            var leaves = Object.FindAnyObjectByType<FallenLeafSpawner>();
+            var player = Object.FindAnyObjectByType<PlayerMovement>();
+            if (composter == null || insects == null || leaves == null || player == null)
+            {
+                Debug.LogError("Save state self-check: open the game scene first. It needs a composter, insects, a leaf spawner and a player.");
+                return;
+            }
+
+            var failures = new List<string>();
+            LogType originalFilter = Debug.unityLogger.filterLogType;
+            try
+            {
+                // Silences the warnings that the deliberate invalid inputs below are expected to produce.
+                Debug.unityLogger.filterLogType = LogType.Error;
+
+                CheckComposter(failures, composter);
+                CheckInsects(failures, insects);
+                CheckLeaves(failures, leaves);
+                CheckPlayer(failures, player);
+                CheckCapture(failures, composter, insects, leaves, player);
+                CheckRestore(failures, composter, insects, leaves, player);
+            }
+            finally
+            {
+                Debug.unityLogger.filterLogType = originalFilter;
+            }
+
+            if (failures.Count == 0)
+            {
+                Debug.Log("Save state self-check PASSED.");
+            }
+            else
+            {
+                Debug.LogError("Save state self-check FAILED:\n- " + string.Join("\n- ", failures));
+            }
+        }
+
+        private static void Expect(List<string> failures, bool condition, string failure)
+        {
+            if (!condition)
+            {
+                failures.Add(failure);
+            }
+        }
+
+        /// <summary>Compares what would be saved with the game itself. It only reads, so nothing is written to disk.</summary>
+        private static void CheckCapture(List<string> failures, Composter composter, InsectInfestation insects,
+            FallenLeafSpawner leaves, PlayerMovement player)
+        {
+            var world = Object.FindAnyObjectByType<WorldState>();
+            var growth = Object.FindAnyObjectByType<TreeGrowth>();
+            var inventory = Object.FindAnyObjectByType<Inventory>();
+            if (world == null || !world.IsComplete || growth == null || inventory == null)
+            {
+                failures.Add("the scene needs a complete world state, a tree and an inventory");
+                return;
+            }
+
+            SaveData data = world.Capture();
+            float FillOf(TreeResourceType type) =>
+                System.Array.Find(Object.FindObjectsByType<TreeResource>(), resource => resource.Type == type).Normalized;
+
+            Expect(failures, data.treeGrowth == growth.Growth, "the captured growth differs from the tree's");
+            Expect(failures, data.waterFill == FillOf(TreeResourceType.Water), "the captured water differs from the tree's");
+            Expect(failures, data.nutrientsFill == FillOf(TreeResourceType.Nutrients), "the captured nutrients differ from the tree's");
+            Expect(failures, data.healthFill == FillOf(TreeResourceType.Health), "the captured health differs from the tree's");
+            Expect(failures, data.playerX == player.transform.position.x, "the captured player position differs from the player's");
+            Expect(failures, data.composter.state == (int)composter.State && data.composter.compostGrams == composter.CompostGrams, "the captured composter differs from the heap");
+            Expect(failures, data.insectAges.Length == insects.Count, $"captured {data.insectAges.Length} insects, but there are {insects.Count}");
+            Expect(failures, data.fallenLeaves.Length == leaves.GetLeafPositions().Count, "the captured leaves differ from those on the ground");
+
+            Expect(failures, data.inventorySlots.Length == inventory.SlotCount, $"captured {data.inventorySlots.Length} slots, but there are {inventory.SlotCount}");
+            for (int i = 0; i < data.inventorySlots.Length && i < inventory.SlotCount; i++)
+            {
+                SavedSlot slot = data.inventorySlots[i];
+                Item item = inventory.GetItem(i);
+                Expect(failures, slot.itemName == (item != null ? item.Definition.name : ""), $"slot {i} captured the wrong item: '{slot.itemName}'");
+
+                if (item is StackableItem stack)
+                {
+                    Expect(failures, slot.count == stack.Count, $"slot {i} captured {slot.count} of a stack of {stack.Count}");
+                }
+
+                if (item is ContainerItem container)
+                {
+                    Expect(failures, slot.storedAmount == container.StoredAmount, $"slot {i} captured {slot.storedAmount} of {container.StoredAmount} stored");
+                }
+            }
+        }
+
+        /// <summary>
+        /// Restores a different state and then the original one, in memory only, so the real save isn't touched. Going
+        /// back must give exactly what was captured, which also proves every item in the game can be found again.
+        /// </summary>
+        private static void CheckRestore(List<string> failures, Composter composter, InsectInfestation insects,
+            FallenLeafSpawner leaves, PlayerMovement player)
+        {
+            var world = Object.FindAnyObjectByType<WorldState>();
+            var growth = Object.FindAnyObjectByType<TreeGrowth>();
+            var inventory = Object.FindAnyObjectByType<Inventory>();
+            if (world == null || !world.IsComplete || growth == null || inventory == null)
+            {
+                failures.Add("the scene needs a complete world state, a tree and an inventory");
+                return;
+            }
+
+            SaveData original = world.Capture();
+
+            // Every slot empty except a bucket in a slot of its own and an item the game doesn't know.
+            string bucketName = FindItemNameOfType<ContainerItem>(original);
+            var slots = new SavedSlot[inventory.SlotCount];
+            for (int i = 0; i < slots.Length; i++)
+            {
+                slots[i] = new SavedSlot();
+            }
+
+            if (bucketName != null && slots.Length > 4)
+            {
+                slots[3] = new SavedSlot { itemName = bucketName, storedAmount = 5f };
+                slots[4] = new SavedSlot { itemName = "No Such Item", count = 3 };
+            }
+
+            world.Restore(new SaveData
+            {
+                treeGrowth = 0.5f,
+                waterFill = 0.25f,
+                nutrientsFill = 0.75f,
+                healthFill = 0.125f,
+                playerX = 0.5f,
+                inventorySlots = slots,
+                composter = new SavedComposter { state = (int)CompostState.Done, workSeconds = 30f, workDuration = 30f, compostGrams = 40f },
+                insectAges = new[] { 12f },
+                fallenLeaves = new[] { new SavedLeaf { x = 2f, y = 0f, z = -1f } },
+            });
+
+            Expect(failures, growth.Growth == 0.5f, $"growth restored as {growth.Growth}");
+            Expect(failures, player.transform.position.x == 0.5f, $"player restored at {player.transform.position.x}");
+            Expect(failures, composter.State == CompostState.Done && composter.CompostGrams == 40f, "the composter wasn't restored");
+            Expect(failures, insects.Count == 1 && insects.InsectAges[0] == 12f, "the insects weren't restored");
+            Expect(failures, leaves.GetLeafPositions().Count == 1, "the leaves weren't restored");
+
+            SaveData changed = world.Capture();
+            Expect(failures, Mathf.Approximately(changed.waterFill, 0.25f), $"water restored as {changed.waterFill}");
+            Expect(failures, Mathf.Approximately(changed.nutrientsFill, 0.75f), $"nutrients restored as {changed.nutrientsFill}");
+            Expect(failures, Mathf.Approximately(changed.healthFill, 0.125f), $"health restored as {changed.healthFill}");
+
+            if (bucketName != null && slots.Length > 4)
+            {
+                Expect(failures, inventory.GetItem(0) == null, "a slot saved empty should be empty");
+                Expect(failures, inventory.GetItem(3) is ContainerItem { StoredAmount: 5f }, "a bucket should come back in its slot with its amount");
+                Expect(failures, inventory.GetItem(4) == null, "an unknown item should leave its slot empty");
+            }
+
+            world.Restore(original);
+            SaveData restored = world.Capture();
+
+            // The resources may round by a tiny amount, as they are stored as shares of their maximum.
+            Expect(failures, Mathf.Approximately(restored.waterFill, original.waterFill), "water didn't go back");
+            Expect(failures, Mathf.Approximately(restored.nutrientsFill, original.nutrientsFill), "nutrients didn't go back");
+            Expect(failures, Mathf.Approximately(restored.healthFill, original.healthFill), "health didn't go back");
+            restored.waterFill = original.waterFill;
+            restored.nutrientsFill = original.nutrientsFill;
+            restored.healthFill = original.healthFill;
+
+            string originalText = JsonUtility.ToJson(original);
+            string restoredText = JsonUtility.ToJson(restored);
+            Expect(failures, originalText == restoredText, $"restoring didn't give back what was captured:\n{originalText}\n{restoredText}");
+        }
+
+        private static string FindItemNameOfType<T>(SaveData data) where T : Item
+        {
+            var inventory = Object.FindAnyObjectByType<Inventory>();
+            for (int i = 0; i < inventory.SlotCount; i++)
+            {
+                if (inventory.GetItem(i) is T)
+                {
+                    return data.inventorySlots[i].itemName;
+                }
+            }
+
+            return null;
+        }
+
+        private static void CheckComposter(List<string> failures, Composter composter)
+        {
+            CompostState originalState = composter.State;
+            float originalSeconds = composter.WorkSeconds;
+            float originalDuration = composter.WorkDuration;
+            float originalGrams = composter.CompostGrams;
+
+            composter.RestoreState(CompostState.Working, 15f, 30f, 200f);
+            Expect(failures, composter.State == CompostState.Working, $"restoring a working heap gave {composter.State}");
+            Expect(failures, composter.WorkSeconds == 15f && composter.WorkDuration == 30f && composter.CompostGrams == 200f, "a working heap's amounts changed");
+            Expect(failures, Mathf.Approximately(composter.Progress, 0.5f), $"a heap 15s into 30s should be halfway, got {composter.Progress}");
+
+            composter.Advance(14f);
+            Expect(failures, composter.State == CompostState.Working, "a restored heap finished early");
+            composter.Advance(2f);
+            Expect(failures, composter.State == CompostState.Done, "a restored heap should finish after its remaining time");
+
+            composter.RestoreState(CompostState.Done, 30f, 30f, 200f);
+            Expect(failures, composter.State == CompostState.Done && composter.CompostGrams == 200f, "restoring a finished heap changed it");
+            Expect(failures, composter.Progress == 1f, "a finished heap should show as full");
+
+            composter.RestoreState(CompostState.Idle, 15f, 30f, 200f);
+            Expect(failures, composter.State == CompostState.Idle && composter.CompostGrams == 0f, "an idle heap should be empty, whatever else was saved");
+
+            void ExpectIdle(string description, CompostState state, float seconds, float duration, float grams)
+            {
+                composter.RestoreState(state, seconds, duration, grams);
+                Expect(failures, composter.State == CompostState.Idle && composter.CompostGrams == 0f, $"{description} should leave the heap idle and empty");
+            }
+
+            ExpectIdle("an unknown state", (CompostState)99, 1f, 30f, 200f);
+            ExpectIdle("working with no compost", CompostState.Working, 1f, 30f, 0f);
+            ExpectIdle("done with negative compost", CompostState.Done, 30f, 30f, -5f);
+            ExpectIdle("NaN compost", CompostState.Working, 1f, 30f, float.NaN);
+            ExpectIdle("infinite compost", CompostState.Done, 1f, 30f, float.PositiveInfinity);
+            ExpectIdle("NaN time worked", CompostState.Working, float.NaN, 30f, 200f);
+            ExpectIdle("NaN duration", CompostState.Working, 1f, float.NaN, 200f);
+
+            composter.RestoreState(CompostState.Working, -10f, 30f, 200f);
+            Expect(failures, composter.WorkSeconds == 0f, $"negative time worked should count as none, got {composter.WorkSeconds}");
+
+            composter.RestoreState(originalState, originalSeconds, originalDuration, originalGrams);
+        }
+
+        private static void CheckInsects(List<string> failures, InsectInfestation insects)
+        {
+            var original = new List<float>(insects.InsectAges);
+
+            int reportedCount = -1;
+            void OnCountChanged(int count) => reportedCount = count;
+            insects.CountChanged += OnCountChanged;
+
+            insects.RestoreInsects(new float[0]);
+            reportedCount = -1;
+            insects.RestoreInsects(new[] { 25f, 10f });
+            Expect(failures, reportedCount == 2, $"restoring 2 insects should announce 2, announced {reportedCount}");
+            Expect(failures, insects.Count == 2 && insects.InsectAges[0] == 25f && insects.InsectAges[1] == 10f, "restored insects should keep their ages");
+
+            insects.CountChanged -= OnCountChanged;
+            insects.RestoreInsects(original);
+        }
+
+        private static void CheckLeaves(List<string> failures, FallenLeafSpawner leaves)
+        {
+            List<Vector3> original = leaves.GetLeafPositions();
+
+            var places = new List<Vector3> { new Vector3(1f, 0f, -1f), new Vector3(-2f, 0f, 0.25f) };
+            leaves.RestoreLeaves(places);
+            List<Vector3> read = leaves.GetLeafPositions();
+            Expect(failures, read.Count == 2, $"restoring 2 leaves left {read.Count}");
+            if (read.Count == 2)
+            {
+                Expect(failures, read[0] == places[0] && read[1] == places[1], "restored leaves should be where they were saved");
+            }
+
+            leaves.RestoreLeaves(new[] { new Vector3(float.NaN, 0f, 0f), new Vector3(0f, float.PositiveInfinity, 0f), new Vector3(3f, 0f, 0f) });
+            read = leaves.GetLeafPositions();
+            Expect(failures, read.Count == 1 && read[0].x == 3f, $"invalid leaf places should be skipped, left {read.Count} leaves");
+
+            var tooMany = new List<Vector3>();
+            for (int i = 0; i < 1000; i++)
+            {
+                tooMany.Add(new Vector3(i * 0.001f, 0f, 0f));
+            }
+
+            leaves.RestoreLeaves(tooMany);
+            Expect(failures, leaves.GetLeafPositions().Count < tooMany.Count, "restoring leaves should respect the maximum on the ground");
+
+            leaves.RestoreLeaves(original);
+            Expect(failures, leaves.GetLeafPositions().Count == original.Count, "the original leaves weren't put back");
+        }
+
+        private static void CheckPlayer(List<string> failures, PlayerMovement player)
+        {
+            Vector3 original = player.transform.position;
+
+            player.PlaceAt(1.25f);
+            Expect(failures, player.transform.position.x == 1.25f, $"placing the player at 1.25 gave {player.transform.position.x}");
+            Expect(failures, player.transform.position.y == original.y && player.transform.position.z == original.z, "placing the player should only change X");
+
+            player.PlaceAt(100000f);
+            Expect(failures, player.transform.position.x < 1000f, $"the player should stay within the walkable area, got {player.transform.position.x}");
+            player.PlaceAt(-100000f);
+            Expect(failures, player.transform.position.x > -1000f, $"the player should stay within the walkable area, got {player.transform.position.x}");
+
+            player.PlaceAt(1.25f);
+            player.PlaceAt(float.NaN);
+            player.PlaceAt(float.PositiveInfinity);
+            Expect(failures, player.transform.position.x == 1.25f, "an invalid position should be ignored");
+
+            player.transform.position = original;
+        }
+    }
+}

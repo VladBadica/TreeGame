@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace TreeGame.Pests
 {
@@ -38,6 +39,9 @@ namespace TreeGame.Pests
 
         public int Count => insectAges.Count;
 
+        /// <summary>How long each insect has been on the tree, in seconds, oldest first.</summary>
+        public IReadOnlyList<float> InsectAges => insectAges;
+
         private float SecondsOnTree => graceSeconds + damageSeconds;
 
         /// <summary>Puts a new insect on the tree. Returns false if the tree already has as many as it can.</summary>
@@ -50,6 +54,24 @@ namespace TreeGame.Pests
 
             insectAges.Add(0f);
             return true;
+        }
+
+        /// <summary>
+        /// Replaces the insects with ones of these ages, as when loading. Ages that couldn't happen (invalid, or past the
+        /// end of a stay) are dropped, and the oldest are kept if there are more than the tree can hold.
+        /// </summary>
+        public void RestoreInsects(IEnumerable<float> ages)
+        {
+            insectAges.Clear();
+            if (ages == null)
+            {
+                return;
+            }
+
+            insectAges.AddRange(ages
+                .Where(age => float.IsFinite(age) && age >= 0f && age < SecondsOnTree)
+                .OrderByDescending(age => age)
+                .Take(maxInsects));
         }
 
         /// <summary>

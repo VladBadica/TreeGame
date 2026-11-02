@@ -45,6 +45,15 @@ namespace TreeGame.World
 
         public CompostState State { get; private set; }
 
+        /// <summary>How long the current batch has been working, in seconds.</summary>
+        public float WorkSeconds => workSeconds;
+
+        /// <summary>How long the current batch takes in total, in seconds. Kept per batch, so changing the config doesn't affect one already started.</summary>
+        public float WorkDuration => workDuration;
+
+        /// <summary>The compost in the heap, in grams, including any still being made.</summary>
+        public float CompostGrams => compostGrams;
+
         /// <summary>How far the current batch is, 0..1: rises while working, 1 when done, 0 when idle.</summary>
         public float Progress
         {
@@ -101,6 +110,22 @@ namespace TreeGame.World
             {
                 SetState(CompostState.Done);
             }
+        }
+
+        /// <summary>
+        /// Puts the heap back in a given state, as when loading. A state that couldn't happen, such as compost with
+        /// invalid amounts or none at all, leaves the heap idle and empty.
+        /// </summary>
+        public void RestoreState(CompostState state, float savedWorkSeconds, float savedWorkDuration, float savedCompostGrams)
+        {
+            bool isUsable = (state == CompostState.Working || state == CompostState.Done) &&
+                            float.IsFinite(savedWorkSeconds) && float.IsFinite(savedWorkDuration) &&
+                            float.IsFinite(savedCompostGrams) && savedCompostGrams > 0f;
+
+            workSeconds = isUsable ? Mathf.Max(0f, savedWorkSeconds) : 0f;
+            workDuration = isUsable ? Mathf.Max(0f, savedWorkDuration) : 0f;
+            compostGrams = isUsable ? savedCompostGrams : 0f;
+            SetState(isUsable ? state : CompostState.Idle);
         }
 
         private void OnInteracted(GameObject user)

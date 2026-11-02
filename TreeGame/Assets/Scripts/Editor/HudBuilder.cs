@@ -3,6 +3,7 @@ using TreeGame.Care;
 using TreeGame.Interaction;
 using TreeGame.Items;
 using TreeGame.Pests;
+using TreeGame.Saving;
 using TreeGame.Trees;
 using TreeGame.UI;
 using UnityEditor;
@@ -104,6 +105,25 @@ namespace TreeGame.EditorTools
                 ("panel", panelRect),
                 ("label", label));
             return popup;
+        }
+
+        /// <summary>A short message at the top of the screen saying the game saved, between the panels in the corners.</summary>
+        public static void CreateSaveMessage(Transform canvas, GameSaver saver)
+        {
+            // The component lives on an always-active object; it shows and hides the panel child.
+            var root = new GameObject("Save Message", typeof(RectTransform));
+            StretchInParent(root, canvas);
+
+            GameObject panel = CreatePanel(root.transform, "Panel", new Vector2(0.5f, 1f), new Vector2(0f, -24f), new Vector2(340f, 64f));
+            TMP_Text label = CreateText("Label", 26f, Color.white, TextAlignmentOptions.Center);
+            AddToLayout(label.gameObject, panel.transform, 36f);
+            label.text = "Game saved"; // Placeholder; the component sets the real text at runtime.
+            panel.SetActive(false); // Saved hidden; shown only after a save.
+
+            SetReferences(root.AddComponent<SaveMessage>(),
+                ("saver", saver),
+                ("panel", panel),
+                ("label", label));
         }
 
         /// <summary>The bubble at the screen's edge that tells the player about insects on a tree that is out of view.</summary>

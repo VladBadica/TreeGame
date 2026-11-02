@@ -46,12 +46,21 @@ namespace TreeGame.Player
                 return;
             }
 
+            PlaceAt(transform.position.x + direction * config.PlayerMoveSpeed * Time.deltaTime);
+        }
+
+        /// <summary>Puts the player at a position along the X axis, as when loading, kept within the walkable area.</summary>
+        public void PlaceAt(float x)
+        {
+            if (!float.IsFinite(x))
+            {
+                Debug.LogWarning($"{nameof(PlayerMovement)}: ignored non-finite position {x}.", this);
+                return;
+            }
+
             float centerX = walkAreaCenter != null ? walkAreaCenter.position.x : 0f;
             Vector3 position = transform.position;
-            position.x = Mathf.Clamp(
-                position.x + direction * config.PlayerMoveSpeed * Time.deltaTime,
-                centerX - maxDistanceFromCenter,
-                centerX + maxDistanceFromCenter);
+            position.x = Mathf.Clamp(x, centerX - maxDistanceFromCenter, centerX + maxDistanceFromCenter);
             transform.position = position;
         }
     }

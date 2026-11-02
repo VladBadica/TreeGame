@@ -28,6 +28,16 @@ namespace TreeGame.Cameras
             offset = transform.position - target.position;
         }
 
+        /// <summary>Jumps to the target instead of easing there, e.g. after loading. Call it after Start.</summary>
+        public void SnapToTarget()
+        {
+            if (target != null)
+            {
+                transform.position = target.position + offset;
+                velocity = Vector3.zero;
+            }
+        }
+
         // LateUpdate so the target has finished moving this frame; avoids jitter.
         private void LateUpdate()
         {

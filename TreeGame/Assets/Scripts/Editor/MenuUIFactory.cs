@@ -153,11 +153,12 @@ namespace TreeGame.EditorTools
                 ("panel", panel));
         }
 
-        public static void ConnectLoadSceneButton(Button button, string scenePath)
+        public static void ConnectLoadSceneButton(Button button, string scenePath, bool startFromSave = false)
         {
             var loadScene = button.gameObject.AddComponent<LoadSceneButton>();
             var serializedLoadScene = new SerializedObject(loadScene);
             serializedLoadScene.FindProperty("sceneName").stringValue = Path.GetFileNameWithoutExtension(scenePath);
+            serializedLoadScene.FindProperty("startFromSave").boolValue = startFromSave;
             serializedLoadScene.ApplyModifiedPropertiesWithoutUndo();
         }
     }

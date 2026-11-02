@@ -69,17 +69,66 @@ namespace TreeGame.Trees
             leavesOnGround.RemoveAll(leaf => leaf == null);
             if (leavesOnGround.Count < settings.MaxOnGround)
             {
-                leavesOnGround.Add(SpawnLeaf(settings.SpreadFromTrunk));
+                leavesOnGround.Add(SpawnLeafAt(RandomLandingSpot(settings.SpreadFromTrunk)));
             }
         }
 
-        private ItemPickup SpawnLeaf(float spread)
+        /// <summary>Where each leaf lying on the ground is.</summary>
+        public List<Vector3> GetLeafPositions()
+        {
+            leavesOnGround.RemoveAll(leaf => leaf == null);
+
+            var positions = new List<Vector3>(leavesOnGround.Count);
+            foreach (ItemPickup leaf in leavesOnGround)
+            {
+                positions.Add(leaf.transform.position);
+            }
+
+            return positions;
+        }
+
+        /// <summary>
+        /// Replaces the leaves on the ground with leaves at these places, as when loading. Invalid places are skipped,
+        /// and the usual maximum on the ground still applies.
+        /// </summary>
+        public void RestoreLeaves(IEnumerable<Vector3> positions)
+        {
+            foreach (ItemPickup leaf in leavesOnGround)
+            {
+                if (leaf != null)
+                {
+                    Destroy(leaf.gameObject);
+                }
+            }
+
+            leavesOnGround.Clear();
+
+            int maxOnGround = config.FallenLeaves.MaxOnGround;
+            foreach (Vector3 position in positions)
+            {
+                if (leavesOnGround.Count >= maxOnGround)
+                {
+                    break;
+                }
+
+                if (float.IsFinite(position.x) && float.IsFinite(position.y) && float.IsFinite(position.z))
+                {
+                    leavesOnGround.Add(SpawnLeafAt(position));
+                }
+            }
+        }
+
+        private Vector3 RandomLandingSpot(float spread)
         {
             Vector3 trunk = transform.position;
-            var position = new Vector3(
+            return new Vector3(
                 trunk.x + Random.Range(-spread, spread),
                 trunk.y,
                 Random.Range(depthRange.x, depthRange.y));
+        }
+
+        private ItemPickup SpawnLeafAt(Vector3 position)
+        {
             // A slight random tilt so leaves look scattered rather than lined up.
             Quaternion rotation = Quaternion.Euler(0f, 0f, Random.Range(-20f, 20f));
 

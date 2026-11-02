@@ -28,6 +28,8 @@ namespace TreeGame.Menus
         private readonly List<Behaviour> switchedOff = new List<Behaviour>();
         private bool isPaused;
 
+        public bool IsPaused => isPaused;
+
         private void OnEnable()
         {
             if (pauseAction == null || pauseAction.action == null || panels == null || mainPanel == null ||

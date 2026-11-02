@@ -3,13 +3,16 @@ using TreeGame.Core;
 using TreeGame.DevTools;
 using TreeGame.Interaction;
 using TreeGame.Items;
+using TreeGame.Menus;
 using TreeGame.Minigames;
 using TreeGame.Pests;
+using TreeGame.Saving;
 using TreeGame.Trees;
 using TreeGame.World;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using UnityEngine.UI;
 
 namespace TreeGame.EditorTools
 {
@@ -36,10 +39,10 @@ namespace TreeGame.EditorTools
 
             // Existing assets are reused so manual tweaks to them survive regenerating the scene.
             GameConfig config = GameAssets.GetOrCreateConfig();
+            var waterBucket = GameAssets.GetOrCreateItem<WaterBucketDefinition>("WaterBucket", "Water Bucket", PlaceholderArt.GetOrCreateWaterBucketIcon());
+            var compostBucket = GameAssets.GetOrCreateItem<CompostBucketDefinition>("CompostBucket", "Compost Bucket", PlaceholderArt.GetOrCreateCompostBucketIcon());
             // Order matters: the water bucket goes into slot 1, which the tree's "Press 1 to Water" prompt relies on.
-            GameAssets.GiveStartingItemsIfNone(config,
-                GameAssets.GetOrCreateItem<WaterBucketDefinition>("WaterBucket", "Water Bucket", PlaceholderArt.GetOrCreateWaterBucketIcon()),
-                GameAssets.GetOrCreateItem<CompostBucketDefinition>("CompostBucket", "Compost Bucket", PlaceholderArt.GetOrCreateCompostBucketIcon()));
+            GameAssets.GiveStartingItemsIfNone(config, waterBucket, compostBucket);
             Sprite brownLeaf = PlaceholderArt.GetOrCreateBrownLeafSprite();
             var brownLeaves = GameAssets.GetOrCreateItem<StackableItemDefinition>("BrownLeaves", "Brown Leaves", brownLeaf);
             ItemPickup fallenLeafPrefab = TreeBuilder.GetOrCreateFallenLeafPrefab(brownLeaves, brownLeaf);
@@ -61,7 +64,7 @@ namespace TreeGame.EditorTools
             MinigameRunner minigameRunner = CreateMinigameRunner();
             MusicBuilder.CreateGameMusic();
             WaterWell well = StationBuilder.CreateWell(config, minigameRunner, wellMinigame);
-            StationBuilder.CreateCompostHeap(config, brownLeaves);
+            Composter composter = StationBuilder.CreateCompostHeap(config, brownLeaves);
             GameObject tree = TreeBuilder.CreateTree(config, bark, leaves);
             TreeResource water = TreeBuilder.CreateResource(tree.transform, TreeResourceType.Water, config);
             TreeResource nutrients = TreeBuilder.CreateResource(tree.transform, TreeResourceType.Nutrients, config);
@@ -88,7 +91,10 @@ namespace TreeGame.EditorTools
             HudBuilder.CreateOffScreenInsectBubble(hud, insects, tree.GetComponent<TreeVisuals>(), viewCamera, insect, notificationBubble);
             // Own canvas, drawn on top, so all dev tooling can be removed by deleting one object.
             DebugPanelBuilder.CreateDebugPanel(UIFactory.CreateCanvas("Debug UI", 100), tree.GetComponent<TreeGrowth>());
-            PauseMenuBuilder.CreatePauseMenu(player, minigameRunner);
+            PauseMenu pauseMenu = PauseMenuBuilder.CreatePauseMenu(player, minigameRunner, out Button quitToMenuButton);
+            GameSaver saver = SaveBuilder.CreateSaveAndLoad(minigameRunner, pauseMenu, quitToMenuButton, tree, water, nutrients, health,
+                player, composter, insects, camera, waterBucket, compostBucket, brownLeaves, coin);
+            HudBuilder.CreateSaveMessage(hud, saver);
 
             BuilderHelpers.SaveGeneratedScene(scene, scenePath);
 

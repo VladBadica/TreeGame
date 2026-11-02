@@ -19,7 +19,7 @@ namespace TreeGame.EditorTools
         /// Placeholder compost heap: a single box of dark soil resting on the ground. Leaves dropped in turn into
         /// compost that the player collects into the compost bucket.
         /// </summary>
-        public static void CreateCompostHeap(GameConfig config, ItemDefinition leaves)
+        public static Composter CreateCompostHeap(GameConfig config, ItemDefinition leaves)
         {
             Material compost = GetOrCreateMaterial("Compost", new Color(0.36f, 0.26f, 0.18f));
 
@@ -37,6 +37,7 @@ namespace TreeGame.EditorTools
                 ("compostableItem", leaves));
 
             CreateCompostProgressBar(heap, composter);
+            return composter;
         }
 
         /// <summary>

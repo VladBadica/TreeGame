@@ -11,13 +11,13 @@ using static TreeGame.EditorTools.UIFactory;
 
 namespace TreeGame.EditorTools
 {
-    /// <summary>Builds the game scene's pause menu: main screen, settings, and a confirmation before quitting.</summary>
+    /// <summary>Builds the game scene's pause menu: main screen and settings. Quitting needs no confirmation, as it saves.</summary>
     internal static class PauseMenuBuilder
     {
         // Above the HUD and the debug panel, so the background blocks clicks on both.
         private const int CanvasSortingOrder = 200;
 
-        public static void CreatePauseMenu(Transform player, MinigameRunner minigameRunner)
+        public static PauseMenu CreatePauseMenu(Transform player, MinigameRunner minigameRunner, out Button quitToMenuButton)
         {
             DefaultControls.Resources resources = GetUIResources();
             Transform canvas = CreateCanvas("Pause Menu", CanvasSortingOrder);
@@ -34,20 +34,12 @@ namespace TreeGame.EditorTools
             GameObject settingsPanel = CreateSettingsPanel(canvas);
             Button settingsBack = CreateMenuButton(resources, settingsPanel.transform, "Back");
 
-            GameObject confirmPanel = CreateInfoPanel(canvas, "Confirm Quit Panel", "Quit to Menu?",
-                "All progress will be lost.", height: 390f);
-            // Cancel comes first, so it is the button selected by default and a stray Enter can't lose progress.
-            Button cancelQuit = CreateMenuButton(resources, confirmPanel.transform, "Cancel");
-            Button confirmQuit = CreateMenuButton(resources, confirmPanel.transform, "Quit");
-
             var panels = canvas.gameObject.AddComponent<MenuPanels>();
-            SetReferenceArray(panels, "panels", mainPanel, settingsPanel, confirmPanel);
+            SetReferenceArray(panels, "panels", mainPanel, settingsPanel);
 
             ConnectPanelButton(settings, panels, settingsPanel);
             ConnectPanelButton(settingsBack, panels, mainPanel);
-            ConnectPanelButton(quitToMenu, panels, confirmPanel);
-            ConnectPanelButton(cancelQuit, panels, mainPanel);
-            ConnectLoadSceneButton(confirmQuit, BuildSceneList.MainMenuPath);
+            ConnectLoadSceneButton(quitToMenu, BuildSceneList.MainMenuPath);
 
             var pauseMenu = canvas.gameObject.AddComponent<PauseMenu>();
             SetReferences(pauseMenu,
@@ -68,7 +60,9 @@ namespace TreeGame.EditorTools
             background.SetActive(false);
             mainPanel.SetActive(false);
             settingsPanel.SetActive(false);
-            confirmPanel.SetActive(false);
+
+            quitToMenuButton = quitToMenu;
+            return pauseMenu;
         }
     }
 }

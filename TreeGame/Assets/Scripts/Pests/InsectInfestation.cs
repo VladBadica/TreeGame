@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using TreeGame.Care;
 using TreeGame.Core;
 using UnityEngine;
@@ -22,6 +23,9 @@ namespace TreeGame.Pests
         public event Action<int> CountChanged;
 
         public int Count => Rules.Count;
+
+        /// <summary>How long each insect has been on the tree, in seconds, oldest first.</summary>
+        public IReadOnlyList<float> InsectAges => Rules.InsectAges;
 
         // Created on first use, so other components can read the count regardless of initialization order.
         private InsectInfestationRules Rules
@@ -80,6 +84,18 @@ namespace TreeGame.Pests
 
             CountChanged?.Invoke(Rules.Count);
             return true;
+        }
+
+        /// <summary>Replaces the insects with ones of these ages, as when loading. Ages that couldn't happen are dropped.</summary>
+        public void RestoreInsects(IEnumerable<float> ages)
+        {
+            int countBefore = Rules.Count;
+            Rules.RestoreInsects(ages);
+
+            if (Rules.Count != countBefore)
+            {
+                CountChanged?.Invoke(Rules.Count);
+            }
         }
 
         /// <summary>Removes a share of the insects (0 to 1), rounded up, oldest first.</summary>

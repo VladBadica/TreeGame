@@ -35,6 +35,9 @@ namespace TreeGame.DevTools
             CheckCountLimit(failures);
             CheckRemovingAShare(failures);
             CheckRemovingTakesTheOldestFirst(failures);
+            CheckReadingAges(failures);
+            CheckRestoringContinuesWhereItLeftOff(failures);
+            CheckRestoringBadAges(failures);
             CheckBadTimeIsIgnored(failures);
             CheckBadTuningIsRejected(failures);
             return failures;
@@ -227,6 +230,72 @@ namespace TreeGame.DevTools
 
             // What's left still runs its full time.
             ExpectDamage(failures, rules.Advance(Grace - 1f + DamagePeriod), DamagePerInsect, "the rest of the remaining insect's stay");
+        }
+
+        private static void CheckReadingAges(List<string> failures)
+        {
+            InsectInfestationRules rules = NewRulesWithInsect();
+            rules.Advance(10f);
+            rules.TryAddInsect();
+            rules.Advance(5f);
+
+            Expect(failures, rules.InsectAges.Count == 2, $"reading ages gave {rules.InsectAges.Count} insects, expected 2");
+            if (rules.InsectAges.Count == 2)
+            {
+                Expect(failures, rules.InsectAges[0] == 15f && rules.InsectAges[1] == 5f, $"ages read as {rules.InsectAges[0]} and {rules.InsectAges[1]}, expected 15 and 5, oldest first");
+            }
+        }
+
+        private static void CheckRestoringContinuesWhereItLeftOff(List<string> failures)
+        {
+            // Saved halfway through its damage period, so half its damage and half that time are left.
+            float halfwayThrough = Grace + DamagePeriod / 2f;
+            InsectInfestationRules rules = NewRules();
+            rules.RestoreInsects(new[] { halfwayThrough });
+
+            Expect(failures, rules.Count == 1 && rules.InsectAges[0] == halfwayThrough, "a restored insect should have the age it was saved with");
+            ExpectDamage(failures, rules.Advance(DamagePeriod), DamagePerInsect / 2f, "the rest of a restored insect's stay");
+            Expect(failures, rules.Count == 0, "a restored insect should still leave when its stay ends");
+
+            // Given newest first, it must still treat the oldest as oldest.
+            rules = NewRules();
+            rules.RestoreInsects(new[] { 1f, Grace + 1f });
+            Expect(failures, rules.InsectAges[0] == Grace + 1f && rules.InsectAges[1] == 1f, "restored insects should be in order, oldest first");
+            rules.RemoveShare(0.5f);
+            Expect(failures, rules.Count == 1 && rules.InsectAges[0] == 1f, "after restoring, removing should still take the oldest first");
+
+            // It replaces what's there rather than adding to it.
+            rules = NewRulesWithInsects(3);
+            rules.RestoreInsects(new[] { 5f });
+            Expect(failures, rules.Count == 1, $"restoring should replace the insects, but left {rules.Count}");
+
+            // Saving nothing and restoring it leaves none.
+            rules = NewRulesWithInsects(3);
+            rules.RestoreInsects(new float[0]);
+            Expect(failures, rules.Count == 0, $"restoring no insects left {rules.Count}");
+        }
+
+        private static void CheckRestoringBadAges(List<string> failures)
+        {
+            float stay = Grace + DamagePeriod;
+            InsectInfestationRules rules = NewRules();
+            rules.RestoreInsects(new[] { float.NaN, float.PositiveInfinity, float.NegativeInfinity, -1f, stay, stay + 100f, 5f });
+            Expect(failures, rules.Count == 1 && rules.InsectAges[0] == 5f, $"only the one possible age should be kept, but {rules.Count} insects were");
+
+            // A brand new insect and one with a moment left are both possible.
+            rules = NewRules();
+            rules.RestoreInsects(new[] { 0f, stay - 0.5f });
+            Expect(failures, rules.Count == 2, $"ages at both ends of a stay should be kept, but {rules.Count} insects were");
+
+            // More than the tree can hold: the oldest stay, so a save can't undo their damage so far.
+            rules = NewRules();
+            rules.RestoreInsects(new[] { 1f, 2f, 3f, 4f, 5f });
+            Expect(failures, rules.Count == MaxInsects, $"restoring too many left {rules.Count}, expected {MaxInsects}");
+            Expect(failures, rules.InsectAges[0] == 5f && rules.InsectAges[MaxInsects - 1] == 3f, "restoring too many should keep the oldest");
+
+            rules = NewRulesWithInsects(2);
+            rules.RestoreInsects(null);
+            Expect(failures, rules.Count == 0, $"restoring null left {rules.Count}, expected none");
         }
 
         private static void CheckBadTimeIsIgnored(List<string> failures)
