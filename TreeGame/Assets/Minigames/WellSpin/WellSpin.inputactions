@@ -32,7 +32,7 @@
                     "path": "<Keyboard>/space",
                     "interactions": "",
                     "processors": "",
-                    "groups": "",
+                    "groups": "Keyboard&Mouse",
                     "action": "Press",
                     "isComposite": false,
                     "isPartOfComposite": false
@@ -43,7 +43,7 @@
                     "path": "<Keyboard>/escape",
                     "interactions": "",
                     "processors": "",
-                    "groups": "",
+                    "groups": "Keyboard&Mouse",
                     "action": "Quit",
                     "isComposite": false,
                     "isPartOfComposite": false

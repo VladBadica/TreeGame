@@ -19,7 +19,7 @@ namespace TreeGame.EditorTools
         internal const string ScenePath = Folder + "/WellSpin.unity";
         private const string SettingsPath = Folder + "/WellSpinSettings.asset";
         private const string DefinitionPath = Folder + "/WellSpinMinigame.asset";
-        private const string InputActionsPath = Folder + "/WellSpin.inputactions";
+        internal const string InputActionsPath = Folder + "/WellSpin.inputactions";
 
         // The ring's size on the canvas. The band takes the outer fifth, which the indicator is sized to fit.
         private const float RingDiameter = 620f;
