@@ -22,9 +22,7 @@ namespace TreeGame.Minigames.WellSpin
         [SerializeField] private TMP_Text statusLabel;
         [SerializeField] private TMP_Text hintLabel;
 
-        [Header("Timer")]
-        [SerializeField] private FillBar timerBar;
-        [SerializeField] private TMP_Text timerLabel;
+        [SerializeField] private CountdownBar timer;
 
         [Header("Press Feedback")]
         [Tooltip("Flashes the ring's track when a press is judged.")]
@@ -33,12 +31,10 @@ namespace TreeGame.Minigames.WellSpin
         [SerializeField] private Color missColor = new Color(0.95f, 0.3f, 0.25f);
         [SerializeField, Min(0.01f)] private float flashSeconds = 0.3f;
 
-        private int shownSecondsLeft = -1;
-
         private void OnEnable()
         {
             if (game == null || target == null || indicatorPivot == null || scoreLabel == null ||
-                statusLabel == null || hintLabel == null || trackFlash == null || timerBar == null || timerLabel == null)
+                statusLabel == null || hintLabel == null || trackFlash == null || timer == null)
             {
                 Debug.LogWarning($"{nameof(WellSpinRingView)}: needs a game, target, indicator pivot, labels, a track flash and a timer.", this);
                 enabled = false;
@@ -64,22 +60,8 @@ namespace TreeGame.Minigames.WellSpin
             if (game.Rules != null)
             {
                 indicatorPivot.localRotation = ClockwiseRotation(game.Rules.IndicatorAngle);
-                ShowTimer(game.Rules);
+                timer.Show(game.Rules.TimeLeft, game.Rules.TimeLimit);
             }
-        }
-
-        /// <summary>Moves in whole seconds, so the bar and the number always agree.</summary>
-        private void ShowTimer(WellSpinRules rules)
-        {
-            int secondsLeft = Mathf.CeilToInt(rules.TimeLeft);
-            if (secondsLeft == shownSecondsLeft)
-            {
-                return;
-            }
-
-            shownSecondsLeft = secondsLeft;
-            timerLabel.text = $"{secondsLeft}s";
-            timerBar.SetFill(secondsLeft / rules.TimeLimit);
         }
 
         private void ShowFeedback(WellSpinPress result)
@@ -99,19 +81,19 @@ namespace TreeGame.Minigames.WellSpin
             string quitKey = $"<b>{game.QuitKeyName}</b>";
             switch (game.Phase)
             {
-                case WellSpinPhase.Intro:
+                case MinigamePhase.Intro:
                     scoreLabel.text = "";
                     statusLabel.text = "Spin the wheel\nto draw water";
                     hintLabel.text = $"Press {pressKey} to start   ·   {quitKey} to leave";
                     break;
 
-                case WellSpinPhase.Playing:
+                case MinigamePhase.Playing:
                     scoreLabel.text = rules.Hits.ToString();
                     statusLabel.text = $"Try {rules.Tries + 1} of {rules.MaxTries}\nMisses {rules.Misses} of {rules.MaxMisses}";
                     hintLabel.text = $"Press {pressKey} when the white marker is in the green area";
                     break;
 
-                case WellSpinPhase.Results:
+                case MinigamePhase.Results:
                     scoreLabel.text = rules.Hits.ToString();
                     statusLabel.text = $"{GetResultTitle(rules)}\n{rules.Hits} hits in {rules.Tries} tries";
                     hintLabel.text = $"Press {pressKey} to continue";

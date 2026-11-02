@@ -110,6 +110,20 @@ namespace TreeGame.EditorTools
             }
         }
 
+        /// <summary>Reused if it exists, so tuning done in the Inspector survives regenerating the scene.</summary>
+        public static T GetOrCreateSettings<T>(string path) where T : ScriptableObject
+        {
+            var settings = AssetDatabase.LoadAssetAtPath<T>(path);
+            if (settings != null)
+            {
+                return settings;
+            }
+
+            settings = ScriptableObject.CreateInstance<T>();
+            AssetDatabase.CreateAsset(settings, path);
+            return settings;
+        }
+
         public static Material GetOrCreateMaterial(string materialName, Color color, bool unlit = false)
         {
             string path = $"{MaterialsFolder}/{materialName}.mat";

@@ -11,6 +11,17 @@ namespace TreeGame.EditorTools
     /// <summary>UI building blocks shared by every scene builder, so all screens are styled and scaled the same way.</summary>
     internal static class UIFactory
     {
+        /// <summary>A camera for a scene that is all UI, so there is nothing to frame and it only needs a background color.</summary>
+        public static void CreateUICamera(Color backgroundColor)
+        {
+            var go = new GameObject("Main Camera") { tag = "MainCamera" };
+            var camera = go.AddComponent<Camera>();
+            camera.orthographic = true;
+            camera.clearFlags = CameraClearFlags.SolidColor;
+            camera.backgroundColor = backgroundColor;
+            go.AddComponent<AudioListener>();
+        }
+
         public static void CreateEventSystem()
         {
             var eventSystem = new GameObject("EventSystem", typeof(EventSystem));
@@ -49,6 +60,57 @@ namespace TreeGame.EditorTools
             var fade = canvas.gameObject.AddComponent<ScreenFade>();
             BuilderHelpers.SetReferences(fade, ("image", image));
             return fade;
+        }
+
+        /// <summary>
+        /// A minigame's clock: a bar across the top of the screen that shrinks away from the left, with the time left
+        /// just outside its left end, where it stays readable as the bar shrinks away from it.
+        /// </summary>
+        public static CountdownBar CreateCountdownBar(Transform canvas, Color labelColor)
+        {
+            const float width = 900f;
+            const float height = 34f;
+
+            var bar = new GameObject("Timer Bar", typeof(RectTransform), typeof(Image));
+            var barRect = (RectTransform)bar.transform;
+            barRect.SetParent(canvas, false);
+            barRect.anchorMin = barRect.anchorMax = barRect.pivot = new Vector2(0.5f, 1f);
+            barRect.anchoredPosition = new Vector2(0f, -28f);
+            barRect.sizeDelta = new Vector2(width, height);
+            StyleImage(bar.GetComponent<Image>(), new Color(0.2f, 0.25f, 0.3f, 0.6f));
+
+            var fill = new GameObject("Fill", typeof(RectTransform), typeof(Image));
+            RectTransform fillRect = StretchInParent(fill, barRect);
+            StyleImage(fill.GetComponent<Image>(), new Color(0.96f, 0.72f, 0.26f));
+
+            var fillBar = bar.AddComponent<FillBar>();
+            BuilderHelpers.SetReferences(fillBar, ("fill", fillRect));
+            var serializedBar = new SerializedObject(fillBar);
+            serializedBar.FindProperty("anchoredRight").boolValue = true;
+            serializedBar.ApplyModifiedPropertiesWithoutUndo();
+
+            TMP_Text label = CreateText("Time Left", 30f, labelColor, TextAlignmentOptions.MidlineRight);
+            var labelRect = (RectTransform)label.transform;
+            labelRect.SetParent(barRect, false);
+            labelRect.anchorMin = labelRect.anchorMax = new Vector2(0f, 0.5f);
+            labelRect.pivot = new Vector2(1f, 0.5f);
+            labelRect.anchoredPosition = new Vector2(-14f, 0f);
+            labelRect.sizeDelta = new Vector2(100f, height);
+            label.fontStyle = FontStyles.Bold;
+            label.text = "30s"; // Placeholder; the bar shows the real time left at runtime.
+
+            var countdown = bar.AddComponent<CountdownBar>();
+            BuilderHelpers.SetReferences(countdown, ("bar", fillBar), ("label", label));
+            return countdown;
+        }
+
+        /// <summary>A line of instructions in its own dark panel at the bottom of the screen, so it reads clearly over anything.</summary>
+        public static TMP_Text CreateHintBar(Transform canvas, float width)
+        {
+            GameObject panel = CreatePanel(canvas, "Hint Panel", new Vector2(0.5f, 0f), new Vector2(0f, 24f), new Vector2(width, 72f));
+            TMP_Text hint = CreateText("Hint", 30f, Color.white, TextAlignmentOptions.Center);
+            AddToLayout(hint.gameObject, panel.transform, 44f);
+            return hint;
         }
 
         /// <summary>Semi-transparent, vertically stacking panel anchored to a screen corner.</summary>

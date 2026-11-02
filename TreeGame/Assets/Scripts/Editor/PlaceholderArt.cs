@@ -19,6 +19,8 @@ namespace TreeGame.EditorTools
         private const string CoinIconPath = ArtFolder + "/CoinIcon.png";
         private const string InsectPath = ArtFolder + "/Insect.png";
         private const string NotificationBubblePath = ArtFolder + "/NotificationBubble.png";
+        private const string BarkPath = ArtFolder + "/Bark.png";
+        private const string CrackPath = ArtFolder + "/Crack.png";
         private const string RingPath = ArtFolder + "/Ring.png";
         private const string DiscPath = ArtFolder + "/Disc.png";
         private const float PixelsPerUnit = 100f;
@@ -333,6 +335,79 @@ namespace TreeGame.EditorTools
             }
 
             SaveSprite(InsectPath, size, size, pixels, new Vector2(0.5f, 0.5f), pixelsPerUnit: 256f);
+        }
+
+        /// <summary>A close-up of tree bark, for filling the screen: brown with long dark streaks running up and down.</summary>
+        public static Sprite GetOrCreateBarkSprite()
+        {
+            if (!File.Exists(BarkPath))
+            {
+                PaintBark();
+            }
+
+            return AssetDatabase.LoadAssetAtPath<Sprite>(BarkPath);
+        }
+
+        private static void PaintBark()
+        {
+            const int width = 480;
+            const int height = 270;
+            // Noise that changes quickly across the bark and slowly along it, which stretches it into streaks.
+            const float noiseAcross = 0.05f;
+            const float noiseAlong = 0.006f;
+            const float darkSeamBelow = 0.3f;
+            var darkColor = new Color32(84, 56, 36, 255);
+            var lightColor = new Color32(130, 92, 62, 255);
+            var seamColor = new Color32(60, 38, 24, 255);
+
+            var pixels = new Color32[width * height];
+            for (int y = 0; y < height; y++)
+            {
+                for (int x = 0; x < width; x++)
+                {
+                    float noise = Mathf.PerlinNoise(x * noiseAcross, y * noiseAlong);
+                    pixels[y * width + x] = noise < darkSeamBelow ? seamColor : Color32.Lerp(darkColor, lightColor, noise);
+                }
+            }
+
+            SaveSprite(BarkPath, width, height, pixels, new Vector2(0.5f, 0.5f));
+        }
+
+        /// <summary>A dark, jagged crack running up and down, narrowing to a point at both ends.</summary>
+        public static Sprite GetOrCreateCrackSprite()
+        {
+            if (!File.Exists(CrackPath))
+            {
+                PaintCrack();
+            }
+
+            return AssetDatabase.LoadAssetAtPath<Sprite>(CrackPath);
+        }
+
+        private static void PaintCrack()
+        {
+            const int width = 64;
+            const int height = 128;
+            const float centerX = width / 2f;
+            const float widestHalfWidth = 13f;
+            const float jaggedness = 5f;
+            const float jagFrequency = 0.3f;
+            var crackColor = new Color32(36, 22, 16, 255);
+
+            var pixels = new Color32[width * height];
+            for (int y = 0; y < height; y++)
+            {
+                float along = (y + 0.5f) / height * 2f - 1f;
+                float halfWidth = widestHalfWidth * (1f - along * along);
+                float middle = centerX + Mathf.Sin(y * jagFrequency) * jaggedness * (1f - along * along);
+
+                for (int x = 0; x < width; x++)
+                {
+                    pixels[y * width + x] = Mathf.Abs(x + 0.5f - middle) < halfWidth ? crackColor : Transparent;
+                }
+            }
+
+            SaveSprite(CrackPath, width, height, pixels, new Vector2(0.5f, 0.5f));
         }
 
         private static float DistanceToSegment(Vector2 point, Vector2 from, Vector2 to)

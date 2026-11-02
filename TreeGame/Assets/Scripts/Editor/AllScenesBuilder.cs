@@ -14,12 +14,14 @@ namespace TreeGame.EditorTools
         private static void CreateAllScenes()
         {
             if (!BuilderHelpers.ConfirmGenerating("Create All Scenes",
-                    BuildSceneList.MainMenuPath, BuildSceneList.TreeGamePath, WellSpinSceneBuilder.ScenePath))
+                    BuildSceneList.MainMenuPath, BuildSceneList.TreeGamePath, WellSpinSceneBuilder.ScenePath,
+                    InsectSwarmSceneBuilder.ScenePath))
             {
                 return;
             }
 
             WellSpinSceneBuilder.Build();
+            InsectSwarmSceneBuilder.Build();
             PrototypeSceneBuilder.Build();
 
             // Last, so it is the scene left open: pressing Play then starts the game from the beginning.

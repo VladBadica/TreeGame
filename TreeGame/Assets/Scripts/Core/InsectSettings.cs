@@ -8,7 +8,7 @@ namespace TreeGame.Core
     public class InsectSettings
     {
         [Tooltip("Random wait between two insects arriving, in seconds (shortest, longest).")]
-        [SerializeField] private Vector2 secondsBetweenInsects = new Vector2(45f, 90f);
+        [SerializeField] private Vector2 secondsBetweenInsects = new Vector2(5f, 10f);
         [Tooltip("No more insects arrive while this many are on the tree.")]
         [SerializeField, Min(0)] private int maxOnTree = 5;
         [Tooltip("Seconds an insect sits on the tree before it starts doing damage.")]

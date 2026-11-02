@@ -34,11 +34,6 @@ namespace TreeGame.EditorTools
         private const float CameraHeight = 1.05f;
         private const float CameraDistance = 10f;
 
-        private const float TimerBarWidth = 900f;
-        private const float TimerBarHeight = 34f;
-
-        private static readonly Color TimerBackgroundColor = new Color(0.2f, 0.25f, 0.3f, 0.6f);
-        private static readonly Color TimerFillColor = new Color(0.96f, 0.72f, 0.26f);
         private static readonly Color TrackColor = new Color(0.2f, 0.25f, 0.3f, 0.85f);
         // Lets the well show through while keeping the dark score readable on top of it.
         private static readonly Color DiscColor = new Color(1f, 1f, 1f, 0.6f);
@@ -62,7 +57,7 @@ namespace TreeGame.EditorTools
 
             EnsureFolder(MinigamesFolder);
             EnsureFolder(Folder);
-            WellSpinSettings settings = GetOrCreateSettings();
+            var settings = GetOrCreateSettings<WellSpinSettings>(SettingsPath);
             Sprite ring = PlaceholderArt.GetOrCreateRingSprite(RingInnerRadiusRatio);
             Sprite disc = PlaceholderArt.GetOrCreateDiscSprite();
             Material ground = GetOrCreateMaterial("Ground", new Color(0.58f, 0.72f, 0.42f));
@@ -107,20 +102,6 @@ namespace TreeGame.EditorTools
             serializedDefinition.FindProperty("sceneName").stringValue = Path.GetFileNameWithoutExtension(ScenePath);
             serializedDefinition.ApplyModifiedPropertiesWithoutUndo();
             return definition;
-        }
-
-        /// <summary>Reused if it exists, so tuning done in the Inspector survives regenerating the scene.</summary>
-        private static WellSpinSettings GetOrCreateSettings()
-        {
-            var settings = AssetDatabase.LoadAssetAtPath<WellSpinSettings>(SettingsPath);
-            if (settings != null)
-            {
-                return settings;
-            }
-
-            settings = ScriptableObject.CreateInstance<WellSpinSettings>();
-            AssetDatabase.CreateAsset(settings, SettingsPath);
-            return settings;
         }
 
         private static void CreateCamera()
@@ -185,12 +166,7 @@ namespace TreeGame.EditorTools
             score.fontStyle = FontStyles.Bold;
             TMP_Text status = CreateLabel("Status", ringRect, 26f, new Vector2(0f, -70f), new Vector2(440f, 90f));
 
-            // In its own dark panel at the bottom of the screen, so it reads clearly over the well and the ground.
-            GameObject hintPanel = CreatePanel(canvas, "Hint Panel", new Vector2(0.5f, 0f), new Vector2(0f, 24f), new Vector2(1100f, 72f));
-            TMP_Text hint = CreateText("Hint", 30f, Color.white, TextAlignmentOptions.Center);
-            AddToLayout(hint.gameObject, hintPanel.transform, 44f);
-
-            CreateTimer(canvas, out FillBar timerBar, out TMP_Text timerLabel);
+            TMP_Text hint = CreateHintBar(canvas, width: 1100f);
 
             SetReferences(ring.AddComponent<WellSpinRingView>(),
                 ("game", game),
@@ -200,41 +176,7 @@ namespace TreeGame.EditorTools
                 ("statusLabel", status),
                 ("hintLabel", hint),
                 ("trackFlash", trackFlash),
-                ("timerBar", timerBar),
-                ("timerLabel", timerLabel));
-        }
-
-        /// <summary>A bar across the top of the screen that shrinks away from the left, with the time left beside it.</summary>
-        private static void CreateTimer(Transform canvas, out FillBar timerBar, out TMP_Text timerLabel)
-        {
-            var bar = new GameObject("Timer Bar", typeof(RectTransform), typeof(Image));
-            var barRect = (RectTransform)bar.transform;
-            barRect.SetParent(canvas, false);
-            barRect.anchorMin = barRect.anchorMax = barRect.pivot = new Vector2(0.5f, 1f);
-            barRect.anchoredPosition = new Vector2(0f, -28f);
-            barRect.sizeDelta = new Vector2(TimerBarWidth, TimerBarHeight);
-            StyleImage(bar.GetComponent<Image>(), TimerBackgroundColor);
-
-            var fill = new GameObject("Fill", typeof(RectTransform), typeof(Image));
-            RectTransform fillRect = StretchInParent(fill, barRect);
-            StyleImage(fill.GetComponent<Image>(), TimerFillColor);
-
-            timerBar = bar.AddComponent<FillBar>();
-            SetReferences(timerBar, ("fill", fillRect));
-            var serializedBar = new SerializedObject(timerBar);
-            serializedBar.FindProperty("anchoredRight").boolValue = true;
-            serializedBar.ApplyModifiedPropertiesWithoutUndo();
-
-            // Just outside the bar's left end, where it stays readable as the bar shrinks away from it.
-            timerLabel = CreateText("Time Left", 30f, TextColor, TextAlignmentOptions.MidlineRight);
-            var labelRect = (RectTransform)timerLabel.transform;
-            labelRect.SetParent(barRect, false);
-            labelRect.anchorMin = labelRect.anchorMax = new Vector2(0f, 0.5f);
-            labelRect.pivot = new Vector2(1f, 0.5f);
-            labelRect.anchoredPosition = new Vector2(-14f, 0f);
-            labelRect.sizeDelta = new Vector2(100f, TimerBarHeight);
-            timerLabel.fontStyle = FontStyles.Bold;
-            timerLabel.text = "30s"; // Placeholder; the view shows the real time left at runtime.
+                ("timer", CreateCountdownBar(canvas, TextColor)));
         }
 
         private static TMP_Text CreateLabel(string objectName, Transform parent, float fontSize, Vector2 position, Vector2 size)

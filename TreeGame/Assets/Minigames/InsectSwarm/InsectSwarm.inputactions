@@ -1,0 +1,75 @@
+{
+    "version": 1,
+    "name": "InsectSwarm",
+    "maps": [
+        {
+            "name": "InsectSwarm",
+            "id": "3a7d9c14-6e02-4b58-a1f7-92c4e8d05b36",
+            "actions": [
+                {
+                    "name": "Press",
+                    "type": "Button",
+                    "id": "e51b8f02-4c7a-49d3-b6e1-07a2d9c3f481",
+                    "expectedControlType": "Button",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": false
+                },
+                {
+                    "name": "Point",
+                    "type": "Value",
+                    "id": "92f6c3a8-1d4e-4f07-8b25-c6e0a7d1394f",
+                    "expectedControlType": "Vector2",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": true
+                },
+                {
+                    "name": "Quit",
+                    "type": "Button",
+                    "id": "c08e4d71-b3a5-4e96-92f0-5d1b7c6a8e23",
+                    "expectedControlType": "Button",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": false
+                }
+            ],
+            "bindings": [
+                {
+                    "name": "",
+                    "id": "7b1e5a90-f2c8-4d36-a074-e9c3d6b2f158",
+                    "path": "<Mouse>/leftButton",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "Press",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "f4a2d6c8-93b1-4e70-8d5f-1c7e0b9a3d62",
+                    "path": "<Mouse>/position",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "Point",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "28d0b7e3-c6f4-4a19-b5e2-a83f1d7c0964",
+                    "path": "<Keyboard>/escape",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "Quit",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                }
+            ]
+        }
+    ],
+    "controlSchemes": []
+}

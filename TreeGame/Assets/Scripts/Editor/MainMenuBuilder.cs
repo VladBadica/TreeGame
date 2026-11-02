@@ -41,7 +41,7 @@ namespace TreeGame.EditorTools
             const string scenePath = BuildSceneList.MainMenuPath;
             Scene scene = StartNewScene();
 
-            CreateCamera();
+            CreateUICamera(SceneLayout.SkyColor);
             MusicBuilder.CreateMenuMusic();
             CreateEventSystem();
             Transform canvas = CreateCanvas("Menu", 0);
@@ -50,16 +50,6 @@ namespace TreeGame.EditorTools
             SaveGeneratedScene(scene, scenePath);
 
             Debug.Log($"Main menu created at {scenePath}. Open it and press Play to start from the menu.");
-        }
-
-        private static void CreateCamera()
-        {
-            var go = new GameObject("Main Camera") { tag = "MainCamera" };
-            var camera = go.AddComponent<Camera>();
-            camera.orthographic = true;
-            camera.clearFlags = CameraClearFlags.SolidColor;
-            camera.backgroundColor = SceneLayout.SkyColor;
-            go.AddComponent<AudioListener>();
         }
 
         private static void CreateScreens(Transform canvas)
