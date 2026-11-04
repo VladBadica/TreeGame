@@ -8,8 +8,9 @@ namespace TreeGame.Trees
     public sealed class BranchSpec
     {
         internal BranchSpec(int index, int parentIndex, int level, float attachAlong, float tilt, float yaw,
-            float length, float thicknessRatio, float startGrowth, float bend)
+            float length, float thicknessRatio, float startGrowth, float bend, bool isLeader)
         {
+            IsLeader = isLeader;
             Index = index;
             ParentIndex = parentIndex;
             Level = level;
@@ -23,6 +24,12 @@ namespace TreeGame.Trees
         }
 
         public int Index { get; }
+
+        /// <summary>
+        /// True for the leader: the branch carrying on upward from the very top of the trunk. It is at the main branch
+        /// level but isn't one of the main branches spaced up the trunk.
+        /// </summary>
+        public bool IsLeader { get; }
 
         /// <summary>The branch this one grows out of, or <see cref="BranchSkeleton.Trunk"/> for a main branch.</summary>
         public int ParentIndex { get; }
@@ -68,7 +75,8 @@ namespace TreeGame.Trees
 
     /// <summary>
     /// The layout of a tree's branches, built once from a seed so the same seed always gives the same tree: main branches
-    /// out of the trunk, side branches out of those, and twigs out of the side branches. It holds every branch the tree
+    /// out of the trunk, a leader carrying the trunk on upward, side branches out of those, and twigs out of the side
+    /// branches. It holds every branch the tree
     /// can ever have; branch growth only decides how far each has grown. Positions are straight lines from base to tip;
     /// any curve is for the visuals to draw. Plain C# with no Unity dependency, so it can be checked on its own.
     /// </summary>
@@ -96,6 +104,9 @@ namespace TreeGame.Trees
             {
                 AddMainBranch(i);
             }
+
+            // Added last, so the main branches come out the same with or without a leader.
+            AddLeader();
         }
 
         /// <summary>Every branch, each after the branch it grows out of.</summary>
@@ -143,8 +154,10 @@ namespace TreeGame.Trees
 
         private void AddMainBranch(int order)
         {
-            // 0 for the lowest main branch, 1 for the highest.
-            float height = tuning.MainBranchCount > 1 ? order / (tuning.MainBranchCount - 1f) : 0f;
+            // 0 for the lowest main branch, 1 for the highest, with the spacing packing them toward the top. Everything
+            // that changes up the tree follows this, so a branch's length and lean match how high it actually is.
+            float evenly = tuning.MainBranchCount > 1 ? order / (tuning.MainBranchCount - 1f) : 0f;
+            float height = MathF.Pow(evenly, tuning.MainBranchSpacing);
 
             // Alternating sides spread the tree across the screen, as suits the side-on view, with a little depth.
             float side = order % 2 == 0 ? 0f : 180f;
@@ -162,20 +175,64 @@ namespace TreeGame.Trees
             AddChildren(main, tuning.MinSideBranches, tuning.MaxSideBranches);
         }
 
+        /// <summary>
+        /// The top of the trunk carrying on upward. Without it the top main branches spread outward and leave the middle
+        /// of the crown, right above the trunk, open; a broadleaf tree's crown is rounded off there by upright branches.
+        /// </summary>
+        private void AddLeader()
+        {
+            if (tuning.LeaderLength <= 0f)
+            {
+                return;
+            }
+
+            BranchSpec leader = Add(
+                parentIndex: Trunk,
+                level: MainLevel,
+                attachAlong: 1f,
+                tilt: Range(0f, tuning.MaxLeaderTilt),
+                yaw: Range(-180f, 180f),
+                length: tuning.LeaderLength,
+                thicknessRatio: tuning.LeaderThicknessRatio,
+                startGrowth: tuning.FirstMainBranchStart,
+                isLeader: true);
+
+            AddChildren(leader, tuning.MinSideBranches, tuning.MaxSideBranches);
+        }
+
         private void AddChildren(BranchSpec parent, int fewest, int most)
         {
             int count = random.Next(fewest, most + 1);
+
+            // Only drawn for the leader, so every other branch comes out the same as it would without one.
+            float firstSide = parent.IsLeader ? random.Next(2) * 180f : 0f;
+
             for (int i = 0; i < count; i++)
             {
                 // Spread evenly along the outer part of the parent, each a little off its even spot.
                 float along = Lerp(0.35f, 0.95f, (i + Range(0.2f, 0.8f)) / count);
 
+                float tilt;
+                float yaw;
+                if (parent.IsLeader)
+                {
+                    // The leader stands nearly upright, so its side branches don't follow it: they fan out to both sides,
+                    // leaning like the main branches do, to round off the top of the crown.
+                    tilt = Range(tuning.HighestMainBranchTilt, tuning.LowestMainBranchTilt);
+                    yaw = (i % 2 == 0 ? firstSide : firstSide + 180f) + Range(-tuning.MainBranchDepthSpread, tuning.MainBranchDepthSpread);
+                }
+                else
+                {
+                    tilt = Math.Clamp(parent.Tilt + Range(-25f, 15f), 0f, tuning.MaxTilt);
+                    yaw = parent.Yaw + Range(-tuning.ChildTurnSpread, tuning.ChildTurnSpread);
+                }
+
                 BranchSpec child = Add(
                     parentIndex: parent.Index,
                     level: parent.Level + 1,
                     attachAlong: along,
-                    tilt: Math.Clamp(parent.Tilt + Range(-25f, 15f), 0f, tuning.MaxTilt),
-                    yaw: parent.Yaw + Range(-tuning.ChildTurnSpread, tuning.ChildTurnSpread),
+                    tilt: tilt,
+                    yaw: yaw,
                     length: parent.Length * Range(tuning.MinChildLengthRatio, tuning.MaxChildLengthRatio),
                     thicknessRatio: tuning.ChildThicknessRatio,
                     startGrowth: parent.StartGrowth + Range(tuning.MinChildStartDelay, tuning.MaxChildStartDelay));
@@ -188,10 +245,10 @@ namespace TreeGame.Trees
         }
 
         private BranchSpec Add(int parentIndex, int level, float attachAlong, float tilt, float yaw, float length,
-            float thicknessRatio, float startGrowth)
+            float thicknessRatio, float startGrowth, bool isLeader = false)
         {
             var branch = new BranchSpec(branches.Count, parentIndex, level, attachAlong, tilt, yaw, length,
-                thicknessRatio, startGrowth, bend: Range(0f, tuning.MaxBend));
+                thicknessRatio, startGrowth, bend: Range(0f, tuning.MaxBend), isLeader);
             branches.Add(branch);
             return branch;
         }

@@ -9,7 +9,13 @@ namespace TreeGame.Trees
     public sealed class BranchSkeletonTuning
     {
         /// <summary>How many main branches grow out of the trunk.</summary>
-        public int MainBranchCount { get; set; } = 6;
+        public int MainBranchCount { get; set; } = 10;
+
+        /// <summary>
+        /// How the main branches are spaced up the trunk: 1 spaces them evenly, and lower values pack more of them toward
+        /// the top, the way a real tree branches more and more toward its crown.
+        /// </summary>
+        public float MainBranchSpacing { get; set; } = 0.6f;
 
         /// <summary>How many side branches grow out of each main branch (fewest, most).</summary>
         public int MinSideBranches { get; set; } = 2;
@@ -21,11 +27,11 @@ namespace TreeGame.Trees
 
         /// <summary>Where the lowest and highest main branches leave the trunk, as a share of its height.</summary>
         public float LowestMainBranch { get; set; } = 0.35f;
-        public float HighestMainBranch { get; set; } = 0.9f;
+        public float HighestMainBranch { get; set; } = 0.96f;
 
         /// <summary>How far main branches lean from vertical: the lowest the most, the highest the least.</summary>
         public float LowestMainBranchTilt { get; set; } = 68f;
-        public float HighestMainBranchTilt { get; set; } = 35f;
+        public float HighestMainBranchTilt { get; set; } = 28f;
 
         /// <summary>
         /// The most any branch may lean from vertical. Below 90, so every branch points at least a little upward and
@@ -39,9 +45,22 @@ namespace TreeGame.Trees
         /// <summary>How far side branches and twigs may turn from their parent's direction, either way.</summary>
         public float ChildTurnSpread { get; set; } = 40f;
 
+        /// <summary>
+        /// The length of the leader: the top of the trunk carrying on upward as a branch, with side branches of its own, so
+        /// the crown is rounded off above the trunk instead of left open in the middle. 0 for no leader. On a broadleaf
+        /// tree it is about as long as the top main branches, so it fills the crown out rather than poking out of it.
+        /// </summary>
+        public float LeaderLength { get; set; } = 1.3f;
+
+        /// <summary>The leader's thickness as a share of the top of the trunk, which it carries on from.</summary>
+        public float LeaderThicknessRatio { get; set; } = 0.8f;
+
+        /// <summary>The most the leader leans from vertical; it carries on from the trunk, so only a little.</summary>
+        public float MaxLeaderTilt { get; set; } = 8f;
+
         /// <summary>The lengths of the lowest and highest main branches; those in between are spaced evenly.</summary>
         public float LowestMainBranchLength { get; set; } = 1.7f;
-        public float HighestMainBranchLength { get; set; } = 1f;
+        public float HighestMainBranchLength { get; set; } = 1.1f;
 
         /// <summary>A side branch or twig is this share of its parent's length (shortest, longest).</summary>
         public float MinChildLengthRatio { get; set; } = 0.45f;
@@ -74,6 +93,11 @@ namespace TreeGame.Trees
                 throw new ArgumentException("Branch counts can't be negative, and each most must be at least its fewest.");
             }
 
+            if (!(MainBranchSpacing > 0f && MainBranchSpacing <= 5f))
+            {
+                throw new ArgumentException("Main branch spacing must be above 0 (packed toward the top) and at most 5.");
+            }
+
             if (!IsShare(LowestMainBranch) || !IsShare(HighestMainBranch) || LowestMainBranch > HighestMainBranch)
             {
                 throw new ArgumentException("Main branches must leave the trunk between its base and top, lowest first.");
@@ -92,6 +116,13 @@ namespace TreeGame.Trees
             if (!IsBetween(MainBranchDepthSpread, 0f, 90f) || !IsBetween(ChildTurnSpread, 0f, 180f) || !IsBetween(MaxBend, 0f, 90f))
             {
                 throw new ArgumentException("Spreads and bends must be sensible angles.");
+            }
+
+            if (!(LeaderLength >= 0f && float.IsFinite(LeaderLength)) || !IsShareAboveZero(LeaderThicknessRatio) ||
+                !IsBetween(MaxLeaderTilt, 0f, MaxTilt))
+            {
+                throw new ArgumentException("The leader needs a length of 0 or more, a thickness ratio above 0 and up to 1, " +
+                                            "and a lean within the most a branch may lean.");
             }
 
             if (!IsPositive(LowestMainBranchLength) || !IsPositive(HighestMainBranchLength))

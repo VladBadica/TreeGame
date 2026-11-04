@@ -10,7 +10,8 @@ namespace TreeGame.Trees
     /// the trunk follows trunk growth, the branches branch growth and the leaves foliage growth. The branches come from a
     /// <see cref="BranchSkeleton"/> built once from a fixed seed; growth changes only move, scale and show/hide the parts,
     /// so the same growth values always produce the same tree and nothing is rebuilt. Leaves at the top of the trunk need
-    /// no branches, so a tree with foliage but few branches still has a small crown.
+    /// no branches, so a tree with foliage but few branches still has a small crown; they give way to the leader's leaves
+    /// as the branches grow.
     /// The displayed growth eases toward the actual growth; that is purely presentation, TreeGrowth stays authoritative.
     /// Any other visual (authored model, sprites) can replace this by listening to the same event.
     /// </summary>
@@ -34,13 +35,18 @@ namespace TreeGame.Trees
         [Tooltip("Same seed = same branch and foliage placement.")]
         [SerializeField] private int seed = 12345;
         [Tooltip("Main branches growing out of the trunk. More makes a bushier tree.")]
-        [SerializeField, Range(0, 12)] private int mainBranchCount = 6;
+        [SerializeField, Range(0, 16)] private int mainBranchCount = 10;
+        [Tooltip("How main branches are spaced up the trunk: 1 spaces them evenly, lower values pack more toward the top.")]
+        [SerializeField, Range(0.2f, 1f)] private float mainBranchSpacing = 0.6f;
         [Tooltip("Side branches growing out of each main branch (fewest, most).")]
         [SerializeField] private Vector2Int sideBranchesPerBranch = new Vector2Int(2, 3);
         [Tooltip("Twigs growing out of each side branch (fewest, most).")]
         [SerializeField] private Vector2Int twigsPerBranch = new Vector2Int(1, 3);
+        [Tooltip("Length of the leader, the top of the trunk carrying on upward with side branches of its own, which " +
+                 "rounds off the top of the crown. 0 for none.")]
+        [SerializeField, Range(0f, 3f)] private float leaderLength = 1.3f;
         [Tooltip("Clusters of leaves, spread along the side branches and twigs.")]
-        [SerializeField, Range(0, 200)] private int foliageClusterCount = 90;
+        [SerializeField, Range(0, 200)] private int foliageClusterCount = 140;
         [Tooltip("How many of the leaf clusters sit on top of the trunk rather than on branches. They need no branches, " +
                  "so a young tree has leaves before it has branches.")]
         [SerializeField, Range(0, 24)] private int crownClusterCount = 8;
@@ -81,7 +87,14 @@ namespace TreeGame.Trees
         [Tooltip("Fraction of leaf clusters shown over foliage growth. Clusters grow in one after another.")]
         [SerializeField] private GrowthParameter foliageDensity = new GrowthParameter(0.05f, 1f);
         [Tooltip("How big a leaf cluster is over foliage growth, in world units.")]
-        [SerializeField] private GrowthParameter foliageClusterSize = new GrowthParameter(0.25f, 0.6f);
+        [SerializeField] private GrowthParameter foliageClusterSize = new GrowthParameter(0.25f, 0.7f);
+        [Tooltip("How much of the leaves on top of the trunk show, over branch growth. They are a young tree's crown; " +
+                 "by default they give way to the leader's leaves as the branches grow in.")]
+        [SerializeField] private GrowthParameter crownLeavesOverBranchGrowth = new GrowthParameter(1f, 0f,
+            new AnimationCurve(new Keyframe(0.15f, 0f, 0f, 0f), new Keyframe(0.5f, 1f, 0f, 0f)));
+        [Tooltip("How many times as many leaf clusters a twig gets as a side branch. Real crowns carry most of their " +
+                 "leaves on the outer, sunlit twigs.")]
+        [SerializeField, Range(1, 4)] private int twigLeafWeight = 2;
         [Tooltip("How far below the top of the trunk the clusters there may grow out of it, relative to cluster size. " +
                  "Clusters on branches grow right from them.")]
         [SerializeField, Min(0f)] private float foliageSpread = 0.35f;
@@ -145,6 +158,7 @@ namespace TreeGame.Trees
         private TubeShape trunkShape;
         private Branch[] branches;
         private FoliageCluster[] foliage;
+        private bool hasLeavesOnBranches;
 
         // One entry per growth part, indexed by TreeGrowthPart. Each eases toward its target on its own.
         private readonly float[] displayedGrowth = new float[TreeGrowth.Parts.Length];
@@ -301,7 +315,7 @@ namespace TreeGame.Trees
                 ApplyBranch(branch, branchGrowth, height, thickness);
             }
 
-            ApplyFoliage(Displayed(TreeGrowthPart.Foliage));
+            ApplyFoliage(Displayed(TreeGrowthPart.Foliage), branchGrowth);
         }
 
         private void ApplyBranch(Branch branch, float branchGrowth, float trunkHeightValue, float trunkThicknessValue)
@@ -351,10 +365,12 @@ namespace TreeGame.Trees
             return new Vector3(point.X * scale.x, point.Y * scale.y, point.Z * scale.z);
         }
 
-        private void ApplyFoliage(float foliageGrowth)
+        private void ApplyFoliage(float foliageGrowth, float branchGrowth)
         {
             float visibleCount = Mathf.Clamp01(foliageDensity.Evaluate(foliageGrowth)) * foliage.Length;
             float baseSize = foliageClusterSize.Evaluate(foliageGrowth);
+            // With no branches to take over, the leaves on top of the trunk are all the crown there is, so they stay.
+            float crownShare = hasLeavesOnBranches ? Mathf.Clamp01(crownLeavesOverBranchGrowth.Evaluate(branchGrowth)) : 1f;
 
             for (int i = 0; i < foliage.Length; i++)
             {
@@ -366,6 +382,11 @@ namespace TreeGame.Trees
                 {
                     // Leaves on a branch wait until that branch has some length.
                     appear *= Mathf.Clamp01(cluster.Anchor.Progress * 3f);
+                }
+                else
+                {
+                    // Leaves on top of the trunk would sit below the branches around them on a grown tree.
+                    appear *= crownShare;
                 }
 
                 float size = baseSize * cluster.SizeScale * appear;
@@ -537,30 +558,23 @@ namespace TreeGame.Trees
 
         private void BuildFoliage()
         {
-            // Leaves grow along the outer branches: the side branches and twigs, not the main branches or trunk.
-            var anchors = new List<Branch>();
-            foreach (Branch branch in branches)
-            {
-                if (branch.Spec.Level > BranchSkeleton.MainLevel)
-                {
-                    anchors.Add(branch);
-                }
-            }
+            // A private, seeded generator keeps the layout independent of UnityEngine.Random and of call order elsewhere.
+            var random = new System.Random(seed);
+            List<Branch> branchSlots = LeafSlotsOnBranches(foliageClusterCount - crownClusterCount, random);
+            hasLeavesOnBranches = branchSlots.Count > 0;
 
             // One mesh shared by every cluster; each cluster is turned and tinted differently, so they don't look alike.
             Mesh leafCards = ToUnityMesh(LeafCardMesh.Build(leafCardsPerCluster, seed), "Leaf Cards");
             meshes.Add(leafCards);
 
-            // A private, seeded generator keeps the layout independent of UnityEngine.Random and of call order elsewhere.
-            var random = new System.Random(seed);
             var tint = new MaterialPropertyBlock();
 
             foliage = new FoliageCluster[foliageClusterCount];
             for (int i = 0; i < foliageClusterCount; i++)
             {
-                // The first ones sit on top of the trunk, so they show first on a young tree. The rest go round the branches.
-                bool onCrown = i < crownClusterCount || anchors.Count == 0;
-                Branch anchor = onCrown ? null : anchors[(i - crownClusterCount) % anchors.Count];
+                // The first ones sit on top of the trunk, so they show first on a young tree. The rest go on the branches.
+                bool onCrown = i < crownClusterCount || branchSlots.Count == 0;
+                Branch anchor = onCrown ? null : branchSlots[i - crownClusterCount];
 
                 // Clusters on a branch grow right from it. Those on the trunk grow out of it at points a little below
                 // its top, so their stems start inside the wood too.
@@ -582,6 +596,51 @@ namespace TreeGame.Trees
                     RestRotation = rest,
                 };
             }
+        }
+
+        /// <summary>
+        /// The branch each of the leaf clusters on branches grows from, in the order they appear as foliage grows. Leaves
+        /// grow on the outer branches, the side branches and twigs, with the twigs getting more, as a real crown carries
+        /// most of its leaves on its sunlit outside. The clusters are spread evenly over those, then put in a seeded
+        /// shuffled order, so the crown fills in all over at once instead of from the lowest branch up.
+        /// Empty if there are no branches to grow on.
+        /// </summary>
+        private List<Branch> LeafSlotsOnBranches(int count, System.Random random)
+        {
+            var weighted = new List<Branch>();
+            foreach (Branch branch in branches)
+            {
+                if (branch.Spec.Level <= BranchSkeleton.MainLevel)
+                {
+                    continue;
+                }
+
+                int weight = branch.Spec.Level == BranchSkeleton.TwigLevel ? twigLeafWeight : 1;
+                for (int i = 0; i < weight; i++)
+                {
+                    weighted.Add(branch);
+                }
+            }
+
+            var slots = new List<Branch>();
+            if (weighted.Count == 0)
+            {
+                return slots;
+            }
+
+            // Evenly over the whole list, so with fewer clusters than places no part of the tree is left out.
+            for (int i = 0; i < count; i++)
+            {
+                slots.Add(weighted[i * weighted.Count / count]);
+            }
+
+            for (int i = slots.Count - 1; i > 0; i--)
+            {
+                int swap = random.Next(i + 1);
+                (slots[i], slots[swap]) = (slots[swap], slots[i]);
+            }
+
+            return slots;
         }
 
         /// <summary>
@@ -620,10 +679,12 @@ namespace TreeGame.Trees
             return new BranchSkeletonTuning
             {
                 MainBranchCount = mainBranchCount,
+                MainBranchSpacing = mainBranchSpacing,
                 MinSideBranches = Mathf.Max(0, Mathf.Min(sideBranchesPerBranch.x, sideBranchesPerBranch.y)),
                 MaxSideBranches = Mathf.Max(0, Mathf.Max(sideBranchesPerBranch.x, sideBranchesPerBranch.y)),
                 MinTwigs = Mathf.Max(0, Mathf.Min(twigsPerBranch.x, twigsPerBranch.y)),
                 MaxTwigs = Mathf.Max(0, Mathf.Max(twigsPerBranch.x, twigsPerBranch.y)),
+                LeaderLength = Mathf.Max(0f, leaderLength),
             };
         }
 
