@@ -1,3 +1,4 @@
+using System;
 using TreeGame.Core;
 using TreeGame.Items;
 using TreeGame.Minigames;
@@ -21,6 +22,9 @@ namespace TreeGame.Pests
         [Tooltip("The inventory that receives the coins, i.e. the player's.")]
         [SerializeField] private Inventory inventory;
         [SerializeField] private ItemDefinition coin;
+
+        /// <summary>Raised with how many coins went into the inventory after a good score, e.g. for a sound.</summary>
+        public event Action<int> CoinsAwarded;
 
         private void OnEnable()
         {
@@ -76,7 +80,12 @@ namespace TreeGame.Pests
             if (result.Score >= settings.GoodScore)
             {
                 infestation.RemoveShare(1f);
-                inventory.Add(coin, settings.CoinsForGoodScore);
+
+                int coinsAwarded = settings.CoinsForGoodScore - inventory.Add(coin, settings.CoinsForGoodScore);
+                if (coinsAwarded > 0)
+                {
+                    CoinsAwarded?.Invoke(coinsAwarded);
+                }
             }
             else
             {

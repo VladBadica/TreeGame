@@ -71,7 +71,8 @@ namespace TreeGame.EditorTools
             TreeResource health = TreeBuilder.CreateResource(tree.transform, TreeResourceType.Health, config);
             TreeBuilder.CreateHealthRegeneration(health, water, nutrients, config);
             TreeBuilder.CreateNeglectDamage(tree, health, water, nutrients, config);
-            TreeBuilder.CreateTreeCare(tree.transform, water, nutrients);
+            ResourceReceiver treeWaterReceiver = TreeBuilder.CreateTreeCare(tree.transform, water, nutrients);
+            StationBuilder.CreateRunningWaterSound(well, treeWaterReceiver);
             TreeBuilder.CreateFallenLeafSpawner(tree, config, fallenLeafPrefab);
             InsectInfestation insects = InsectBuilder.CreateInsects(tree, health, config, insect, out InsectVisuals insectVisuals);
             Transform player = PlayerBuilder.CreatePlayer(config, tree.transform);

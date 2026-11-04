@@ -1,3 +1,4 @@
+using TreeGame.Care;
 using TreeGame.Core;
 using TreeGame.Interaction;
 using TreeGame.Items;
@@ -64,7 +65,8 @@ namespace TreeGame.EditorTools
 
             var fill = new GameObject("Fill", typeof(RectTransform), typeof(Image));
             RectTransform fillRect = StretchInParent(fill, background.transform);
-            StyleImage(fill.GetComponent<Image>(), new Color(0.56f, 0.74f, 0.32f));
+            // White, because the progress bar component tints it for each state.
+            StyleImage(fill.GetComponent<Image>(), Color.white);
 
             var fillBar = background.AddComponent<FillBar>();
             SetReferences(fillBar, ("fill", fillRect));
@@ -74,6 +76,7 @@ namespace TreeGame.EditorTools
             SetReferences(heap.gameObject.AddComponent<CompostProgressBar>(),
                 ("composter", composter),
                 ("bar", fillBar),
+                ("fill", fill.GetComponent<Image>()),
                 ("barRoot", canvasObject));
         }
 
@@ -96,6 +99,17 @@ namespace TreeGame.EditorTools
                 ("minigameRunner", minigameRunner),
                 ("minigame", minigame));
             return waterWell;
+        }
+
+        /// <summary>
+        /// On the well, but not placed in space: water only moves at the well or the tree, where the player is standing,
+        /// so it should sound the same at either.
+        /// </summary>
+        public static void CreateRunningWaterSound(WaterWell well, ResourceReceiver treeWaterReceiver)
+        {
+            SetReferences(AddSound<RunningWaterSound>(well.gameObject, volume: 0.8f, "Assets/Audio/Sounds/RunningWater.wav"),
+                ("well", well),
+                ("waterReceiver", treeWaterReceiver));
         }
 
         /// <summary>

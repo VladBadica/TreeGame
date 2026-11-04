@@ -65,12 +65,26 @@ namespace TreeGame.EditorTools
                 ("pointAction", FindActionReference("InsectSwarm", "Point", InputActionsPath)),
                 ("quitAction", FindActionReference("InsectSwarm", "Quit", InputActionsPath)),
                 ("field", field));
+            SetReferences(AddSound<InsectStoppedSound>(gameObject, volume: 0.6f, HitSoundPaths()), ("game", game));
 
             CreateView(canvas, field, game, crack, insect, disc);
 
             SaveGeneratedScene(scene, ScenePath);
 
             Debug.Log($"Insect Swarm scene created at {ScenePath}. Press Play in it to test the minigame on its own.");
+        }
+
+        /// <summary>Every sound in the punch and slap pack, so each shoo can sound different.</summary>
+        private static string[] HitSoundPaths()
+        {
+            const int soundCount = 18;
+            var paths = new string[soundCount];
+            for (int i = 0; i < soundCount; i++)
+            {
+                paths[i] = $"Assets/Audio/Sounds/PunchSlapKick/{i + 1}.ogg";
+            }
+
+            return paths;
         }
 
         /// <summary>The asset other scenes use to start this minigame.</summary>

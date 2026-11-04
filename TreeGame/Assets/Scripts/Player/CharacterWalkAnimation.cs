@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 
 namespace TreeGame.Player
@@ -33,6 +34,12 @@ namespace TreeGame.Player
 
         /// <summary>True while the character is moving, e.g. so other animation can react.</summary>
         public bool IsWalking { get; private set; }
+
+        /// <summary>
+        /// Raised each time a foot comes down while walking, with true for one foot and false for the other, so they
+        /// alternate. Timed by the swing of the legs, e.g. so footstep sounds match what's seen.
+        /// </summary>
+        public event Action<bool> FootDown;
 
         private Vector3 bodyRestPosition;
         private float lastX;
@@ -86,7 +93,14 @@ namespace TreeGame.Player
             if (isMoving)
             {
                 // One step is half a sine cycle.
+                int stepsBefore = StepsTaken(phase);
                 phase += stepsPerSecond * Mathf.PI * deltaTime;
+                int stepsAfter = StepsTaken(phase);
+
+                if (stepsAfter > stepsBefore)
+                {
+                    FootDown?.Invoke(stepsAfter % 2 == 0);
+                }
             }
 
             // Arms swing opposite to the leg on the same side, like a natural walk.
@@ -97,6 +111,15 @@ namespace TreeGame.Player
             SetSwing(rightArm, swing);
 
             body.localPosition = bodyRestPosition + Vector3.up * (Mathf.Abs(Mathf.Sin(phase)) * bobHeight * walkBlend);
+        }
+
+        /// <summary>
+        /// Steps completed by a point in the walk cycle. A foot comes down when the legs are furthest apart, which is
+        /// where the swing peaks, a quarter cycle on from where it crosses zero.
+        /// </summary>
+        private static int StepsTaken(float walkPhase)
+        {
+            return Mathf.FloorToInt((walkPhase + Mathf.PI / 2f) / Mathf.PI);
         }
 
         private static void SetSwing(Transform limb, float angle)

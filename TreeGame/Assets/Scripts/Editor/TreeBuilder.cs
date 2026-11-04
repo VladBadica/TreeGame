@@ -84,7 +84,8 @@ namespace TreeGame.EditorTools
         /// Lets the player water the tree (water bucket, hotbar slot 1) and feed it compost (compost bucket, slot 2)
         /// while standing at the trunk.
         /// </summary>
-        public static void CreateTreeCare(Transform tree, TreeResource water, TreeResource nutrients)
+        /// <returns>The receiver for water, for anything that reacts to watering.</returns>
+        public static ResourceReceiver CreateTreeCare(Transform tree, TreeResource water, TreeResource nutrients)
         {
             // Both actions use the buckets' hotbar keys rather than the interact key, so the prompts name those keys.
             // Narrow, so the player has to stand almost at the trunk, leaving room for other interactables nearby.
@@ -97,8 +98,10 @@ namespace TreeGame.EditorTools
             extraPrompts.GetArrayElementAtIndex(0).FindPropertyRelative("actionDescription").stringValue = "Feed";
             serializedInteractable.ApplyModifiedPropertiesWithoutUndo();
 
-            SetReferences(interactable.gameObject.AddComponent<ResourceReceiver>(), ("resource", water));
+            var waterReceiver = interactable.gameObject.AddComponent<ResourceReceiver>();
+            SetReferences(waterReceiver, ("resource", water));
             SetReferences(interactable.gameObject.AddComponent<ResourceReceiver>(), ("resource", nutrients));
+            return waterReceiver;
         }
 
         /// <summary>Leaves fall around the tree once it has grown; they collect under their own root, not the tree.</summary>

@@ -24,7 +24,28 @@ namespace TreeGame.EditorTools
             "Gigawowski, https://opengameart.org/users/gigawowski\n" +
             "https://opengameart.org/content/menutown-music\n" +
             "Licensed under CC BY 4.0\n" +
-            "https://creativecommons.org/licenses/by/4.0/";
+            "https://creativecommons.org/licenses/by/4.0/\n" +
+            "\n" +
+            "Sound: \"Running water\"\n" +
+            "Arthur, https://opengameart.org/content/running-water\n" +
+            "Licensed under CC BY-SA 3.0\n" +
+            "https://creativecommons.org/licenses/by-sa/3.0/\n" +
+            "\n" +
+            "Sound: \"Menu Selection Click\"\n" +
+            "NenadSimic, https://opengameart.org/content/menu-selection-click\n" +
+            "Licensed under CC BY 3.0\n" +
+            "https://creativecommons.org/licenses/by/3.0/\n" +
+            "\n" +
+            "Sound: \"Grass Foot Step Sounds (Yo Frankie!)\"\n" +
+            "Blender Foundation, https://opengameart.org/content/grass-foot-step-sounds-yo-frankie\n" +
+            "Licensed under CC BY 3.0, converted from FLAC to WAV\n" +
+            "https://creativecommons.org/licenses/by/3.0/\n" +
+            "\n" +
+            "Sounds: \"Punch, slap, n' kick\"\n" +
+            "CGEffex, http://freesound.org/people/CGEffex/sounds/98341/\n" +
+            "Split into separate sounds by congusbongus, https://opengameart.org/content/punch-slap-n-kick\n" +
+            "Licensed under CC BY 3.0\n" +
+            "https://creativecommons.org/licenses/by/3.0/";
 
         [MenuItem("Tree Game/Create Main Menu Scene", false, AllScenesBuilder.SingleSceneMenuPriority)]
         private static void CreateMainMenuScene()
@@ -101,6 +122,7 @@ namespace TreeGame.EditorTools
             ConnectLoadSceneButton(play, BuildSceneList.TreeGamePath);
             ConnectLoadSceneButton(confirmNewGame, BuildSceneList.TreeGamePath);
             quit.gameObject.AddComponent<QuitGameButton>();
+            AddClickSound(canvas);
 
             // Saved hidden so only the main panel shows from the first frame.
             settingsPanel.SetActive(false);

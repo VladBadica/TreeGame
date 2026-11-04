@@ -1,6 +1,7 @@
 using System.IO;
 using TMPro;
 using TreeGame.Menus;
+using TreeGame.UI;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.UI;
@@ -56,6 +57,11 @@ namespace TreeGame.EditorTools
             layoutElement.flexibleWidth = 1f;
             layoutElement.flexibleHeight = 1f;
             bodyLabel.text = body;
+
+            // Shrinks the text when there's more than fits, rather than running under the button below.
+            bodyLabel.enableAutoSizing = true;
+            bodyLabel.fontSizeMin = 14f;
+            bodyLabel.fontSizeMax = 26f;
 
             return panel;
         }
@@ -273,6 +279,12 @@ namespace TreeGame.EditorTools
         {
             AddToLayout(control, panel, height);
             control.GetComponent<LayoutElement>().preferredWidth = PanelWidth;
+        }
+
+        /// <summary>Makes every button in a menu click when pressed. Call it once the menu's buttons are all built.</summary>
+        public static void AddClickSound(Transform menuCanvas)
+        {
+            AddSound<ButtonClickSound>(menuCanvas.gameObject, volume: 0.6f, "Assets/Audio/Sounds/MenuClick.wav");
         }
 
         public static void ConnectPanelButton(Button button, MenuPanels menu, GameObject panel)

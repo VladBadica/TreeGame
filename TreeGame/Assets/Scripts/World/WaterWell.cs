@@ -1,3 +1,4 @@
+using System;
 using TreeGame.Core;
 using TreeGame.Interaction;
 using TreeGame.Items;
@@ -22,6 +23,9 @@ namespace TreeGame.World
         [SerializeField] private Inventory inventory;
         [Tooltip("Shown instead of the prompt when there is no room for more water.")]
         [SerializeField] private string bucketFullStatus = "Bucket is full";
+
+        /// <summary>Raised with the liters drawn when a visit to the well puts water in the bucket, e.g. for a sound.</summary>
+        public event Action<float> WaterDrawn;
 
         private void OnEnable()
         {
@@ -60,7 +64,14 @@ namespace TreeGame.World
 
             minigameRunner.Launch(minigame, result =>
             {
+                float before = bucket.StoredAmount;
                 bucket.AddAmount(bucket.Capacity * config.WellFillPerUse * result.Score);
+
+                float drawn = bucket.StoredAmount - before;
+                if (drawn > 0f)
+                {
+                    WaterDrawn?.Invoke(drawn);
+                }
             });
         }
 

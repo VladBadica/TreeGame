@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 
 namespace TreeGame.Care
@@ -11,6 +12,9 @@ namespace TreeGame.Care
     {
         [Tooltip("The resource that poured amounts go into.")]
         [SerializeField] private TreeResource resource;
+
+        /// <summary>Raised with the amount poured, whenever something is poured on, e.g. for a sound.</summary>
+        public event Action<float> Received;
 
         public bool IsAvailable => isActiveAndEnabled && resource != null;
 
@@ -28,9 +32,10 @@ namespace TreeGame.Care
         /// <summary>Adds a poured amount. Anything beyond the resource's maximum is lost, like overfilling a pot.</summary>
         public void Receive(float amount)
         {
-            if (IsAvailable)
+            if (IsAvailable && amount > 0f)
             {
                 resource.Add(amount);
+                Received?.Invoke(amount);
             }
         }
     }

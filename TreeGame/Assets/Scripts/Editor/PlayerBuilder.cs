@@ -49,6 +49,11 @@ namespace TreeGame.EditorTools
                 ("leftArm", rig.LeftArm),
                 ("rightArm", rig.RightArm));
 
+            // Not placed in space: the camera always follows the player, so they are always at the middle of the screen.
+            SetReferences(AddSound<FootstepSound>(player, volume: 1f,
+                    "Assets/Audio/Sounds/FootstepGrassLeft.wav", "Assets/Audio/Sounds/FootstepGrassRight.wav"),
+                ("walkAnimation", walkAnimation));
+
             // The camera is assigned once it exists; see ConnectToCamera.
             SetReferences(player.AddComponent<CharacterHeadLook>(),
                 ("pointAction", FindActionReference("UI", "Point")),

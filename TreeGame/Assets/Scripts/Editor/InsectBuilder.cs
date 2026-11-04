@@ -52,7 +52,8 @@ namespace TreeGame.EditorTools
         public static void CreateInsectDefense(InsectVisuals visuals, InsectInfestation infestation, GameConfig config,
             MinigameRunner minigameRunner, MinigameDefinition minigame, Inventory inventory, ItemDefinition coin)
         {
-            SetReferences(visuals.gameObject.AddComponent<InsectDefense>(),
+            var defense = visuals.gameObject.AddComponent<InsectDefense>();
+            SetReferences(defense,
                 ("visuals", visuals),
                 ("infestation", infestation),
                 ("config", config),
@@ -60,6 +61,10 @@ namespace TreeGame.EditorTools
                 ("minigame", minigame),
                 ("inventory", inventory),
                 ("coin", coin));
+
+            // Not placed in space: it rewards the player, wherever the insects were.
+            SetReferences(AddSound<CoinRewardSound>(visuals.gameObject, volume: 0.8f, "Assets/Audio/Sounds/CoinReward.mp3"),
+                ("defense", defense));
         }
     }
 }

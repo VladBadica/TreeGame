@@ -1,5 +1,6 @@
 using System.IO;
 using System.Linq;
+using TreeGame.Audio;
 using TreeGame.Interaction;
 using TreeGame.Minigames;
 using UnityEditor;
@@ -141,6 +142,34 @@ namespace TreeGame.EditorTools
             serializedDefinition.FindProperty("sceneName").stringValue = Path.GetFileNameWithoutExtension(scenePath);
             serializedDefinition.ApplyModifiedPropertiesWithoutUndo();
             return definition;
+        }
+
+        /// <summary>A sound effect asset. Logs an error if it is missing, as whatever plays it would otherwise be silently quiet.</summary>
+        public static AudioClip LoadSound(string path)
+        {
+            var sound = AssetDatabase.LoadAssetAtPath<AudioClip>(path);
+            if (sound == null)
+            {
+                Debug.LogError($"No sound found at {path}.");
+            }
+
+            return sound;
+        }
+
+        /// <summary>
+        /// A sound component with its audio source, choosing from the given sound files. The sounds aren't placed in
+        /// space, so they sound the same wherever the player is. The caller connects it to what it listens to.
+        /// </summary>
+        public static T AddSound<T>(GameObject owner, float volume, params string[] soundPaths) where T : OneShotSound
+        {
+            var source = owner.AddComponent<AudioSource>();
+            source.playOnAwake = false;
+            source.spatialBlend = 0f;
+            source.volume = volume;
+
+            var sound = owner.AddComponent<T>();
+            SetReferenceArray(sound, "sounds", System.Array.ConvertAll(soundPaths, path => (Object)LoadSound(path)));
+            return sound;
         }
 
         public static Material GetOrCreateMaterial(string materialName, Color color, bool unlit = false)

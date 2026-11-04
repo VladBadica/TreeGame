@@ -40,6 +40,7 @@ namespace TreeGame.EditorTools
             ConnectPanelButton(settings, panels, settingsPanel);
             ConnectPanelButton(settingsBack, panels, mainPanel);
             ConnectLoadSceneButton(quitToMenu, BuildSceneList.MainMenuPath);
+            AddClickSound(canvas);
 
             var pauseMenu = canvas.gameObject.AddComponent<PauseMenu>();
             SetReferences(pauseMenu,

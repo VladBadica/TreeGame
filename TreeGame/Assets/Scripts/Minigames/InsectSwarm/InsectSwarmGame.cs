@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using FieldPoint = System.Numerics.Vector2;
@@ -20,6 +21,9 @@ namespace TreeGame.Minigames.InsectSwarm
 
         /// <summary>The current game. Available from Start on.</summary>
         public InsectSwarmRules Rules { get; private set; }
+
+        /// <summary>Raised with the outcome of each click during play, for feedback.</summary>
+        public event Action<SwarmClick> Clicked;
 
         protected override bool HasWhatItNeeds =>
             settings != null && field != null && pointAction != null && pointAction.action != null;
@@ -78,7 +82,7 @@ namespace TreeGame.Minigames.InsectSwarm
             // The click is judged before moving the insects, so it counts where the player saw them.
             if (pressed)
             {
-                Rules.Click(PointerOnField());
+                Clicked?.Invoke(Rules.Click(PointerOnField()));
             }
 
             Rules.Tick(Time.deltaTime);
