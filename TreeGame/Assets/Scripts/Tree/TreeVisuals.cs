@@ -70,6 +70,9 @@ namespace TreeGame.Trees
         [SerializeField, Range(0.05f, 1f)] private float sproutThickness = 0.4f;
         [Tooltip("A branch's thickness at its tip, as a share of its thickness at its base.")]
         [SerializeField, Range(0.1f, 1f)] private float branchTipRatio = 0.35f;
+        [Tooltip("The leader's thickness at its tip, as a share of its base. It carries on from the trunk, so it tapers " +
+                 "more gently than other branches, keeping the trunk's narrowing going instead of pinching in.")]
+        [SerializeField, Range(0.1f, 1f)] private float leaderTipRatio = 0.6f;
         [Tooltip("The least a branch is thick for its length, so long branches on a young, thin trunk don't turn into " +
                  "hairs. Never thicker than what it grows from.")]
         [SerializeField, Range(0f, 0.2f)] private float minThicknessPerLength = 0.035f;
@@ -114,6 +117,9 @@ namespace TreeGame.Trees
         [SerializeField, Min(0f)] private float branchSway = 6f;
         [Tooltip("Each level of branch bends this share as much as the one it grows from, on top of it.")]
         [SerializeField, Range(0f, 1f)] private float childSwayShare = 0.6f;
+        [Tooltip("The leader bends and flutters this share as much as a main branch. It is the trunk carrying on, so it " +
+                 "stays nearly as still as the trunk; its side branches still move on top of it.")]
+        [SerializeField, Range(0f, 1f)] private float leaderSwayShare = 0.2f;
         [Tooltip("Degrees of individual, uneven branch movement, so branches don't move in lockstep.")]
         [SerializeField, Min(0f)] private float branchFlutter = 4f;
         [SerializeField, Min(0f)] private float branchFlutterFrequency = 2f;
@@ -346,7 +352,9 @@ namespace TreeGame.Trees
                 parentThickness = branch.Parent.Thickness * TubeMesh.Radius(along, branch.Parent.Shape) / TubeMesh.BaseRadius;
             }
 
-            float thickness = parentThickness * branch.Spec.ThicknessRatio * Mathf.Lerp(sproutThickness, 1f, branch.Progress);
+            // The leader is the trunk carrying on, not a new shoot, so it is as thick as the trunk's top from the start.
+            float sprouting = branch.Spec.IsLeader ? 1f : Mathf.Lerp(sproutThickness, 1f, branch.Progress);
+            float thickness = parentThickness * branch.Spec.ThicknessRatio * sprouting;
             branch.Thickness = Mathf.Min(Mathf.Max(thickness, branch.Length * minThicknessPerLength), parentThickness);
 
             // The wood's mesh is built at full size, so it scales by how much of that it has reached.
@@ -426,8 +434,9 @@ namespace TreeGame.Trees
             {
                 Branch branch = branches[i];
                 float levelShare = Mathf.Pow(childSwayShare, branch.Spec.Level - BranchSkeleton.MainLevel);
+                float stiffness = branch.Spec.IsLeader ? leaderSwayShare : 1f;
                 float flutter = SignedNoise(time * branchFlutterFrequency, i) * branchFlutter * flutterAmount;
-                float bend = windStrength * branchSway * levelShare + flutter;
+                float bend = (windStrength * branchSway * levelShare + flutter) * stiffness;
 
                 // About the tree's own front-to-back axis, so every branch bends the same way, whichever way it faces.
                 branch.Pivot.localRotation = Quaternion.AngleAxis(-bend, branch.WindAxis) * branch.RestRotation;
@@ -525,7 +534,7 @@ namespace TreeGame.Trees
                 {
                     Sides = spec.Level == BranchSkeleton.TwigLevel ? twigSides : branchSides,
                     Rings = branchRings,
-                    TipRadiusRatio = branchTipRatio,
+                    TipRadiusRatio = spec.IsLeader ? leaderTipRatio : branchTipRatio,
                     Bend = spec.Bend,
                     Length = spec.Length,
                     Thickness = fullThickness,

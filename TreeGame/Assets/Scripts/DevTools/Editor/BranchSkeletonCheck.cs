@@ -441,6 +441,7 @@ namespace TreeGame.DevTools
                               "the leader doesn't grow out of the trunk")
                           && ExpectOnce(failures, leader.Tilt >= 0f && leader.Tilt <= tuning.MaxLeaderTilt,
                               $"the leader leans {leader.Tilt} degrees, more than {tuning.MaxLeaderTilt}")
+                          && ExpectOnce(failures, leader.Bend == 0f, $"the leader curves {leader.Bend} degrees; it should grow straight up")
                           && ExpectOnce(failures, leader.Length == tuning.LeaderLength,
                               $"the leader is {leader.Length} long, expected {tuning.LeaderLength}")
                           && ExpectOnce(failures, leader.ThicknessRatio == tuning.LeaderThicknessRatio,

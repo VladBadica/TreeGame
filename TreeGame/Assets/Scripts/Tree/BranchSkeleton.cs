@@ -248,7 +248,7 @@ namespace TreeGame.Trees
             float thicknessRatio, float startGrowth, bool isLeader = false)
         {
             var branch = new BranchSpec(branches.Count, parentIndex, level, attachAlong, tilt, yaw, length,
-                thicknessRatio, startGrowth, bend: Range(0f, tuning.MaxBend), isLeader);
+                thicknessRatio, startGrowth, bend: isLeader ? 0f : Range(0f, tuning.MaxBend), isLeader);
             branches.Add(branch);
             return branch;
         }

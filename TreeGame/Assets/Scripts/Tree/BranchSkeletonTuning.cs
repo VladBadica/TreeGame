@@ -52,11 +52,17 @@ namespace TreeGame.Trees
         /// </summary>
         public float LeaderLength { get; set; } = 1.3f;
 
-        /// <summary>The leader's thickness as a share of the top of the trunk, which it carries on from.</summary>
-        public float LeaderThicknessRatio { get; set; } = 0.8f;
+        /// <summary>
+        /// The leader's thickness as a share of the top of the trunk, which it carries on from. 1 by default, so there
+        /// is no step where the trunk turns into the leader.
+        /// </summary>
+        public float LeaderThicknessRatio { get; set; } = 1f;
 
-        /// <summary>The most the leader leans from vertical; it carries on from the trunk, so only a little.</summary>
-        public float MaxLeaderTilt { get; set; } = 8f;
+        /// <summary>
+        /// The most the leader leans from vertical. It carries on from the trunk, so only a touch, enough not to look
+        /// ruler-straight. It doesn't curve either, unlike other branches.
+        /// </summary>
+        public float MaxLeaderTilt { get; set; } = 3f;
 
         /// <summary>The lengths of the lowest and highest main branches; those in between are spaced evenly.</summary>
         public float LowestMainBranchLength { get; set; } = 1.7f;
