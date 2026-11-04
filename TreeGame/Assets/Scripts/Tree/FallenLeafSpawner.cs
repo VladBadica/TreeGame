@@ -6,7 +6,7 @@ using UnityEngine;
 namespace TreeGame.Trees
 {
     /// <summary>
-    /// Drops leaves on the ground around the tree at random intervals once it has grown enough
+    /// Drops leaves on the ground around the tree at random intervals once its foliage has grown enough
     /// (settings in <see cref="GameConfig"/>), up to a maximum lying around at once. Each leaf is a copy of a
     /// pickup prefab, so how a leaf looks and what it gives is edited on the prefab, not here.
     /// </summary>
@@ -60,7 +60,7 @@ namespace TreeGame.Trees
         private void DropLeaf()
         {
             FallenLeafSettings settings = config.FallenLeaves;
-            if (treeGrowth.Growth < settings.MinGrowth)
+            if (treeGrowth.GetGrowth(TreeGrowthPart.Foliage) < settings.MinGrowth)
             {
                 return;
             }

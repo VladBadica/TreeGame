@@ -4,9 +4,9 @@ using UnityEngine;
 namespace TreeGame.Trees
 {
     /// <summary>
-    /// Grows the tree steadily over time, so it keeps growing without player input.
-    /// Uses only TreeGrowth's public API; later rules (e.g. growth needing water) can gate or replace this component.
-    /// Disable the component to pause passive growth.
+    /// Grows every part of the tree steadily over time, each at its own rate from <see cref="GameConfig"/>, so it keeps
+    /// growing without player input. Uses only TreeGrowth's public API; later rules (e.g. growth needing water) can gate
+    /// or replace this component. Disable the component to pause passive growth.
     /// </summary>
     public class PassiveGrowth : MonoBehaviour, IAdvancesWithTime
     {
@@ -30,7 +30,10 @@ namespace TreeGame.Trees
 
         public void Advance(float seconds)
         {
-            treeGrowth.AddGrowth(seconds / config.SecondsToFullyGrow);
+            foreach (TreeGrowthPart part in TreeGrowth.Parts)
+            {
+                treeGrowth.AddGrowth(part, seconds / config.SecondsToFullyGrow(part));
+            }
         }
     }
 }

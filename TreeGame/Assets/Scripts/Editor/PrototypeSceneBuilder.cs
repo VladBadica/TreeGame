@@ -50,7 +50,9 @@ namespace TreeGame.EditorTools
             Sprite insect = PlaceholderArt.GetOrCreateInsectSprite();
             Sprite notificationBubble = PlaceholderArt.GetOrCreateNotificationBubbleSprite();
             Material bark = BuilderHelpers.GetOrCreateMaterial("Bark", new Color(0.45f, 0.3f, 0.2f));
+            TreeBuilder.ApplyBarkTexture(bark, PlaceholderArt.GetOrCreateBarkTexture());
             Material leaves = BuilderHelpers.GetOrCreateMaterial("Leaves", new Color(0.36f, 0.62f, 0.3f));
+            TreeBuilder.ApplyLeafTexture(leaves, PlaceholderArt.GetOrCreateLeafTexture());
             Material ground = BuilderHelpers.GetOrCreateMaterial("Ground", new Color(0.58f, 0.72f, 0.42f));
             PlaceholderArt.GetOrCreateFenceSprites(out Sprite fenceNear, out Sprite fenceFar);
             MinigameDefinition wellMinigame = WellSpinSceneBuilder.GetOrCreateDefinition();

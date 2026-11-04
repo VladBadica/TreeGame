@@ -38,7 +38,9 @@ namespace TreeGame.Saving
         {
             return new SaveData
             {
-                treeGrowth = treeGrowth.Growth,
+                trunkGrowth = treeGrowth.GetGrowth(TreeGrowthPart.Trunk),
+                branchGrowth = treeGrowth.GetGrowth(TreeGrowthPart.Branches),
+                foliageGrowth = treeGrowth.GetGrowth(TreeGrowthPart.Foliage),
                 waterFill = water.Normalized,
                 nutrientsFill = nutrients.Normalized,
                 healthFill = health.Normalized,
@@ -62,7 +64,9 @@ namespace TreeGame.Saving
         /// </summary>
         public void Restore(SaveData data)
         {
-            treeGrowth.SetGrowth(data.treeGrowth);
+            treeGrowth.SetGrowth(TreeGrowthPart.Trunk, data.trunkGrowth);
+            treeGrowth.SetGrowth(TreeGrowthPart.Branches, data.branchGrowth);
+            treeGrowth.SetGrowth(TreeGrowthPart.Foliage, data.foliageGrowth);
             water.SetAmount(data.waterFill * water.MaxAmount);
             nutrients.SetAmount(data.nutrientsFill * nutrients.MaxAmount);
             health.SetAmount(data.healthFill * health.MaxAmount);

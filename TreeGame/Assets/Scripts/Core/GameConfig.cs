@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using TreeGame.Care;
 using TreeGame.Items;
+using TreeGame.Trees;
 using UnityEngine;
 
 namespace TreeGame.Core
@@ -15,9 +16,21 @@ namespace TreeGame.Core
     [CreateAssetMenu(fileName = "GameConfig", menuName = "Tree Game/Game Config")]
     public class GameConfig : ScriptableObject
     {
+        /// <summary>The slowest growth rate. There is no 0: every part of the tree always keeps growing.</summary>
+        public const int MinGrowthRate = 1;
+        public const int MaxGrowthRate = 10;
+        private const int MiddleGrowthRate = 5;
+
         [Header("Growth")]
-        [Tooltip("Seconds of play time for the tree to grow from 0% to 100% on its own.")]
+        [Tooltip("Seconds of play time for a part of the tree to grow from 0% to 100% on its own at growth rate 5. " +
+                 "Other rates scale it: 10 takes half as long, 1 five times as long.")]
         [SerializeField, Min(1f)] private float secondsToFullyGrow = 300f;
+        [Tooltip("How fast the trunk grows on its own, from 1 (slow) to 10 (fast).")]
+        [SerializeField, Range(MinGrowthRate, MaxGrowthRate)] private int trunkGrowthRate = MiddleGrowthRate;
+        [Tooltip("How fast the branches grow on their own, from 1 (slow) to 10 (fast).")]
+        [SerializeField, Range(MinGrowthRate, MaxGrowthRate)] private int branchGrowthRate = MiddleGrowthRate;
+        [Tooltip("How fast the foliage grows on its own, from 1 (slow) to 10 (fast).")]
+        [SerializeField, Range(MinGrowthRate, MaxGrowthRate)] private int foliageGrowthRate = MiddleGrowthRate;
 
         [Header("Resources")]
         [Tooltip("Water is measured in liters, the same unit as a bucket, so pouring moves liters one to one.")]
@@ -65,7 +78,20 @@ namespace TreeGame.Core
         [Tooltip("Shared by everything the wind moves, so it all sways together.")]
         [SerializeField] private WindSettings wind = new WindSettings();
 
-        public float SecondsToFullyGrow => secondsToFullyGrow;
+        /// <summary>Seconds of play time for a part of the tree to grow from 0% to 100% on its own, at its growth rate.</summary>
+        public float SecondsToFullyGrow(TreeGrowthPart part)
+        {
+            int rate = part switch
+            {
+                TreeGrowthPart.Trunk => trunkGrowthRate,
+                TreeGrowthPart.Branches => branchGrowthRate,
+                TreeGrowthPart.Foliage => foliageGrowthRate,
+                _ => throw new ArgumentOutOfRangeException(nameof(part), part, "Add a growth rate for this part to GameConfig."),
+            };
+
+            // The Inspector keeps rates between 1 and 10, but the asset file itself could still hold anything.
+            return secondsToFullyGrow * MiddleGrowthRate / Mathf.Clamp(rate, MinGrowthRate, MaxGrowthRate);
+        }
 
         public float HealthRegenMinResourceShare => healthRegenMinResourceShare;
 

@@ -11,12 +11,18 @@ namespace TreeGame.Saving
     [Serializable]
     public class SaveData
     {
-        /// <summary>The format this game writes. Raise it whenever the format changes.</summary>
-        public const int CurrentVersion = 1;
+        /// <summary>
+        /// The format this game writes. Raise it whenever the format changes, and add a step to
+        /// <see cref="SaveUpgrades"/> that brings the previous version's saves up to it.
+        /// Version 2 split the tree's one growth value into trunk, branches and foliage.
+        /// </summary>
+        public const int CurrentVersion = 2;
 
         public int version;
 
-        public float treeGrowth;
+        public float trunkGrowth;
+        public float branchGrowth;
+        public float foliageGrowth;
 
         // As shares of their maximum (0..1), so changing a maximum in the config keeps the same proportion.
         public float waterFill;

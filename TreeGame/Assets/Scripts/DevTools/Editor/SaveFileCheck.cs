@@ -47,6 +47,7 @@ namespace TreeGame.DevTools
                 InTemporaryFolder(folder =>
                 {
                     CheckFullRoundTrip(failures, folder);
+                    CheckUpgradeFromVersion1(failures, folder);
                     CheckNoSave(failures, folder);
                     CheckUnusableFiles(failures, folder);
                     CheckFailedSaveKeepsThePreviousOne(failures, folder);
@@ -71,7 +72,9 @@ namespace TreeGame.DevTools
         {
             return new SaveData
             {
-                treeGrowth = 0.42f,
+                trunkGrowth = 0.42f,
+                branchGrowth = 0.3f,
+                foliageGrowth = 0.55f,
                 waterFill = 0.25f,
                 nutrientsFill = 0.75f,
                 healthFill = 0.5f,
@@ -103,7 +106,8 @@ namespace TreeGame.DevTools
             }
 
             Expect(failures, read.version == SaveData.CurrentVersion, $"version read back as {read.version}");
-            Expect(failures, read.treeGrowth == sample.treeGrowth, $"growth read back as {read.treeGrowth}");
+            Expect(failures, read.trunkGrowth == sample.trunkGrowth && read.branchGrowth == sample.branchGrowth &&
+                             read.foliageGrowth == sample.foliageGrowth, "the tree's growth changed");
             Expect(failures, read.waterFill == sample.waterFill, $"water read back as {read.waterFill}");
             Expect(failures, read.nutrientsFill == sample.nutrientsFill, $"nutrients read back as {read.nutrientsFill}");
             Expect(failures, read.healthFill == sample.healthFill, $"health read back as {read.healthFill}");
@@ -130,6 +134,35 @@ namespace TreeGame.DevTools
                              empty.fallenLeaves != null && empty.composter != null, "empty lists didn't survive saving");
         }
 
+        /// <summary>A save as version 1 of the game wrote it, with one growth value for the whole tree.</summary>
+        private static void CheckUpgradeFromVersion1(List<string> failures, string folder)
+        {
+            const string version1Save =
+                "{\"version\":1,\"treeGrowth\":0.4,\"waterFill\":0.5,\"nutrientsFill\":0.25,\"healthFill\":1.0,\"playerX\":-2.0," +
+                "\"inventorySlots\":[{\"itemName\":\"Coin\",\"count\":3,\"storedAmount\":0.0}]," +
+                "\"composter\":{\"state\":0,\"workSeconds\":0.0,\"workDuration\":0.0,\"compostGrams\":0.0}," +
+                "\"insectAges\":[12.0],\"fallenLeaves\":[]}";
+
+            string path = Path.Combine(folder, "version 1.json");
+            File.WriteAllText(path, version1Save);
+
+            if (!new SaveFile(path).TryRead(out SaveData read))
+            {
+                failures.Add("a version 1 save couldn't be read");
+                return;
+            }
+
+            Expect(failures, read.version == SaveData.CurrentVersion, $"a version 1 save read as version {read.version}");
+            Expect(failures, read.trunkGrowth == 0.4f && read.branchGrowth == 0.4f && read.foliageGrowth == 0.4f,
+                $"a version 1 tree's growth of 0.4 became {read.trunkGrowth}, {read.branchGrowth} and {read.foliageGrowth}");
+
+            // Everything else carries over as it was.
+            Expect(failures, read.waterFill == 0.5f && read.nutrientsFill == 0.25f && read.playerX == -2f, "upgrading changed the resources or player");
+            Expect(failures, read.inventorySlots.Length == 1 && read.inventorySlots[0].itemName == "Coin" && read.inventorySlots[0].count == 3, "upgrading changed the inventory");
+            Expect(failures, read.insectAges.Length == 1 && read.insectAges[0] == 12f, "upgrading changed the insects");
+            Expect(failures, File.ReadAllText(path) == version1Save, "reading an old save should leave the file as it was, until the game next saves");
+        }
+
         private static void CheckNoSave(List<string> failures, string folder)
         {
             var file = new SaveFile(Path.Combine(folder, "missing.json"));
@@ -140,7 +173,7 @@ namespace TreeGame.DevTools
 
         private static void CheckUnusableFiles(List<string> failures, string folder)
         {
-            string newerVersion = $"{{\"version\":{SaveData.CurrentVersion + 1},\"treeGrowth\":0.5}}";
+            string newerVersion = $"{{\"version\":{SaveData.CurrentVersion + 1},\"trunkGrowth\":0.5}}";
             var unusable = new (string description, string text)[]
             {
                 ("an empty file", ""),
@@ -182,7 +215,7 @@ namespace TreeGame.DevTools
                 using (new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.None))
                 {
                     SaveData second = NewSample();
-                    second.treeGrowth = 0.99f;
+                    second.trunkGrowth = 0.99f;
                     Expect(failures, !file.TryWrite(second), "a write to a locked file should report failure");
                 }
             }
@@ -191,7 +224,7 @@ namespace TreeGame.DevTools
                 Debug.unityLogger.logEnabled = true;
             }
 
-            Expect(failures, file.TryRead(out SaveData read) && read.treeGrowth == first.treeGrowth, "a failed save should leave the previous one intact");
+            Expect(failures, file.TryRead(out SaveData read) && read.trunkGrowth == first.trunkGrowth, "a failed save should leave the previous one intact");
         }
 #endif
 

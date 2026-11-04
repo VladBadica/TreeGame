@@ -1,36 +1,48 @@
+using System;
 using TMPro;
 using TreeGame.Trees;
 using UnityEngine;
+using UnityEngine.Events;
 using UnityEngine.UI;
 
 namespace TreeGame.DevTools
 {
     /// <summary>
-    /// Development-only controls for driving <see cref="TreeGrowth"/> by hand.
-    /// It only uses TreeGrowth's public API and event, so it can be removed without touching gameplay code.
+    /// Development-only controls for driving <see cref="TreeGrowth"/> by hand: a slider per growth part, plus buttons to
+    /// grow every part a step or reset them all. It only uses TreeGrowth's public API and event, so it can be removed
+    /// without touching gameplay code.
     /// </summary>
     public class GrowthDebugPanel : MonoBehaviour
     {
         [SerializeField] private TreeGrowth treeGrowth;
-        [SerializeField] private Slider growthSlider;
+        [Tooltip("One per growth part, in the order of TreeGrowth.Parts.")]
+        [SerializeField] private Slider[] sliders = new Slider[0];
+        [Tooltip("One per growth part, in the order of TreeGrowth.Parts.")]
+        [SerializeField] private TMP_Text[] labels = new TMP_Text[0];
         [SerializeField] private Button addGrowthButton;
         [SerializeField] private Button resetButton;
-        [SerializeField] private TMP_Text growthLabel;
         [SerializeField, Range(0.01f, 0.5f)] private float growthStep = 0.05f;
+
+        // Kept so exactly these listeners can be removed again.
+        private UnityAction<float>[] sliderHandlers;
 
         private void OnEnable()
         {
-            if (treeGrowth == null)
+            if (treeGrowth == null || sliders.Length != TreeGrowth.Parts.Length || labels.Length != TreeGrowth.Parts.Length)
             {
-                Debug.LogWarning($"{nameof(GrowthDebugPanel)}: no {nameof(TreeGrowth)} assigned.", this);
+                Debug.LogWarning($"{nameof(GrowthDebugPanel)}: needs a {nameof(TreeGrowth)}, and a slider and label per growth part.", this);
+                enabled = false;
                 return;
             }
 
-            if (growthSlider != null)
+            sliderHandlers = new UnityAction<float>[sliders.Length];
+            for (int i = 0; i < sliders.Length; i++)
             {
-                growthSlider.minValue = 0f;
-                growthSlider.maxValue = 1f;
-                growthSlider.onValueChanged.AddListener(treeGrowth.SetGrowth);
+                TreeGrowthPart part = TreeGrowth.Parts[i];
+                sliders[i].minValue = 0f;
+                sliders[i].maxValue = 1f;
+                sliderHandlers[i] = value => treeGrowth.SetGrowth(part, value);
+                sliders[i].onValueChanged.AddListener(sliderHandlers[i]);
             }
 
             if (addGrowthButton != null)
@@ -41,7 +53,7 @@ namespace TreeGame.DevTools
                 TMP_Text caption = addGrowthButton.GetComponentInChildren<TMP_Text>();
                 if (caption != null)
                 {
-                    caption.text = $"Grow +{growthStep * 100f:0}%";
+                    caption.text = $"Grow all +{growthStep * 100f:0}%";
                 }
             }
 
@@ -51,19 +63,22 @@ namespace TreeGame.DevTools
             }
 
             treeGrowth.GrowthChanged += Refresh;
-            Refresh(treeGrowth.Growth);
+            foreach (TreeGrowthPart part in TreeGrowth.Parts)
+            {
+                Refresh(part, treeGrowth.GetGrowth(part));
+            }
         }
 
         private void OnDisable()
         {
-            if (treeGrowth == null)
+            if (treeGrowth == null || sliderHandlers == null)
             {
                 return;
             }
 
-            if (growthSlider != null)
+            for (int i = 0; i < sliders.Length; i++)
             {
-                growthSlider.onValueChanged.RemoveListener(treeGrowth.SetGrowth);
+                sliders[i].onValueChanged.RemoveListener(sliderHandlers[i]);
             }
 
             if (addGrowthButton != null)
@@ -79,22 +94,29 @@ namespace TreeGame.DevTools
             treeGrowth.GrowthChanged -= Refresh;
         }
 
-        private void AddGrowthStep() => treeGrowth.AddGrowth(growthStep);
-
-        private void ResetGrowth() => treeGrowth.SetGrowth(0f);
-
-        private void Refresh(float growth)
+        private void AddGrowthStep()
         {
-            // Without notify, so growth changes from other sources don't echo back into SetGrowth.
-            if (growthSlider != null)
+            foreach (TreeGrowthPart part in TreeGrowth.Parts)
             {
-                growthSlider.SetValueWithoutNotify(growth);
+                treeGrowth.AddGrowth(part, growthStep);
             }
+        }
 
-            if (growthLabel != null)
+        private void ResetGrowth()
+        {
+            foreach (TreeGrowthPart part in TreeGrowth.Parts)
             {
-                growthLabel.text = $"Growth: {growth * 100f:0}%";
+                treeGrowth.SetGrowth(part, 0f);
             }
+        }
+
+        private void Refresh(TreeGrowthPart part, float growth)
+        {
+            int index = Array.IndexOf(TreeGrowth.Parts, part);
+
+            // Without notify, so growth changes from other sources don't echo back into SetGrowth.
+            sliders[index].SetValueWithoutNotify(growth);
+            labels[index].text = $"{part}: {growth * 100f:0}%";
         }
     }
 }

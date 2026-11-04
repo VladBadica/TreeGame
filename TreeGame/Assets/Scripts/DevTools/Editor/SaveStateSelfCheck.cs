@@ -89,7 +89,9 @@ namespace TreeGame.DevTools
             float FillOf(TreeResourceType type) =>
                 System.Array.Find(Object.FindObjectsByType<TreeResource>(), resource => resource.Type == type).Normalized;
 
-            Expect(failures, data.treeGrowth == growth.Growth, "the captured growth differs from the tree's");
+            Expect(failures, data.trunkGrowth == growth.GetGrowth(TreeGrowthPart.Trunk) &&
+                             data.branchGrowth == growth.GetGrowth(TreeGrowthPart.Branches) &&
+                             data.foliageGrowth == growth.GetGrowth(TreeGrowthPart.Foliage), "the captured growth differs from the tree's");
             Expect(failures, data.waterFill == FillOf(TreeResourceType.Water), "the captured water differs from the tree's");
             Expect(failures, data.nutrientsFill == FillOf(TreeResourceType.Nutrients), "the captured nutrients differ from the tree's");
             Expect(failures, data.healthFill == FillOf(TreeResourceType.Health), "the captured health differs from the tree's");
@@ -151,7 +153,9 @@ namespace TreeGame.DevTools
 
             world.Restore(new SaveData
             {
-                treeGrowth = 0.5f,
+                trunkGrowth = 0.5f,
+                branchGrowth = 0.25f,
+                foliageGrowth = 0.75f,
                 waterFill = 0.25f,
                 nutrientsFill = 0.75f,
                 healthFill = 0.125f,
@@ -162,7 +166,8 @@ namespace TreeGame.DevTools
                 fallenLeaves = new[] { new SavedLeaf { x = 2f, y = 0f, z = -1f } },
             });
 
-            Expect(failures, growth.Growth == 0.5f, $"growth restored as {growth.Growth}");
+            Expect(failures, growth.GetGrowth(TreeGrowthPart.Trunk) == 0.5f && growth.GetGrowth(TreeGrowthPart.Branches) == 0.25f &&
+                             growth.GetGrowth(TreeGrowthPart.Foliage) == 0.75f, "each part of the tree's growth should be restored separately");
             Expect(failures, player.transform.position.x == 0.5f, $"player restored at {player.transform.position.x}");
             Expect(failures, composter.State == CompostState.Done && composter.CompostGrams == 40f, "the composter wasn't restored");
             Expect(failures, insects.Count == 1 && insects.InsectAges[0] == 12f, "the insects weren't restored");

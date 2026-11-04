@@ -5,7 +5,8 @@ using UnityEngine;
 namespace TreeGame.Saving
 {
     /// <summary>
-    /// Reads and writes the game's one save as JSON. It never throws and never deletes anything: a file it can't read,
+    /// Reads and writes the game's one save as JSON. Saves from earlier versions are upgraded as they are read, and are
+    /// only rewritten in the current format the next time the game saves. It never throws and never deletes anything: a file it can't read,
     /// because it is damaged or from a newer version of the game, is reported as no save and left where it is, so it
     /// can still be looked at or recovered.
     /// </summary>
@@ -59,10 +60,12 @@ namespace TreeGame.Saving
                 return false;
             }
 
+            string json;
             SaveData read;
             try
             {
-                read = JsonUtility.FromJson<SaveData>(file.Read());
+                json = file.Read();
+                read = JsonUtility.FromJson<SaveData>(json);
             }
             catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException ||
                                               exception is ArgumentException)
@@ -84,6 +87,7 @@ namespace TreeGame.Saving
                 return false;
             }
 
+            SaveUpgrades.Upgrade(read, json);
             data = read;
             return true;
         }

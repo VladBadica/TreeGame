@@ -5,6 +5,7 @@ using TreeGame.Items;
 using TreeGame.Trees;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.Rendering;
 using static TreeGame.EditorTools.BuilderHelpers;
 using static TreeGame.EditorTools.SceneLayout;
 
@@ -36,6 +37,50 @@ namespace TreeGame.EditorTools
                 ("config", config));
 
             return go;
+        }
+
+        /// <summary>
+        /// Gives the bark material its texture, unless it already has one, so a texture chosen by hand isn't replaced.
+        /// The texture carries the color, so the material's own tint goes back to white.
+        /// </summary>
+        public static void ApplyBarkTexture(Material bark, Texture2D texture)
+        {
+            const string baseMap = "_BaseMap";
+            if (bark.GetTexture(baseMap) != null)
+            {
+                return;
+            }
+
+            bark.SetTexture(baseMap, texture);
+            bark.SetColor("_BaseColor", Color.white);
+            EditorUtility.SetDirty(bark);
+        }
+
+        /// <summary>How see-through a leaf pixel can be before it is cut away.</summary>
+        internal const float LeafCutoff = 0.5f;
+
+        /// <summary>
+        /// Makes the leaf material show the leaf texture, unless it already has one, so a texture chosen by hand isn't
+        /// replaced. Each leaf card is a single flat sheet, so the see-through parts around the leaves are cut away and
+        /// both of its sides are drawn.
+        /// </summary>
+        public static void ApplyLeafTexture(Material leaves, Texture2D texture)
+        {
+            const string baseMap = "_BaseMap";
+            if (leaves.GetTexture(baseMap) != null)
+            {
+                return;
+            }
+
+            leaves.SetTexture(baseMap, texture);
+            leaves.SetColor("_BaseColor", Color.white);
+
+            leaves.SetFloat("_AlphaClip", 1f);
+            leaves.SetFloat("_Cutoff", LeafCutoff);
+            leaves.EnableKeyword("_ALPHATEST_ON");
+            leaves.renderQueue = (int)RenderQueue.AlphaTest;
+            leaves.SetFloat("_Cull", (float)CullMode.Off);
+            EditorUtility.SetDirty(leaves);
         }
 
         /// <summary>A child object per resource keeps each resource easy to find in the Hierarchy.</summary>

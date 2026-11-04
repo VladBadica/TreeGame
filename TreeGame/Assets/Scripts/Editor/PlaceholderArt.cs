@@ -21,6 +21,8 @@ namespace TreeGame.EditorTools
         private const string NotificationBubblePath = ArtFolder + "/NotificationBubble.png";
         private const string BarkPath = ArtFolder + "/Bark.png";
         private const string CrackPath = ArtFolder + "/Crack.png";
+        private const string BarkTexturePath = ArtFolder + "/BarkTexture.png";
+        private const string LeafTexturePath = ArtFolder + "/LeafTexture.png";
         private const string RingPath = ArtFolder + "/Ring.png";
         private const string DiscPath = ArtFolder + "/Disc.png";
         private const float PixelsPerUnit = 100f;
@@ -373,6 +375,48 @@ namespace TreeGame.EditorTools
             SaveSprite(BarkPath, width, height, pixels, new Vector2(0.5f, 0.5f));
         }
 
+        /// <summary>
+        /// Bark for wrapping around the trunk and branches, painted by <see cref="BarkPainter"/>. It tiles in both
+        /// directions, so it can repeat along long branches without visible seams.
+        /// </summary>
+        public static Texture2D GetOrCreateBarkTexture()
+        {
+            if (!File.Exists(BarkTexturePath))
+            {
+                const int size = 256;
+                SaveTexture(BarkTexturePath, size, size, ToPixels(BarkPainter.Paint(size)));
+            }
+
+            return AssetDatabase.LoadAssetAtPath<Texture2D>(BarkTexturePath);
+        }
+
+        /// <summary>
+        /// A sprig of leaves on a see-through background, painted by <see cref="LeafPainter"/>, for the cards the
+        /// tree's leaves are made of.
+        /// </summary>
+        public static Texture2D GetOrCreateLeafTexture()
+        {
+            if (!File.Exists(LeafTexturePath))
+            {
+                const int size = 256;
+                SaveTexture(LeafTexturePath, size, size, ToPixels(LeafPainter.Paint(size)), cutOut: true);
+            }
+
+            return AssetDatabase.LoadAssetAtPath<Texture2D>(LeafTexturePath);
+        }
+
+        /// <summary>Turns red, green, blue and alpha bytes into Unity's pixel colors.</summary>
+        private static Color32[] ToPixels(byte[] rgba)
+        {
+            var pixels = new Color32[rgba.Length / 4];
+            for (int i = 0; i < pixels.Length; i++)
+            {
+                pixels[i] = new Color32(rgba[i * 4], rgba[i * 4 + 1], rgba[i * 4 + 2], rgba[i * 4 + 3]);
+            }
+
+            return pixels;
+        }
+
         /// <summary>A dark, jagged crack running up and down, narrowing to a point at both ends.</summary>
         public static Sprite GetOrCreateCrackSprite()
         {
@@ -601,6 +645,36 @@ namespace TreeGame.EditorTools
 
             // At least one pixel, so distant posts keep a visible outline.
             private static float Outline(float d) => Mathf.Max(OutlineAtCrossing * Scale(d), 1f / PixelsPerUnit);
+        }
+
+        /// <summary>
+        /// Saves a texture for 3D objects, with mipmaps so it stays smooth far away. By default it repeats at its edges,
+        /// for wrapping round things. A cut-out texture, where see-through parts are cut away rather than blended,
+        /// stops at its edges instead, and keeps its shapes as full in the smaller mipmaps, so distant leaves don't thin out.
+        /// </summary>
+        private static void SaveTexture(string path, int width, int height, Color32[] pixels, bool cutOut = false)
+        {
+            BuilderHelpers.EnsureFolder(ArtFolder);
+
+            var texture = new Texture2D(width, height, TextureFormat.RGBA32, mipChain: false);
+            texture.SetPixels32(pixels);
+            File.WriteAllBytes(path, texture.EncodeToPNG());
+            Object.DestroyImmediate(texture);
+
+            AssetDatabase.ImportAsset(path);
+            var importer = (TextureImporter)AssetImporter.GetAtPath(path);
+            importer.textureType = TextureImporterType.Default;
+            importer.wrapMode = cutOut ? TextureWrapMode.Clamp : TextureWrapMode.Repeat;
+            importer.mipmapEnabled = true;
+            importer.anisoLevel = 2;
+            if (cutOut)
+            {
+                importer.alphaIsTransparency = true;
+                importer.mipMapsPreserveCoverage = true;
+                importer.alphaTestReferenceValue = TreeBuilder.LeafCutoff;
+            }
+
+            importer.SaveAndReimport();
         }
 
         private static void SaveSprite(string path, int width, int height, Color32[] pixels, Vector2 pivot,

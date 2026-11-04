@@ -7,7 +7,7 @@ namespace TreeGame.Core
     [Serializable]
     public class FallenLeafSettings
     {
-        [Tooltip("Tree growth (0..1) from which leaves start falling.")]
+        [Tooltip("Foliage growth (0..1) from which leaves start falling.")]
         [SerializeField, Range(0f, 1f)] private float minGrowth = 0.1f;
         [Tooltip("Random wait between two falling leaves, in seconds (shortest, longest).")]
         [SerializeField] private Vector2 secondsBetweenLeaves = new Vector2(4f, 10f);

@@ -9,8 +9,8 @@ using UnityEngine.UI;
 namespace TreeGame.DevTools
 {
     /// <summary>
-    /// Play Mode sanity check for the growth foundation: clamping, reset, determinism,
-    /// slider wiring and that repeated growth changes never create extra objects.
+    /// Play Mode sanity check for the growth foundation: clamping, that the trunk, branches and foliage grow
+    /// independently, reset, determinism, slider wiring and that repeated growth changes never create extra objects.
     /// </summary>
     public static class GrowthSelfCheck
     {
@@ -31,7 +31,12 @@ namespace TreeGame.DevTools
             }
 
             var failures = new List<string>();
-            float originalGrowth = growth.Growth;
+            var originalGrowth = new float[TreeGrowth.Parts.Length];
+            foreach (TreeGrowthPart part in TreeGrowth.Parts)
+            {
+                originalGrowth[(int)part] = growth.GetGrowth(part);
+            }
+
             LogType originalFilter = Debug.unityLogger.filterLogType;
 
             try
@@ -39,15 +44,15 @@ namespace TreeGame.DevTools
                 // Silences the warnings that the deliberate invalid inputs below are expected to produce.
                 Debug.unityLogger.filterLogType = LogType.Error;
 
-                SetAndSnap(growth, visuals,0f);
+                SetAllAndSnap(growth, visuals, 0f);
                 string initialState = Snapshot(visuals.transform, out int objectCount);
 
-                // Repeated changes must only update existing parts.
+                // Repeated changes, in any mix of the parts, must only update existing parts.
                 var random = new System.Random(1);
                 for (int i = 0; i < 500; i++)
                 {
-                    SetAndSnap(growth, visuals,(float)random.NextDouble());
-                    growth.AddGrowth(0.05f);
+                    SetAndSnap(growth, visuals, (float)random.NextDouble(), (float)random.NextDouble(), (float)random.NextDouble());
+                    growth.AddGrowth(TreeGrowth.Parts[i % TreeGrowth.Parts.Length], 0.05f);
                     visuals.SnapToTarget();
                 }
 
@@ -55,57 +60,44 @@ namespace TreeGame.DevTools
                 Expect(failures, countAfterChanges == objectCount,
                     $"object count changed from {objectCount} to {countAfterChanges} after repeated growth changes");
 
-                // Clamping and validation.
-                growth.SetGrowth(5f);
-                Expect(failures, growth.Growth == 1f, $"SetGrowth(5) gave {growth.Growth}, expected 1");
-                growth.AddGrowth(1f);
-                Expect(failures, growth.Growth == 1f, $"AddGrowth past the maximum gave {growth.Growth}, expected 1");
-                growth.SetGrowth(-3f);
-                Expect(failures, growth.Growth == 0f, $"SetGrowth(-3) gave {growth.Growth}, expected 0");
-                growth.SetGrowth(0.5f);
-                growth.AddGrowth(-0.2f);
-                Expect(failures, growth.Growth == 0.5f, $"negative AddGrowth changed growth to {growth.Growth}");
-                growth.AddGrowth(float.NaN);
-                growth.SetGrowth(float.PositiveInfinity);
-                Expect(failures, growth.Growth == 0.5f, $"non-finite input changed growth to {growth.Growth}");
+                foreach (TreeGrowthPart part in TreeGrowth.Parts)
+                {
+                    CheckClampingAndValidation(failures, growth, part);
+                }
 
-                // Determinism: the same value gives the same tree regardless of history.
-                SetAndSnap(growth, visuals,0.63f);
+                CheckPartsAreIndependent(failures, growth, visuals);
+
+                // Determinism: the same values give the same tree regardless of history.
+                SetAndSnap(growth, visuals, 0.63f, 0.2f, 0.81f);
                 string first = Snapshot(visuals.transform, out _);
-                SetAndSnap(growth, visuals,0.1f);
-                SetAndSnap(growth, visuals,0.9f);
-                SetAndSnap(growth, visuals,0.63f);
-                Expect(failures, first == Snapshot(visuals.transform, out _), "the same growth value produced a different tree");
+                SetAndSnap(growth, visuals, 0.1f, 0.9f, 0.3f);
+                SetAndSnap(growth, visuals, 0.9f, 0.1f, 0.5f);
+                SetAndSnap(growth, visuals, 0.63f, 0.2f, 0.81f);
+                Expect(failures, first == Snapshot(visuals.transform, out _), "the same growth values produced a different tree");
 
                 // Reset restores the initial appearance.
-                SetAndSnap(growth, visuals,0f);
+                SetAllAndSnap(growth, visuals, 0f);
                 Expect(failures, initialState == Snapshot(visuals.transform, out _), "reset did not restore the initial appearance");
 
-                // The debug slider drives growth and the tree.
-                var slider = Object.FindAnyObjectByType<Slider>();
-                if (slider == null)
-                {
-                    failures.Add("no growth slider found");
-                }
-                else
-                {
-                    slider.value = 0.4f;
-                    visuals.SnapToTarget();
-                    Expect(failures, Mathf.Approximately(growth.Growth, 0.4f), $"slider set growth to {growth.Growth}, expected 0.4");
-                    Expect(failures, initialState != Snapshot(visuals.transform, out _), "moving the slider did not change the tree");
-                }
-
+                CheckDebugSliders(failures, growth, visuals, initialState);
+                CheckAboveGround(failures, growth, visuals);
+                ReportCost(growth, visuals);
                 CheckResources(failures);
             }
             finally
             {
                 Debug.unityLogger.filterLogType = originalFilter;
-                SetAndSnap(growth, visuals, originalGrowth);
+                foreach (TreeGrowthPart part in TreeGrowth.Parts)
+                {
+                    growth.SetGrowth(part, originalGrowth[(int)part]);
+                }
+
+                visuals.SnapToTarget();
             }
 
             if (failures.Count == 0)
             {
-                Debug.Log("Growth self-check PASSED: clamping, validation, determinism, reset, slider, no duplicate parts and resources.");
+                Debug.Log("Growth self-check PASSED: clamping, validation, independent parts, determinism, reset, sliders, no duplicate parts and resources.");
             }
             else
             {
@@ -114,10 +106,169 @@ namespace TreeGame.DevTools
         }
 
         /// <summary>Visuals ease toward the target over time; snapping makes snapshots reflect the final pose.</summary>
-        private static void SetAndSnap(TreeGrowth growth, TreeVisuals visuals, float value)
+        private static void SetAndSnap(TreeGrowth growth, TreeVisuals visuals, float trunk, float branches, float foliage)
         {
-            growth.SetGrowth(value);
+            growth.SetGrowth(TreeGrowthPart.Trunk, trunk);
+            growth.SetGrowth(TreeGrowthPart.Branches, branches);
+            growth.SetGrowth(TreeGrowthPart.Foliage, foliage);
             visuals.SnapToTarget();
+        }
+
+        private static void SetAllAndSnap(TreeGrowth growth, TreeVisuals visuals, float value)
+        {
+            SetAndSnap(growth, visuals, value, value, value);
+        }
+
+        private static void CheckClampingAndValidation(List<string> failures, TreeGrowth growth, TreeGrowthPart part)
+        {
+            growth.SetGrowth(part, 5f);
+            Expect(failures, growth.GetGrowth(part) == 1f, $"{part}: SetGrowth(5) gave {growth.GetGrowth(part)}, expected 1");
+            growth.AddGrowth(part, 1f);
+            Expect(failures, growth.GetGrowth(part) == 1f, $"{part}: AddGrowth past the maximum gave {growth.GetGrowth(part)}, expected 1");
+            growth.SetGrowth(part, -3f);
+            Expect(failures, growth.GetGrowth(part) == 0f, $"{part}: SetGrowth(-3) gave {growth.GetGrowth(part)}, expected 0");
+            growth.SetGrowth(part, 0.5f);
+            growth.AddGrowth(part, -0.2f);
+            Expect(failures, growth.GetGrowth(part) == 0.5f, $"{part}: negative AddGrowth changed growth to {growth.GetGrowth(part)}");
+            growth.AddGrowth(part, float.NaN);
+            growth.SetGrowth(part, float.PositiveInfinity);
+            Expect(failures, growth.GetGrowth(part) == 0.5f, $"{part}: non-finite input changed growth to {growth.GetGrowth(part)}");
+        }
+
+        /// <summary>
+        /// Each part's value changes only on its own. In the tree, foliage leaves the trunk and branches alone, and branches
+        /// leave the trunk alone. Trunk growth is allowed to move the branches, as they grow out of it.
+        /// </summary>
+        private static void CheckPartsAreIndependent(List<string> failures, TreeGrowth growth, TreeVisuals visuals)
+        {
+            foreach (TreeGrowthPart changed in TreeGrowth.Parts)
+            {
+                SetAllAndSnap(growth, visuals, 0.5f);
+                growth.SetGrowth(changed, 0.9f);
+                foreach (TreeGrowthPart other in TreeGrowth.Parts)
+                {
+                    if (other != changed)
+                    {
+                        Expect(failures, growth.GetGrowth(other) == 0.5f, $"setting {changed} growth changed {other} growth to {growth.GetGrowth(other)}");
+                    }
+                }
+            }
+
+            Transform trunk = visuals.transform.Find("Generated/Trunk");
+            if (trunk == null)
+            {
+                failures.Add("no trunk found in the tree's generated parts");
+                return;
+            }
+
+            SetAllAndSnap(growth, visuals, 0.5f);
+            string trunkBefore = Snapshot(trunk, out _);
+            string woodBefore = Snapshot(visuals.transform, out _, includeFoliage: false);
+
+            growth.SetGrowth(TreeGrowthPart.Foliage, 0.9f);
+            visuals.SnapToTarget();
+            Expect(failures, Snapshot(visuals.transform, out _, includeFoliage: false) == woodBefore, "foliage growth changed the trunk or branches");
+
+            growth.SetGrowth(TreeGrowthPart.Branches, 0.9f);
+            visuals.SnapToTarget();
+            Expect(failures, Snapshot(trunk, out _) == trunkBefore, "branch growth changed the trunk");
+        }
+
+        /// <summary>
+        /// No wood or leaves reach below the ground, at any mix of growth, including a young trunk with long branches
+        /// and full foliage. The trunk's base sits on the ground, so a hair below counts as on it.
+        /// </summary>
+        private static void CheckAboveGround(List<string> failures, TreeGrowth growth, TreeVisuals visuals)
+        {
+            const float onTheGround = 0.01f;
+            float ground = visuals.transform.position.y;
+            float[] amounts = { 0f, 0.3f, 0.6f, 1f };
+
+            foreach (float trunk in amounts)
+            {
+                foreach (float branches in amounts)
+                {
+                    foreach (float foliage in amounts)
+                    {
+                        SetAndSnap(growth, visuals, trunk, branches, foliage);
+                        foreach (Renderer part in visuals.GetComponentsInChildren<Renderer>())
+                        {
+                            if (part.bounds.min.y < ground - onTheGround)
+                            {
+                                failures.Add($"{part.name} reaches {ground - part.bounds.min.y:F2} below the ground at trunk {trunk}, branches {branches}, foliage {foliage}");
+                                return;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// Logs what a fully grown tree costs: its objects, what is drawn, and how long redrawing it for a growth change
+        /// takes. Not a pass or fail, as timings depend on the computer; it gives numbers to compare as the tree changes.
+        /// </summary>
+        private static void ReportCost(TreeGrowth growth, TreeVisuals visuals)
+        {
+            const int redraws = 200;
+            SetAllAndSnap(growth, visuals, 1f);
+
+            Transform[] objects = visuals.GetComponentsInChildren<Transform>(true);
+            MeshFilter[] meshes = visuals.GetComponentsInChildren<MeshFilter>();
+            int triangles = 0;
+            foreach (MeshFilter mesh in meshes)
+            {
+                triangles += mesh.sharedMesh != null ? mesh.sharedMesh.triangles.Length / 3 : 0;
+            }
+
+            // Alternating, so every redraw really changes something.
+            var watch = System.Diagnostics.Stopwatch.StartNew();
+            for (int i = 0; i < redraws; i++)
+            {
+                SetAllAndSnap(growth, visuals, i % 2 == 0 ? 0.99f : 1f);
+            }
+
+            watch.Stop();
+            double millisecondsPerRedraw = watch.Elapsed.TotalMilliseconds / redraws;
+            Debug.Log($"Tree cost when fully grown: {objects.Length} objects, {meshes.Length} drawn, {triangles} triangles; " +
+                      $"a redraw for a growth change takes {millisecondsPerRedraw:F3} ms (it happens each frame while the tree grows).");
+        }
+
+        /// <summary>Each debug slider drives its own part, and only that part.</summary>
+        private static void CheckDebugSliders(List<string> failures, TreeGrowth growth, TreeVisuals visuals, string initialState)
+        {
+            var panel = Object.FindAnyObjectByType<GrowthDebugPanel>();
+            if (panel == null)
+            {
+                failures.Add("no growth debug panel found");
+                return;
+            }
+
+            Slider[] sliders = panel.GetComponentsInChildren<Slider>();
+            if (sliders.Length != TreeGrowth.Parts.Length)
+            {
+                failures.Add($"the debug panel has {sliders.Length} sliders, expected one per growth part");
+                return;
+            }
+
+            for (int i = 0; i < sliders.Length; i++)
+            {
+                TreeGrowthPart part = TreeGrowth.Parts[i];
+                SetAllAndSnap(growth, visuals, 0f);
+                sliders[i].value = 0.4f;
+                visuals.SnapToTarget();
+
+                Expect(failures, Mathf.Approximately(growth.GetGrowth(part), 0.4f), $"the {part} slider set {part} growth to {growth.GetGrowth(part)}, expected 0.4");
+                foreach (TreeGrowthPart other in TreeGrowth.Parts)
+                {
+                    if (other != part)
+                    {
+                        Expect(failures, growth.GetGrowth(other) == 0f, $"the {part} slider changed {other} growth");
+                    }
+                }
+
+                Expect(failures, initialState != Snapshot(visuals.transform, out _), $"moving the {part} slider did not change the tree");
+            }
         }
 
         private static void CheckResources(List<string> failures)
@@ -248,7 +399,8 @@ namespace TreeGame.DevTools
         }
 
         /// <summary>Text fingerprint of every part's name, visibility, position and scale.</summary>
-        private static string Snapshot(Transform root, out int objectCount)
+        /// <param name="includeFoliage">False leaves out the leaf clusters, to compare only the trunk and branches.</param>
+        private static string Snapshot(Transform root, out int objectCount, bool includeFoliage = true)
         {
             var builder = new StringBuilder();
             Transform[] parts = root.GetComponentsInChildren<Transform>(true);
@@ -256,6 +408,18 @@ namespace TreeGame.DevTools
 
             foreach (Transform part in parts)
             {
+                if (!includeFoliage && part.name.StartsWith("Foliage"))
+                {
+                    continue;
+                }
+
+                // A hidden part keeps whatever it last showed, which depends on history, and can't be seen anyway.
+                if (!part.gameObject.activeInHierarchy)
+                {
+                    builder.Append(part.name).Append(" hidden\n");
+                    continue;
+                }
+
                 builder.Append(part.name).Append(part.gameObject.activeSelf ? " on " : " off ")
                     .Append(part.localPosition.ToString("F4")).Append(part.localScale.ToString("F4")).Append('\n');
             }
