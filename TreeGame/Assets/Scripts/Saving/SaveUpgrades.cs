@@ -22,6 +22,20 @@ namespace TreeGame.Saving
             {
                 FromVersion2(data);
             }
+
+            if (data.version == 3)
+            {
+                // Version 4 only added when the game was saved, which an older save can't know; reading it fills that
+                // in from the file's own time.
+                data.version = 4;
+            }
+
+            if (data.version == 4)
+            {
+                // Version 5 only added the tree's name; trees from before have none.
+                data.treeName = "";
+                data.version = 5;
+            }
         }
 
         /// <summary>

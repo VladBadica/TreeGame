@@ -29,6 +29,7 @@ namespace TreeGame.EditorTools
             SetReferences(world,
                 ("treeGrowth", tree.GetComponent<TreeGrowth>()),
                 ("treeSeed", tree.GetComponent<TreeSeed>()),
+                ("treeName", tree.GetComponent<TreeName>()),
                 ("water", water),
                 ("nutrients", nutrients),
                 ("health", health),

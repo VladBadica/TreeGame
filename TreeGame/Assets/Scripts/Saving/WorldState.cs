@@ -18,6 +18,7 @@ namespace TreeGame.Saving
     {
         [SerializeField] private TreeGrowth treeGrowth;
         [SerializeField] private TreeSeed treeSeed;
+        [SerializeField] private TreeName treeName;
         [SerializeField] private TreeResource water;
         [SerializeField] private TreeResource nutrients;
         [SerializeField] private TreeResource health;
@@ -31,7 +32,7 @@ namespace TreeGame.Saving
 
         /// <summary>True if everything it reads is assigned.</summary>
         public bool IsComplete =>
-            treeGrowth != null && treeSeed != null && water != null && nutrients != null && health != null && player != null &&
+            treeGrowth != null && treeSeed != null && treeName != null && water != null && nutrients != null && health != null && player != null &&
             inventory != null && composter != null && insects != null && leaves != null;
 
         /// <summary>The current state of the game, ready to write to a save.</summary>
@@ -40,6 +41,7 @@ namespace TreeGame.Saving
             return new SaveData
             {
                 treeSeed = treeSeed.Seed,
+                treeName = treeName.Name,
                 trunkGrowth = treeGrowth.GetGrowth(TreeGrowthPart.Trunk),
                 branchGrowth = treeGrowth.GetGrowth(TreeGrowthPart.Branches),
                 foliageGrowth = treeGrowth.GetGrowth(TreeGrowthPart.Foliage),
@@ -67,6 +69,7 @@ namespace TreeGame.Saving
         public void Restore(SaveData data)
         {
             treeSeed.SetSeed(data.treeSeed);
+            treeName.SetName(data.treeName);
             treeGrowth.SetGrowth(TreeGrowthPart.Trunk, data.trunkGrowth);
             treeGrowth.SetGrowth(TreeGrowthPart.Branches, data.branchGrowth);
             treeGrowth.SetGrowth(TreeGrowthPart.Foliage, data.foliageGrowth);

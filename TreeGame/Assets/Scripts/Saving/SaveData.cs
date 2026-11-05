@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 
 namespace TreeGame.Saving
 {
@@ -16,12 +17,20 @@ namespace TreeGame.Saving
         /// <see cref="SaveUpgrades"/> that brings the previous version's saves up to it.
         /// Version 2 split the tree's one growth value into trunk, branches and foliage.
         /// Version 3 added the seed the tree grows from.
+        /// Version 4 added when the game was saved.
+        /// Version 5 added the tree's name.
         /// </summary>
-        public const int CurrentVersion = 3;
+        public const int CurrentVersion = 5;
 
         public int version;
 
+        /// <summary>When the game was saved, in UTC, as an ISO 8601 round-trip text. Empty if unknown.</summary>
+        public string savedAtUtc = "";
+
         public int treeSeed;
+
+        /// <summary>The name the player gave the tree. Empty if it has none.</summary>
+        public string treeName = "";
 
         public float trunkGrowth;
         public float branchGrowth;
@@ -41,6 +50,19 @@ namespace TreeGame.Saving
         public float[] insectAges = new float[0];
 
         public SavedLeaf[] fallenLeaves = new SavedLeaf[0];
+
+        /// <summary>When the game was saved, in UTC. False if that isn't known, or the stored text is damaged.</summary>
+        public bool TryGetSavedAt(out DateTime utc)
+        {
+            bool known = DateTime.TryParse(savedAtUtc, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out utc);
+            utc = utc.ToUniversalTime();
+            return known;
+        }
+
+        public void SetSavedAt(DateTime utc)
+        {
+            savedAtUtc = utc.ToUniversalTime().ToString("o", CultureInfo.InvariantCulture);
+        }
     }
 
     /// <summary>One inventory slot. An empty item name means an empty slot.</summary>

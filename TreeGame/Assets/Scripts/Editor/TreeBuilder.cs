@@ -17,8 +17,28 @@ namespace TreeGame.EditorTools
         private const string PrefabsFolder = "Assets/Prefabs";
         private const string FallenLeafPrefabPath = PrefabsFolder + "/FallenLeaf.prefab";
 
-        public static GameObject CreateTree(GameConfig config, Material bark, Material leaves)
+        /// <summary>The game's tree: the tree itself, with its name, growing on its own over time and swaying in the wind.</summary>
+        public static GameObject CreateTree(GameConfig config)
         {
+            GameObject go = CreateTreeModel(config);
+            go.AddComponent<TreeName>();
+            SetReferences(go.AddComponent<PassiveGrowth>(),
+                ("treeGrowth", go.GetComponent<TreeGrowth>()),
+                ("config", config));
+            return go;
+        }
+
+        /// <summary>
+        /// The tree as it looks, swaying in the wind: its growth, its seed and how it is drawn, but nothing that changes
+        /// its growth. The game grows it; the main menu shows a saved tree with it.
+        /// </summary>
+        public static GameObject CreateTreeModel(GameConfig config)
+        {
+            Material bark = GetOrCreateMaterial("Bark", new Color(0.45f, 0.3f, 0.2f));
+            ApplyBarkTexture(bark, PlaceholderArt.GetOrCreateBarkTexture());
+            Material leaves = GetOrCreateMaterial("Leaves", new Color(0.36f, 0.62f, 0.3f));
+            ApplyLeafTexture(leaves, PlaceholderArt.GetOrCreateLeafTexture());
+
             var go = new GameObject("Tree");
             var growth = go.AddComponent<TreeGrowth>();
             var seed = go.AddComponent<TreeSeed>();
@@ -29,10 +49,6 @@ namespace TreeGame.EditorTools
                 ("treeSeed", seed),
                 ("barkMaterial", bark),
                 ("foliageMaterial", leaves));
-
-            SetReferences(go.AddComponent<PassiveGrowth>(),
-                ("treeGrowth", growth),
-                ("config", config));
 
             SetReferences(go.AddComponent<TreeWindSway>(),
                 ("visuals", visuals),

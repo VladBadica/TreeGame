@@ -52,7 +52,12 @@ namespace TreeGame.DevTools
                     CheckNoSave(failures, folder);
                     CheckUnusableFiles(failures, folder);
                     CheckFailedSaveKeepsThePreviousOne(failures, folder);
+                    CheckSavedAt(failures, folder);
+                    CheckDelete(failures, folder);
                 });
+
+                InTemporaryFolder(folder => CheckSlots(failures, folder));
+                InTemporaryFolder(folder => CheckSingleSaveMovesIntoFirstSlot(failures, folder));
             }
             finally
             {
@@ -74,6 +79,7 @@ namespace TreeGame.DevTools
             return new SaveData
             {
                 treeSeed = -123456789,
+                treeName = "Old Oak",
                 trunkGrowth = 0.42f,
                 branchGrowth = 0.3f,
                 foliageGrowth = 0.55f,
@@ -109,6 +115,7 @@ namespace TreeGame.DevTools
 
             Expect(failures, read.version == SaveData.CurrentVersion, $"version read back as {read.version}");
             Expect(failures, read.treeSeed == sample.treeSeed, $"the tree's seed read back as {read.treeSeed}");
+            Expect(failures, read.treeName == sample.treeName, $"the tree's name read back as '{read.treeName}'");
             Expect(failures, read.trunkGrowth == sample.trunkGrowth && read.branchGrowth == sample.branchGrowth &&
                              read.foliageGrowth == sample.foliageGrowth, "the tree's growth changed");
             Expect(failures, read.waterFill == sample.waterFill, $"water read back as {read.waterFill}");
@@ -253,6 +260,125 @@ namespace TreeGame.DevTools
             }
 
             Expect(failures, file.TryRead(out SaveData read) && read.trunkGrowth == first.trunkGrowth, "a failed save should leave the previous one intact");
+        }
+
+        /// <summary>Each save knows when it was made, for showing when a tree was last played.</summary>
+        private static void CheckSavedAt(List<string> failures, string folder)
+        {
+            var file = new SaveFile(Path.Combine(folder, "saved at.json"));
+            DateTime before = DateTime.UtcNow.AddSeconds(-1);
+            file.TryWrite(NewSample());
+            DateTime after = DateTime.UtcNow.AddSeconds(1);
+
+            Expect(failures, file.TryRead(out SaveData read) && read.TryGetSavedAt(out DateTime savedAt) &&
+                             savedAt >= before && savedAt <= after && savedAt.Kind == DateTimeKind.Utc,
+                $"a save should know it was made just now, in UTC, not '{read?.savedAtUtc}'");
+
+            // A save from before the time was stored takes the file's own time.
+            string oldPath = Path.Combine(folder, "version 3.json");
+            File.WriteAllText(oldPath, "{\"version\":3,\"treeSeed\":5,\"trunkGrowth\":0.5}");
+            var fileTime = new DateTime(2025, 3, 14, 15, 9, 26, DateTimeKind.Utc);
+            File.SetLastWriteTimeUtc(oldPath, fileTime);
+            Expect(failures, new SaveFile(oldPath).TryRead(out SaveData old) && old.version == SaveData.CurrentVersion &&
+                             old.TryGetSavedAt(out DateTime oldSavedAt) && oldSavedAt == fileTime && old.treeSeed == 5 &&
+                             old.treeName == "",
+                $"a version 3 save should upgrade and take the file's time {fileTime:o}, not '{old?.savedAtUtc}'");
+
+            // A damaged time reads as unknown rather than breaking the save.
+            var damaged = new SaveData { savedAtUtc = "not a time" };
+            Expect(failures, !damaged.TryGetSavedAt(out _), "a damaged save time should read as unknown");
+        }
+
+        /// <summary>Deleting empties the slot, but only moves the save aside, so it can be recovered by hand.</summary>
+        private static void CheckDelete(List<string> failures, string folder)
+        {
+            string path = Path.Combine(folder, "to delete.json");
+            var file = new SaveFile(path);
+            SaveData first = NewSample();
+            file.TryWrite(first);
+            string firstText = File.ReadAllText(path);
+
+            Expect(failures, file.TryDelete(), "deleting a save failed");
+            Expect(failures, !file.Exists && !file.TryRead(out _), "a deleted save should leave its slot empty");
+            Expect(failures, File.Exists(path + SaveFile.DeletedSuffix) && File.ReadAllText(path + SaveFile.DeletedSuffix) == firstText,
+                "a deleted save should be kept aside, unchanged");
+
+            // Deleting again, after a new save, keeps the newer one aside instead.
+            SaveData second = NewSample();
+            second.trunkGrowth = 0.11f;
+            file.TryWrite(second);
+            Expect(failures, file.TryDelete(), "deleting a second save failed");
+            Expect(failures, new SaveFile(path + SaveFile.DeletedSuffix).TryRead(out SaveData kept) && kept.trunkGrowth == 0.11f,
+                "the save kept aside should be the one deleted last");
+
+            Expect(failures, new SaveFile(Path.Combine(folder, "never saved.json")).TryDelete(), "deleting an empty slot should count as done");
+        }
+
+        /// <summary>Each slot keeps its own save, and only slots that exist can be used.</summary>
+        private static void CheckSlots(List<string> failures, string folder)
+        {
+            var slots = new SaveSlots(folder);
+            for (int i = 0; i < SaveSlots.Count; i++)
+            {
+                Expect(failures, !slots.Slot(i).TryRead(out _), $"slot {i} should start empty");
+            }
+
+            for (int i = 0; i < SaveSlots.Count; i++)
+            {
+                SaveData data = NewSample();
+                data.treeSeed = 1000 + i;
+                slots.Slot(i).TryWrite(data);
+            }
+
+            for (int i = 0; i < SaveSlots.Count; i++)
+            {
+                Expect(failures, slots.Slot(i).TryRead(out SaveData read) && read.treeSeed == 1000 + i, $"slot {i} didn't keep its own save");
+            }
+
+            slots.Slot(1).TryDelete();
+            Expect(failures, slots.Slot(0).TryRead(out _) && !slots.Slot(1).TryRead(out _) && slots.Slot(2).TryRead(out _),
+                "deleting one slot should leave the others alone");
+
+            foreach (int bad in new[] { -1, SaveSlots.Count })
+            {
+                try
+                {
+                    slots.Slot(bad);
+                    failures.Add($"slot {bad} doesn't exist, but could be used");
+                }
+                catch (ArgumentOutOfRangeException)
+                {
+                    // Expected.
+                }
+            }
+
+            // Choosing a slot that doesn't exist leaves the current one as it was.
+            int current = CurrentSaveSlot.Index;
+            CurrentSaveSlot.Choose(SaveSlots.Count);
+            CurrentSaveSlot.Choose(-1);
+            Expect(failures, CurrentSaveSlot.Index == current, "choosing a slot that doesn't exist changed the current slot");
+        }
+
+        /// <summary>The one save of earlier versions becomes the first slot's game, and is never moved over another.</summary>
+        private static void CheckSingleSaveMovesIntoFirstSlot(List<string> failures, string folder)
+        {
+            string single = Path.Combine(folder, "save.json");
+            SaveData data = NewSample();
+            data.treeSeed = 777;
+            new SaveFile(single).TryWrite(data);
+            string singleText = File.ReadAllText(single);
+
+            var slots = new SaveSlots(folder);
+            Expect(failures, !File.Exists(single), "the earlier single save should have moved, not stayed");
+            Expect(failures, File.ReadAllText(slots.PathOf(0)) == singleText, "the earlier single save should be the first slot's, unchanged");
+            Expect(failures, !slots.Slot(1).TryRead(out _) && !slots.Slot(2).TryRead(out _), "the earlier single save should only fill the first slot");
+
+            // Never over a game already in the first slot.
+            data.treeSeed = 888;
+            new SaveFile(single).TryWrite(data);
+            new SaveSlots(folder);
+            Expect(failures, slots.Slot(0).TryRead(out SaveData first) && first.treeSeed == 777, "an earlier single save replaced the first slot's game");
+            Expect(failures, File.Exists(single), "an earlier single save that couldn't move should be left where it was");
         }
 #endif
 

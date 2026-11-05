@@ -5,29 +5,30 @@ using UnityEngine;
 namespace TreeGame.Saving
 {
     /// <summary>
-    /// Reads and writes the game's one save as JSON. Saves from earlier versions are upgraded as they are read, and are
-    /// only rewritten in the current format the next time the game saves. It never throws and never deletes anything: a file it can't read,
-    /// because it is damaged or from a newer version of the game, is reported as no save and left where it is, so it
-    /// can still be looked at or recovered.
+    /// Reads and writes one save as JSON (see <see cref="SaveSlots"/> for where each is kept). Saves from earlier
+    /// versions are upgraded as they are read, and are only rewritten in the current format the next time the game
+    /// saves. It never throws and never destroys a save: a file it can't read, because it is damaged or from a newer
+    /// version of the game, is reported as no save and left where it is, and deleting only moves the file aside, so
+    /// either can still be looked at or recovered.
     /// </summary>
     public sealed class SaveFile
     {
-        private const string FileName = "save.json";
+        /// <summary>Added to a deleted save's name: deleting moves it here, replacing the one deleted before.</summary>
+        public const string DeletedSuffix = ".deleted";
 
+        private readonly string path;
         private readonly AtomicTextFile file;
 
         public SaveFile(string path)
         {
+            this.path = path;
             file = new AtomicTextFile(path);
         }
 
-        /// <summary>The save this game uses, in the player's data folder.</summary>
-        public static SaveFile ForThisGame()
-        {
-            return new SaveFile(Path.Combine(Application.persistentDataPath, FileName));
-        }
+        /// <summary>Whether there is a file here at all, readable or not.</summary>
+        public bool Exists => file.Exists;
 
-        /// <summary>Writes a save, stamped with the current format's version. Returns false if it couldn't.</summary>
+        /// <summary>Writes a save, stamped with the current format's version and the time. Returns false if it couldn't.</summary>
         public bool TryWrite(SaveData data)
         {
             if (data == null)
@@ -37,6 +38,7 @@ namespace TreeGame.Saving
             }
 
             data.version = SaveData.CurrentVersion;
+            data.SetSavedAt(DateTime.UtcNow);
 
             try
             {
@@ -88,8 +90,45 @@ namespace TreeGame.Saving
             }
 
             SaveUpgrades.Upgrade(read, json);
+
+            // Saves from before the time was stored: when the file was last written is when it was saved.
+            if (!read.TryGetSavedAt(out _))
+            {
+                read.SetSavedAt(File.GetLastWriteTimeUtc(path));
+            }
+
             data = read;
             return true;
+        }
+
+        /// <summary>
+        /// Empties the slot by moving the save aside (to its name plus <see cref="DeletedSuffix"/>) rather than erasing
+        /// it, so a save deleted by mistake can still be recovered by hand. Returns false if it couldn't; true if there
+        /// was nothing to delete.
+        /// </summary>
+        public bool TryDelete()
+        {
+            if (!file.Exists)
+            {
+                return true;
+            }
+
+            string deletedPath = path + DeletedSuffix;
+            try
+            {
+                if (File.Exists(deletedPath))
+                {
+                    File.Delete(deletedPath);
+                }
+
+                File.Move(path, deletedPath);
+                return true;
+            }
+            catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException)
+            {
+                Debug.LogError($"{nameof(SaveFile)}: couldn't delete the save: {exception.Message}");
+                return false;
+            }
         }
     }
 }

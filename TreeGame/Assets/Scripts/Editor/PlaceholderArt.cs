@@ -25,6 +25,8 @@ namespace TreeGame.EditorTools
         private const string LeafTexturePath = ArtFolder + "/LeafTexture.png";
         private const string RingPath = ArtFolder + "/Ring.png";
         private const string DiscPath = ArtFolder + "/Disc.png";
+        private const string CopyIconPath = ArtFolder + "/CopyIcon.png";
+        private const string TickIconPath = ArtFolder + "/TickIcon.png";
         private const float PixelsPerUnit = 100f;
 
         // The camera is orthographic, so depth has to be painted in. The fence is drawn in one-point perspective:
@@ -473,6 +475,97 @@ namespace TreeGame.EditorTools
             }
 
             return AssetDatabase.LoadAssetAtPath<Sprite>(RingPath);
+        }
+
+        private const int IconSize = 64;
+
+        /// <summary>
+        /// A white "copy" icon, tinted by whatever displays it: two overlapping rounded rectangles, the back one peeking
+        /// out above and to the right of the front one, as copy buttons commonly show it.
+        /// </summary>
+        public static Sprite GetOrCreateCopyIcon()
+        {
+            if (!File.Exists(CopyIconPath))
+            {
+                const float half = 14f;
+                const float corner = 5f;
+                const float line = 4.5f;
+                var front = new Vector2(27f, 27f);
+                var back = new Vector2(37f, 37f);
+
+                PaintIcon(CopyIconPath, (x, y) =>
+                {
+                    var point = new Vector2(x, y);
+                    float frontDistance = RoundedBoxDistance(point - front, half, corner);
+                    float backDistance = RoundedBoxDistance(point - back, half, corner);
+
+                    // The back outline only where the front one doesn't cover it.
+                    float frontInk = OutlineInk(frontDistance, line);
+                    float backInk = OutlineInk(backDistance, line) * Mathf.Clamp01(frontDistance + 0.5f);
+                    return Mathf.Max(frontInk, backInk);
+                });
+            }
+
+            return AssetDatabase.LoadAssetAtPath<Sprite>(CopyIconPath);
+        }
+
+        /// <summary>A white tick, tinted by whatever displays it, shown once something has been copied.</summary>
+        public static Sprite GetOrCreateTickIcon()
+        {
+            if (!File.Exists(TickIconPath))
+            {
+                const float line = 6f;
+                var start = new Vector2(14f, 33f);
+                var bend = new Vector2(27f, 20f);
+                var end = new Vector2(50f, 45f);
+
+                PaintIcon(TickIconPath, (x, y) =>
+                {
+                    var point = new Vector2(x, y);
+                    float distance = Mathf.Min(SegmentDistance(point, start, bend), SegmentDistance(point, bend, end));
+                    return Mathf.Clamp01(line * 0.5f - distance + 0.5f);
+                });
+            }
+
+            return AssetDatabase.LoadAssetAtPath<Sprite>(TickIconPath);
+        }
+
+        /// <summary>A square white icon, its alpha at each pixel's middle given by <paramref name="inkAt"/> (0 to 1).</summary>
+        private static void PaintIcon(string path, System.Func<float, float, float> inkAt)
+        {
+            var pixels = new Color32[IconSize * IconSize];
+            for (int y = 0; y < IconSize; y++)
+            {
+                for (int x = 0; x < IconSize; x++)
+                {
+                    byte alpha = (byte)(Mathf.Clamp01(inkAt(x + 0.5f, y + 0.5f)) * 255f);
+                    pixels[y * IconSize + x] = new Color32(255, 255, 255, alpha);
+                }
+            }
+
+            SaveSprite(path, IconSize, IconSize, pixels, new Vector2(0.5f, 0.5f));
+        }
+
+        /// <summary>How far a point is outside a rounded square of this half-size centered on the origin; negative inside.</summary>
+        private static float RoundedBoxDistance(Vector2 point, float half, float corner)
+        {
+            var q = new Vector2(Mathf.Abs(point.x) - (half - corner), Mathf.Abs(point.y) - (half - corner));
+            var outside = new Vector2(Mathf.Max(q.x, 0f), Mathf.Max(q.y, 0f));
+            return outside.magnitude + Mathf.Min(Mathf.Max(q.x, q.y), 0f) - corner;
+        }
+
+        /// <summary>How much of an outline of this width, just inside a shape's edge, covers a point; smooth over a pixel.</summary>
+        private static float OutlineInk(float distance, float width)
+        {
+            float fromLineMiddle = Mathf.Abs(distance + width * 0.5f);
+            return Mathf.Clamp01(width * 0.5f - fromLineMiddle + 0.5f);
+        }
+
+        private static float SegmentDistance(Vector2 point, Vector2 from, Vector2 to)
+        {
+            Vector2 along = to - from;
+            float share = Mathf.Clamp01(Vector2.Dot(point - from, along) / along.sqrMagnitude);
+            return Vector2.Distance(point, from + along * share);
         }
 
         /// <summary>A flat white circle with a smooth edge, tinted by whatever displays it.</summary>

@@ -6,29 +6,32 @@ using UnityEngine.UI;
 namespace TreeGame.Menus
 {
     /// <summary>
-    /// Shows the code for the seed this game's tree grows from, and copies it for sharing. Shown on a menu screen, so it
-    /// reads the code each time the screen opens; the seed can't change while a menu is open.
+    /// Shows the code for the seed this game's tree grows from, with a button beside it that copies the code for
+    /// sharing; its icon turns into a tick once copied. Shown on a menu screen, so it reads the code each time the
+    /// screen opens; the seed can't change while a menu is open.
     /// </summary>
     public class TreeCodeDisplay : MonoBehaviour
     {
         [SerializeField] private TreeSeed treeSeed;
         [SerializeField] private TMP_Text codeLabel;
         [SerializeField] private Button copyButton;
-        [SerializeField] private TMP_Text copyButtonLabel;
-        [SerializeField] private string copyCaption = "Copy Tree Code";
-        [SerializeField] private string copiedCaption = "Copied!";
+        [SerializeField] private Image copyIcon;
+        [SerializeField] private Sprite copySprite;
+        [Tooltip("Shown on the copy button once the code is copied.")]
+        [SerializeField] private Sprite copiedSprite;
 
         private void OnEnable()
         {
-            if (treeSeed == null || codeLabel == null || copyButton == null || copyButtonLabel == null)
+            if (treeSeed == null || codeLabel == null || copyButton == null || copyIcon == null || copySprite == null ||
+                copiedSprite == null)
             {
-                Debug.LogWarning($"{nameof(TreeCodeDisplay)}: needs a tree seed, a code label and a copy button with its label.", this);
+                Debug.LogWarning($"{nameof(TreeCodeDisplay)}: needs a tree seed, a code label, and a copy button with its icon and both sprites.", this);
                 enabled = false;
                 return;
             }
 
             codeLabel.text = $"Tree code: {treeSeed.Code}";
-            copyButtonLabel.text = copyCaption;
+            copyIcon.sprite = copySprite;
             copyButton.onClick.AddListener(Copy);
         }
 
@@ -45,7 +48,7 @@ namespace TreeGame.Menus
             GUIUtility.systemCopyBuffer = treeSeed.Code;
 
             // Stays until the screen next opens, as the game is paused and time stands still.
-            copyButtonLabel.text = copiedCaption;
+            copyIcon.sprite = copiedSprite;
         }
     }
 }

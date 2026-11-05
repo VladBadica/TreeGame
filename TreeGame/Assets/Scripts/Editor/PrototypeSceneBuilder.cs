@@ -49,25 +49,18 @@ namespace TreeGame.EditorTools
             var coin = GameAssets.GetOrCreateItem<StackableItemDefinition>("Coin", "Coin", PlaceholderArt.GetOrCreateCoinIcon());
             Sprite insect = PlaceholderArt.GetOrCreateInsectSprite();
             Sprite notificationBubble = PlaceholderArt.GetOrCreateNotificationBubbleSprite();
-            Material bark = BuilderHelpers.GetOrCreateMaterial("Bark", new Color(0.45f, 0.3f, 0.2f));
-            TreeBuilder.ApplyBarkTexture(bark, PlaceholderArt.GetOrCreateBarkTexture());
-            Material leaves = BuilderHelpers.GetOrCreateMaterial("Leaves", new Color(0.36f, 0.62f, 0.3f));
-            TreeBuilder.ApplyLeafTexture(leaves, PlaceholderArt.GetOrCreateLeafTexture());
-            Material ground = BuilderHelpers.GetOrCreateMaterial("Ground", new Color(0.58f, 0.72f, 0.42f));
             PlaceholderArt.GetOrCreateFenceSprites(out Sprite fenceNear, out Sprite fenceFar);
             MinigameDefinition wellMinigame = WellSpinSceneBuilder.GetOrCreateDefinition();
             MinigameDefinition insectMinigame = InsectSwarmSceneBuilder.GetOrCreateDefinition();
             AssetDatabase.SaveAssets();
 
-            WorldBuilder.ConfigureEnvironment();
-            WorldBuilder.CreateSun();
-            WorldBuilder.CreateGround(ground);
+            WorldBuilder.CreateStage();
             WorldBuilder.CreateFences(fenceNear, fenceFar);
             MinigameRunner minigameRunner = CreateMinigameRunner();
             MusicBuilder.CreateGameMusic();
             WaterWell well = StationBuilder.CreateWell(config, minigameRunner, wellMinigame);
             Composter composter = StationBuilder.CreateCompostHeap(config, brownLeaves);
-            GameObject tree = TreeBuilder.CreateTree(config, bark, leaves);
+            GameObject tree = TreeBuilder.CreateTree(config);
             TreeResource water = TreeBuilder.CreateResource(tree.transform, TreeResourceType.Water, config);
             TreeResource nutrients = TreeBuilder.CreateResource(tree.transform, TreeResourceType.Nutrients, config);
             TreeResource health = TreeBuilder.CreateResource(tree.transform, TreeResourceType.Health, config);

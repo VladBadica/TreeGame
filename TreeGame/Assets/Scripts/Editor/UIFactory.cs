@@ -160,6 +160,33 @@ namespace TreeGame.EditorTools
             return go.GetComponent<Button>();
         }
 
+        /// <summary>
+        /// A square button showing a white icon, tinted dark like button captions, in place of text. Gives the icon's
+        /// image too, for anything that swaps the icon.
+        /// </summary>
+        public static Button CreateIconButton(DefaultControls.Resources resources, Transform parent, string objectName,
+            Sprite icon, float size, out Image iconImage)
+        {
+            Button button = CreateButton(resources, parent, objectName, "");
+            Object.DestroyImmediate(button.GetComponentInChildren<TMP_Text>().gameObject);
+            ((RectTransform)button.transform).sizeDelta = new Vector2(size, size);
+
+            var iconObject = new GameObject("Icon", typeof(RectTransform), typeof(Image));
+            RectTransform iconRect = StretchInParent(iconObject, button.transform);
+            // A margin all round, so the icon sits inside the button's border.
+            float margin = size * 0.18f;
+            iconRect.offsetMin = new Vector2(margin, margin);
+            iconRect.offsetMax = new Vector2(-margin, -margin);
+
+            iconImage = iconObject.GetComponent<Image>();
+            iconImage.sprite = icon;
+            iconImage.color = new Color(0.2f, 0.2f, 0.2f);
+            iconImage.preserveAspect = true;
+            // Only the button takes clicks; the icon on it shouldn't get in the way.
+            iconImage.raycastTarget = false;
+            return button;
+        }
+
         /// <summary>A TextMeshPro dropdown with larger text and rows than Unity's defaults. Options are set at runtime.</summary>
         public static TMP_Dropdown CreateDropdown(string objectName, float fontSize)
         {

@@ -59,12 +59,9 @@ namespace TreeGame.EditorTools
             var settings = GetOrCreateSettings<WellSpinSettings>(SettingsPath);
             Sprite ring = PlaceholderArt.GetOrCreateRingSprite(RingInnerRadiusRatio);
             Sprite disc = PlaceholderArt.GetOrCreateDiscSprite();
-            Material ground = GetOrCreateMaterial("Ground", new Color(0.58f, 0.72f, 0.42f));
             AssetDatabase.SaveAssets();
 
-            WorldBuilder.ConfigureEnvironment();
-            WorldBuilder.CreateSun();
-            WorldBuilder.CreateGround(ground);
+            WorldBuilder.CreateStage();
             StationBuilder.CreateWellModel(new GameObject("Well").transform);
             CreateCamera();
 

@@ -1,4 +1,4 @@
-using TreeGame.Cameras;
+﻿using TreeGame.Cameras;
 using TreeGame.Menus;
 using TreeGame.Minigames;
 using TreeGame.Trees;
@@ -31,7 +31,7 @@ namespace TreeGame.Saving
 
         private void Awake()
         {
-            saveFile = SaveFile.ForThisGame();
+            saveFile = CurrentSaveSlot.File();
         }
 
         private void OnEnable()

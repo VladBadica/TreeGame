@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using TreeGame.Menus;
 using TreeGame.Minigames;
 using UnityEngine;
@@ -33,7 +33,7 @@ namespace TreeGame.Saving
 
         private void Awake()
         {
-            saveFile = SaveFile.ForThisGame();
+            saveFile = CurrentSaveSlot.File();
         }
 
         private void OnEnable()

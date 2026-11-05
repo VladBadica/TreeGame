@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using UnityEngine;
 
 namespace TreeGame.Trees
@@ -32,7 +32,7 @@ namespace TreeGame.Trees
 
         /// <summary>
         /// The seed. A new game's seed is chosen on first asking, so it is ready whichever component starts first: the
-        /// one asked for before the game started (see <see cref="PendingSeed"/>), otherwise a random one.
+        /// one asked for before the game started (see <see cref="NewTreeChoices"/>), otherwise a random one.
         /// </summary>
         public int Seed
         {
@@ -41,7 +41,7 @@ namespace TreeGame.Trees
                 if (!chosen)
                 {
                     chosen = true;
-                    if (PendingSeed.TryTake(out int requested))
+                    if (NewTreeChoices.Seed.TryTake(out int requested))
                     {
                         seed = requested;
                     }

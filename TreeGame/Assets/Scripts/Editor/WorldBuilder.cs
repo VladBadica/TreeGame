@@ -11,7 +11,18 @@ namespace TreeGame.EditorTools
     /// <summary>Builds the stage of the game scene: lighting, camera, ground, fences and the layered backdrop.</summary>
     internal static class WorldBuilder
     {
-        public static void ConfigureEnvironment()
+        /// <summary>
+        /// What every scene set in the tree's world stands on: the light, the sun and the ground. The game and the main
+        /// menu both use it, so going from one to the other feels like the same place.
+        /// </summary>
+        public static void CreateStage()
+        {
+            ConfigureEnvironment();
+            CreateSun();
+            CreateGround(GetOrCreateMaterial("Ground", new Color(0.58f, 0.72f, 0.42f)));
+        }
+
+        private static void ConfigureEnvironment()
         {
             // Flat gradient ambient instead of a skybox: soft, cozy and needs no lighting bake.
             RenderSettings.skybox = null;
@@ -22,7 +33,7 @@ namespace TreeGame.EditorTools
             RenderSettings.fog = false;
         }
 
-        public static void CreateSun()
+        private static void CreateSun()
         {
             var go = new GameObject("Sun");
             go.transform.rotation = Quaternion.Euler(45f, -35f, 0f);
@@ -34,27 +45,37 @@ namespace TreeGame.EditorTools
             light.shadows = LightShadows.Soft;
         }
 
+        /// <summary>The game's camera, which follows the player.</summary>
         public static Transform CreateCamera(Transform followTarget)
+        {
+            Transform camera = CreateViewCamera(CameraTarget, CameraOrthographicSize);
+            SetReferences(camera.gameObject.AddComponent<CameraFollow>(), ("target", followTarget));
+            return camera;
+        }
+
+        /// <summary>
+        /// A camera looking at the world the way the game does, nearly side-on, centered on a point and showing this
+        /// much above and below it.
+        /// </summary>
+        public static Transform CreateViewCamera(Vector3 target, float orthographicSize)
         {
             var go = new GameObject("Main Camera") { tag = "MainCamera" };
             Quaternion rotation = Quaternion.Euler(CameraPitch, 0f, 0f);
-            go.transform.SetPositionAndRotation(CameraTarget - rotation * Vector3.forward * CameraDistance, rotation);
+            go.transform.SetPositionAndRotation(target - rotation * Vector3.forward * CameraDistance, rotation);
 
             var camera = go.AddComponent<Camera>();
             camera.orthographic = true;
-            camera.orthographicSize = CameraOrthographicSize;
+            camera.orthographicSize = orthographicSize;
             camera.clearFlags = CameraClearFlags.SolidColor;
             camera.backgroundColor = SkyColor;
             camera.nearClipPlane = 0.3f;
             camera.farClipPlane = 100f;
 
             go.AddComponent<AudioListener>();
-
-            SetReferences(go.AddComponent<CameraFollow>(), ("target", followTarget));
             return go.transform;
         }
 
-        public static void CreateGround(Material material)
+        private static void CreateGround(Material material)
         {
             GameObject ground = GameObject.CreatePrimitive(PrimitiveType.Cube);
             ground.name = "Ground";
