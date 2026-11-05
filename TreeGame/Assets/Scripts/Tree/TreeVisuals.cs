@@ -156,6 +156,10 @@ namespace TreeGame.Trees
             public float Progress;
             public float Length;
             public float Thickness;
+
+            // The branch that carries this one's leaves now: itself once it has sprouted, otherwise the nearest branch
+            // it grows from that has. Null while none of them has, as leaves never sit on the trunk.
+            public Branch LeafCarrier;
         }
 
         private sealed class FoliageCluster
@@ -339,28 +343,33 @@ namespace TreeGame.Trees
             branch.Progress = BranchSkeleton.Progress(branch.Spec, branchGrowth);
             branch.Length = branch.Spec.Length * branchLengthOverProgress.Evaluate(branch.Progress);
 
-            bool parentVisible = branch.Parent == null || branch.Parent.Pivot.gameObject.activeSelf;
-            bool visible = parentVisible && branch.Progress > 0f && branch.Length > MinVisibleSize;
-            branch.Pivot.gameObject.SetActive(visible);
-            if (!visible)
+            bool parentGrown = branch.Parent == null || branch.Parent.LeafCarrier == branch.Parent;
+            bool grown = parentGrown && branch.Progress > 0f && branch.Length > MinVisibleSize;
+            branch.LeafCarrier = grown ? branch : branch.Parent?.LeafCarrier;
+
+            // Where it leaves its parent. Placed even before it sprouts, as its leaves wait at that spot on the branch
+            // carrying them, so they move out smoothly along it once it does.
+            float along = branch.Spec.AttachAlong;
+            branch.Pivot.localPosition = branch.Parent == null
+                ? new Vector3(0f, along * trunkHeightValue, 0f)
+                : PointAlong(branch.Parent, along);
+
+            branch.Wood.gameObject.SetActive(grown);
+            if (!grown)
             {
+                // No length, so anything placed along it, its leaves and its own children's spots, sits at its base.
                 branch.Progress = 0f;
+                branch.Length = 0f;
+                branch.Thickness = 0f;
+                branch.Wood.localScale = Vector3.zero;
+                branch.Tip.localPosition = Vector3.zero;
                 return;
             }
 
-            // Where it leaves its parent, and how thick the parent is there: it is a share of that, thinner while young.
-            float along = branch.Spec.AttachAlong;
-            float parentThickness;
-            if (branch.Parent == null)
-            {
-                branch.Pivot.localPosition = new Vector3(0f, along * trunkHeightValue, 0f);
-                parentThickness = trunkThicknessValue * TubeMesh.Radius(along, trunkShape) / TubeMesh.BaseRadius;
-            }
-            else
-            {
-                branch.Pivot.localPosition = PointAlong(branch.Parent, along);
-                parentThickness = branch.Parent.Thickness * TubeMesh.Radius(along, branch.Parent.Shape) / TubeMesh.BaseRadius;
-            }
+            // How thick the parent is where it leaves it: it is a share of that, thinner while young.
+            float parentThickness = branch.Parent == null
+                ? trunkThicknessValue * TubeMesh.Radius(along, trunkShape) / TubeMesh.BaseRadius
+                : branch.Parent.Thickness * TubeMesh.Radius(along, branch.Parent.Shape) / TubeMesh.BaseRadius;
 
             // Limbs are the trunk splitting, not new shoots, so they are their full share of its thickness from the start.
             float sprouting = branch.Spec.IsLimb ? 1f : Mathf.Lerp(sproutThickness, 1f, branch.Progress);
@@ -406,13 +415,23 @@ namespace TreeGame.Trees
             {
                 FoliageCluster cluster = foliage[i];
 
+                // Leaves belong to the grown tree's branches, most to twigs a young tree doesn't have yet. Until its own
+                // branch sprouts, a cluster sits on the nearest grown branch it belongs to, at the spot its branch will
+                // grow from, so a young tree is as leafy as its foliage growth. None while only the trunk is there.
+                Branch carrier = cluster.Anchor.LeafCarrier;
+                if (carrier == null)
+                {
+                    cluster.Transform.gameObject.SetActive(false);
+                    continue;
+                }
+
                 // Cluster i fades in as the visible count passes i, giving a continuous increase in density. Leaves on a
                 // branch then grow in quickly as it sprouts.
-                float appear = Mathf.Clamp01(visibleCount - i) * Mathf.Clamp01(cluster.Anchor.Progress / leavesFullAtBranchProgress);
+                float appear = Mathf.Clamp01(visibleCount - i) * Mathf.Clamp01(carrier.Progress / leavesFullAtBranchProgress);
 
-                // Never bigger than its branch is long, so a just-sprouted branch carries small leaves rather than a
-                // big clump right against what it grows from.
-                float size = Mathf.Min(baseSize * cluster.SizeScale * appear, cluster.Anchor.Length * MaxLeafSizePerBranchLength);
+                // Never bigger than the branch carrying it is long, so a just-sprouted branch carries small leaves rather
+                // than a big clump right against what it grows from.
+                float size = Mathf.Min(baseSize * cluster.SizeScale * appear, carrier.Length * MaxLeafSizePerBranchLength);
                 if (size <= MinVisibleSize)
                 {
                     cluster.Transform.gameObject.SetActive(false);
@@ -420,6 +439,7 @@ namespace TreeGame.Trees
                 }
 
                 // Its branch's pivot isn't scaled, so the cluster keeps its shape; its spot moves out as the branch grows.
+                // Before its branch sprouts, that has no length, so this is the spot it will grow from.
                 cluster.Transform.localScale = Vector3.one * size;
                 cluster.Transform.localPosition = PointAlong(cluster.Anchor, cluster.Along);
 
