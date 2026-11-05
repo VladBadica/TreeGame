@@ -8,8 +8,11 @@ namespace TreeGame.Trees
     /// </summary>
     public sealed class BranchSkeletonTuning
     {
-        /// <summary>How many main branches grow out of the trunk.</summary>
-        public int MainBranchCount { get; set; } = 10;
+        /// <summary>
+        /// How many main branches grow out of the trunk below where it splits into limbs. Few, as most of the crown is
+        /// held up by the limbs.
+        /// </summary>
+        public int MainBranchCount { get; set; } = 4;
 
         /// <summary>
         /// How the main branches are spaced up the trunk: 1 spaces them evenly, and lower values pack more of them toward
@@ -19,19 +22,25 @@ namespace TreeGame.Trees
 
         /// <summary>How many side branches grow out of each main branch (fewest, most).</summary>
         public int MinSideBranches { get; set; } = 2;
-        public int MaxSideBranches { get; set; } = 3;
+        public int MaxSideBranches { get; set; } = 4;
 
-        /// <summary>How many twigs grow out of each side branch (fewest, most).</summary>
-        public int MinTwigs { get; set; } = 1;
-        public int MaxTwigs { get; set; } = 3;
+        /// <summary>
+        /// How many twigs grow out of each side branch (fewest, most). Plenty, as a real crown is a mass of small
+        /// branches that the big ones fork into.
+        /// </summary>
+        public int MinTwigs { get; set; } = 2;
+        public int MaxTwigs { get; set; } = 4;
 
-        /// <summary>Where the lowest and highest main branches leave the trunk, as a share of its height.</summary>
-        public float LowestMainBranch { get; set; } = 0.35f;
+        /// <summary>
+        /// Where the lowest and highest main branches leave the trunk, as a share of its height. High up, just below the
+        /// fork, so the lower trunk stays clear: an open-grown broadleaf tree is bare for about the lower half.
+        /// </summary>
+        public float LowestMainBranch { get; set; } = 0.8f;
         public float HighestMainBranch { get; set; } = 0.96f;
 
         /// <summary>How far main branches lean from vertical: the lowest the most, the highest the least.</summary>
-        public float LowestMainBranchTilt { get; set; } = 68f;
-        public float HighestMainBranchTilt { get; set; } = 28f;
+        public float LowestMainBranchTilt { get; set; } = 72f;
+        public float HighestMainBranchTilt { get; set; } = 45f;
 
         /// <summary>
         /// The most any branch may lean from vertical. Below 90, so every branch points at least a little upward and
@@ -42,35 +51,45 @@ namespace TreeGame.Trees
         /// <summary>How far main branches may turn toward or away from the camera, so the tree has some depth.</summary>
         public float MainBranchDepthSpread { get; set; } = 25f;
 
-        /// <summary>How far side branches and twigs may turn from their parent's direction, either way.</summary>
-        public float ChildTurnSpread { get; set; } = 40f;
+        /// <summary>
+        /// How far side branches and twigs may turn from their parent's direction, either way. Wide, so a branch forks
+        /// out in several directions rather than running alongside its parent.
+        /// </summary>
+        public float ChildTurnSpread { get; set; } = 50f;
 
         /// <summary>
-        /// The length of the leader: the top of the trunk carrying on upward as a branch, with side branches of its own, so
-        /// the crown is rounded off above the trunk instead of left open in the middle. 0 for no leader. On a broadleaf
-        /// tree it is about as long as the top main branches, so it fills the crown out rather than poking out of it.
+        /// How many limbs the trunk splits into at its top (fewest, most). A broadleaf tree's trunk doesn't run up through
+        /// its crown: it forks into a few thick limbs that lean outward and hold the crown up. 0 for a trunk that just ends.
         /// </summary>
-        public float LeaderLength { get; set; } = 1.3f;
+        public int MinLimbs { get; set; } = 3;
+        public int MaxLimbs { get; set; } = 4;
+
+        /// <summary>A limb's length; each varies a little around it.</summary>
+        public float LimbLength { get; set; } = 1.6f;
+
+        /// <summary>A limb's thickness as a share of the top of the trunk. Thick, as limbs together carry on the trunk.</summary>
+        public float LimbThicknessRatio { get; set; } = 0.7f;
 
         /// <summary>
-        /// The leader's thickness as a share of the top of the trunk, which it carries on from. 1 by default, so there
-        /// is no step where the trunk turns into the leader.
+        /// How far the limbs lean from vertical, spread between these: the most upright stands at the middle of the
+        /// crown, the others lean further out to either side.
         /// </summary>
-        public float LeaderThicknessRatio { get; set; } = 1f;
+        public float MinLimbTilt { get; set; } = 10f;
+        public float MaxLimbTilt { get; set; } = 40f;
 
         /// <summary>
-        /// The most the leader leans from vertical. It carries on from the trunk, so only a touch, enough not to look
-        /// ruler-straight. It doesn't curve either, unlike other branches.
+        /// The lengths of the lowest and highest main branches; those in between are spaced evenly. The lowest are the
+        /// longest and most level, so the crown is broadest near its bottom, as on a tree grown in the open.
         /// </summary>
-        public float MaxLeaderTilt { get; set; } = 3f;
+        public float LowestMainBranchLength { get; set; } = 1.8f;
+        public float HighestMainBranchLength { get; set; } = 1.3f;
 
-        /// <summary>The lengths of the lowest and highest main branches; those in between are spaced evenly.</summary>
-        public float LowestMainBranchLength { get; set; } = 1.7f;
-        public float HighestMainBranchLength { get; set; } = 1.1f;
-
-        /// <summary>A side branch or twig is this share of its parent's length (shortest, longest).</summary>
-        public float MinChildLengthRatio { get; set; } = 0.45f;
-        public float MaxChildLengthRatio { get; set; } = 0.6f;
+        /// <summary>
+        /// A side branch or twig is this share of its parent's length (shortest, longest). Close to its parent's length,
+        /// so a branch reads as forking in two rather than as a spoke with short stubs along it.
+        /// </summary>
+        public float MinChildLengthRatio { get; set; } = 0.6f;
+        public float MaxChildLengthRatio { get; set; } = 0.8f;
 
         /// <summary>A branch is this share of its parent's thickness; for main branches, the parent is the trunk.</summary>
         public float MainBranchThicknessRatio { get; set; } = 0.4f;
@@ -87,8 +106,8 @@ namespace TreeGame.Trees
         public float MinChildStartDelay { get; set; } = 0.15f;
         public float MaxChildStartDelay { get; set; } = 0.25f;
 
-        /// <summary>The most a branch curves upward along its length, for a less rigid look.</summary>
-        public float MaxBend { get; set; } = 15f;
+        /// <summary>The most a branch curves upward along its length, so branches sweep up rather than run ruler-straight.</summary>
+        public float MaxBend { get; set; } = 30f;
 
         /// <summary>Rejects numbers no tree could be built with, so mistakes show up at once rather than as odd behavior.</summary>
         public void Validate()
@@ -124,11 +143,15 @@ namespace TreeGame.Trees
                 throw new ArgumentException("Spreads and bends must be sensible angles.");
             }
 
-            if (!(LeaderLength >= 0f && float.IsFinite(LeaderLength)) || !IsShareAboveZero(LeaderThicknessRatio) ||
-                !IsBetween(MaxLeaderTilt, 0f, MaxTilt))
+            if (MinLimbs < 0 || MaxLimbs < MinLimbs || !IsPositive(LimbLength) || !IsShareAboveZero(LimbThicknessRatio))
             {
-                throw new ArgumentException("The leader needs a length of 0 or more, a thickness ratio above 0 and up to 1, " +
-                                            "and a lean within the most a branch may lean.");
+                throw new ArgumentException("Limb counts can't be negative (most at least fewest), and limbs need a positive " +
+                                            "length and a thickness ratio above 0 and up to 1.");
+            }
+
+            if (!IsBetween(MinLimbTilt, 0f, MaxTilt) || !IsBetween(MaxLimbTilt, 0f, MaxTilt) || MinLimbTilt > MaxLimbTilt)
+            {
+                throw new ArgumentException("Limb tilts must be within the most a branch may lean, least first.");
             }
 
             if (!IsPositive(LowestMainBranchLength) || !IsPositive(HighestMainBranchLength))

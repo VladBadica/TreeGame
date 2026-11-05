@@ -39,7 +39,7 @@ namespace TreeGame.DevTools
             for (int i = 0; i < sliders.Length; i++)
             {
                 TreeGrowthPart part = TreeGrowth.Parts[i];
-                sliders[i].minValue = 0f;
+                sliders[i].minValue = treeGrowth.MinimumGrowth(part);
                 sliders[i].maxValue = 1f;
                 sliderHandlers[i] = value => treeGrowth.SetGrowth(part, value);
                 sliders[i].onValueChanged.AddListener(sliderHandlers[i]);

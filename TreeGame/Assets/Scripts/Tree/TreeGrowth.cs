@@ -20,18 +20,32 @@ namespace TreeGame.Trees
         [SerializeField, Range(0f, 1f)] private float branches;
         [SerializeField, Range(0f, 1f)] private float foliage;
 
+        [Tooltip("The least branch growth a tree ever has, even a brand new one. Leaves only grow on branches, so this " +
+                 "gives a new tree a little branch to carry its first leaves.")]
+        [SerializeField, Range(0f, 1f)] private float minimumBranches = 0.05f;
+
         /// <summary>Raised with the part and its new growth whenever a part's growth changes.</summary>
         public event Action<TreeGrowthPart, float> GrowthChanged;
 
+        /// <summary>The least growth a part can have; it never goes below this, and starts there.</summary>
+        public float MinimumGrowth(TreeGrowthPart part)
+        {
+            return part == TreeGrowthPart.Branches ? Mathf.Clamp01(minimumBranches) : 0f;
+        }
+
         public float GetGrowth(TreeGrowthPart part)
         {
-            return part switch
+            float stored = part switch
             {
                 TreeGrowthPart.Trunk => trunk,
                 TreeGrowthPart.Branches => branches,
                 TreeGrowthPart.Foliage => foliage,
                 _ => throw new ArgumentOutOfRangeException(nameof(part), part, null),
             };
+
+            // Applied on reading too, so a stored value below the minimum (an older scene, an Inspector edit) never
+            // shows, whatever order components start in.
+            return Mathf.Max(stored, MinimumGrowth(part));
         }
 
         /// <summary>Adds a non-negative amount of growth to one part; the result is clamped to 1.</summary>
@@ -53,7 +67,10 @@ namespace TreeGame.Trees
             SetGrowth(part, GetGrowth(part) + amount);
         }
 
-        /// <summary>Sets one part's growth directly (clamped to 0..1). Intended for testing, resets and loading saved state.</summary>
+        /// <summary>
+        /// Sets one part's growth directly (clamped between its <see cref="MinimumGrowth"/> and 1). Intended for testing,
+        /// resets and loading saved state.
+        /// </summary>
         public void SetGrowth(TreeGrowthPart part, float value)
         {
             if (!float.IsFinite(value))
@@ -62,7 +79,7 @@ namespace TreeGame.Trees
                 return;
             }
 
-            float clamped = Mathf.Clamp01(value);
+            float clamped = Mathf.Clamp(value, MinimumGrowth(part), 1f);
             if (clamped == GetGrowth(part))
             {
                 return;

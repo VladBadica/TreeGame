@@ -81,6 +81,8 @@ namespace TreeGame.DevTools
 
                 CheckDebugSliders(failures, growth, visuals, initialState);
                 CheckAboveGround(failures, growth, visuals);
+                CheckCrownLightAndShade(failures, growth, visuals);
+                CheckProportions(failures, growth, visuals);
                 ReportCost(growth, visuals);
                 CheckResources(failures);
             }
@@ -125,8 +127,11 @@ namespace TreeGame.DevTools
             Expect(failures, growth.GetGrowth(part) == 1f, $"{part}: SetGrowth(5) gave {growth.GetGrowth(part)}, expected 1");
             growth.AddGrowth(part, 1f);
             Expect(failures, growth.GetGrowth(part) == 1f, $"{part}: AddGrowth past the maximum gave {growth.GetGrowth(part)}, expected 1");
+            float minimum = growth.MinimumGrowth(part);
             growth.SetGrowth(part, -3f);
-            Expect(failures, growth.GetGrowth(part) == 0f, $"{part}: SetGrowth(-3) gave {growth.GetGrowth(part)}, expected 0");
+            Expect(failures, growth.GetGrowth(part) == minimum, $"{part}: SetGrowth(-3) gave {growth.GetGrowth(part)}, expected its minimum {minimum}");
+            growth.SetGrowth(part, minimum * 0.5f);
+            Expect(failures, growth.GetGrowth(part) == minimum, $"{part}: went below its minimum {minimum}, to {growth.GetGrowth(part)}");
             growth.SetGrowth(part, 0.5f);
             growth.AddGrowth(part, -0.2f);
             Expect(failures, growth.GetGrowth(part) == 0.5f, $"{part}: negative AddGrowth changed growth to {growth.GetGrowth(part)}");
@@ -205,6 +210,103 @@ namespace TreeGame.DevTools
         }
 
         /// <summary>
+        /// On the fully grown tree, the leaves in the top third of the crown are lighter on average than those in the
+        /// bottom third, as the crown is lit from above. Checks the shading lands on the right leaves in the real tree.
+        /// </summary>
+        private static void CheckCrownLightAndShade(List<string> failures, TreeGrowth growth, TreeVisuals visuals)
+        {
+            SetAllAndSnap(growth, visuals, 1f);
+
+            var leaves = new List<MeshRenderer>();
+            foreach (MeshRenderer renderer in visuals.GetComponentsInChildren<MeshRenderer>())
+            {
+                if (renderer.name.StartsWith("Foliage") && renderer.sharedMaterial != null)
+                {
+                    leaves.Add(renderer);
+                }
+            }
+
+            if (leaves.Count < 10)
+            {
+                failures.Add($"only {leaves.Count} leaf clusters with a material on the grown tree, too few to check light and shade");
+                return;
+            }
+
+            float lowest = float.MaxValue;
+            float highest = float.MinValue;
+            foreach (MeshRenderer leaf in leaves)
+            {
+                lowest = Mathf.Min(lowest, leaf.transform.position.y);
+                highest = Mathf.Max(highest, leaf.transform.position.y);
+            }
+
+            float third = (highest - lowest) / 3f;
+            float topLight = 0f, bottomLight = 0f;
+            int topCount = 0, bottomCount = 0;
+            foreach (MeshRenderer leaf in leaves)
+            {
+                float light = leaf.sharedMaterial.GetColor("_BaseColor").grayscale;
+                if (leaf.transform.position.y > highest - third)
+                {
+                    topLight += light;
+                    topCount++;
+                }
+                else if (leaf.transform.position.y < lowest + third)
+                {
+                    bottomLight += light;
+                    bottomCount++;
+                }
+            }
+
+            Expect(failures, topCount > 0 && bottomCount > 0 && topLight / topCount > bottomLight / bottomCount,
+                "the leaves on top of the grown crown aren't lighter than those underneath");
+        }
+
+        /// <summary>
+        /// Measures the fully grown tree as drawn and compares it with an open-grown broadleaf tree: a trunk clear of
+        /// leaves for 40 to 50% of the height, and a crown about as wide as the tree is tall. Always logs the numbers, so
+        /// tuning can be compared; fails only when well outside, as leaf cards make the edges a little uneven.
+        /// </summary>
+        private static void CheckProportions(List<string> failures, TreeGrowth growth, TreeVisuals visuals)
+        {
+            SetAllAndSnap(growth, visuals, 1f);
+            float ground = visuals.transform.position.y;
+
+            float top = ground;
+            float crownBottom = float.MaxValue;
+            float left = float.MaxValue;
+            float right = float.MinValue;
+            foreach (MeshRenderer renderer in visuals.GetComponentsInChildren<MeshRenderer>())
+            {
+                Bounds bounds = renderer.bounds;
+                top = Mathf.Max(top, bounds.max.y);
+                if (renderer.name.StartsWith("Foliage"))
+                {
+                    crownBottom = Mathf.Min(crownBottom, bounds.min.y);
+                    left = Mathf.Min(left, bounds.min.x);
+                    right = Mathf.Max(right, bounds.max.x);
+                }
+            }
+
+            float height = top - ground;
+            if (height <= 0f || crownBottom == float.MaxValue)
+            {
+                failures.Add("the grown tree has no height or no leaves to measure its proportions by");
+                return;
+            }
+
+            float clearShare = (crownBottom - ground) / height;
+            float widthShare = (right - left) / height;
+            Debug.Log($"Grown tree proportions: {height:F2} tall, trunk clear of leaves for {clearShare:P0} of it " +
+                      $"(aim 40-50%), crown {right - left:F2} wide = {widthShare:F2}x the height (aim 0.9-1.0).");
+
+            Expect(failures, clearShare >= 0.35f && clearShare <= 0.55f,
+                $"the trunk is clear of leaves for {clearShare:P0} of the tree's height, well outside the aimed 40-50%");
+            Expect(failures, widthShare >= 0.8f && widthShare <= 1.25f,
+                $"the crown is {widthShare:F2}x as wide as the tree is tall, well outside the aimed 0.9-1.0");
+        }
+
+        /// <summary>
         /// Logs what a fully grown tree costs: its objects, what is drawn, and how long redrawing it for a growth change
         /// takes. Not a pass or fail, as timings depend on the computer; it gives numbers to compare as the tree changes.
         /// </summary>
@@ -221,6 +323,15 @@ namespace TreeGame.DevTools
                 triangles += mesh.sharedMesh != null ? mesh.sharedMesh.triangles.Length / 3 : 0;
             }
 
+            // Renderers sharing a material (and without per-renderer overrides) can be batched together.
+            var materials = new HashSet<Material>();
+            int overridden = 0;
+            foreach (MeshRenderer renderer in visuals.GetComponentsInChildren<MeshRenderer>())
+            {
+                materials.Add(renderer.sharedMaterial);
+                overridden += renderer.HasPropertyBlock() ? 1 : 0;
+            }
+
             // Alternating, so every redraw really changes something.
             var watch = System.Diagnostics.Stopwatch.StartNew();
             for (int i = 0; i < redraws; i++)
@@ -230,7 +341,8 @@ namespace TreeGame.DevTools
 
             watch.Stop();
             double millisecondsPerRedraw = watch.Elapsed.TotalMilliseconds / redraws;
-            Debug.Log($"Tree cost when fully grown: {objects.Length} objects, {meshes.Length} drawn, {triangles} triangles; " +
+            Debug.Log($"Tree cost when fully grown: {objects.Length} objects, {meshes.Length} drawn, {triangles} triangles, " +
+                      $"{materials.Count} materials, {overridden} with their own property overrides (which stop batching); " +
                       $"a redraw for a growth change takes {millisecondsPerRedraw:F3} ms (it happens each frame while the tree grows).");
         }
 
@@ -263,7 +375,7 @@ namespace TreeGame.DevTools
                 {
                     if (other != part)
                     {
-                        Expect(failures, growth.GetGrowth(other) == 0f, $"the {part} slider changed {other} growth");
+                        Expect(failures, growth.GetGrowth(other) == growth.MinimumGrowth(other), $"the {part} slider changed {other} growth");
                     }
                 }
 

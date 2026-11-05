@@ -20,7 +20,7 @@ namespace TreeGame.DevTools
         private const float Tolerance = 0.0001f;
 
         // From a sapling's trunk to a grown one's, and every stage of branch growth in between.
-        private static readonly float[] TrunkHeights = { 0.4f, 1f, 2f, 3.5f };
+        private static readonly float[] TrunkHeights = { 0.3f, 1f, 2.4f, 3.5f };
         private static readonly float[] BranchGrowths = { 0f, 0.1f, 0.3f, 0.5f, 0.7f, 0.9f, 1f };
 
         /// <summary>Runs every check. Returns a description of each failure; empty means all passed.</summary>
@@ -38,7 +38,8 @@ namespace TreeGame.DevTools
             CheckLengthsAndThickness(failures);
             CheckBothSides(failures);
             CheckMoreBranchesNearTheTop(failures);
-            CheckLeader(failures);
+            CheckLimbs(failures);
+            CheckBranchesFork(failures);
             CheckBranchesFollowTheirParents(failures);
             CheckTuningChangesTheTree(failures);
             CheckBadTuningIsRejected(failures);
@@ -66,10 +67,10 @@ namespace TreeGame.DevTools
             return new BranchSkeleton(tuning ?? new BranchSkeletonTuning(), seed);
         }
 
-        /// <summary>The main branches spaced up the trunk, lowest first, leaving out the leader at its top.</summary>
+        /// <summary>The main branches spaced up the trunk, lowest first, leaving out the limbs at its top.</summary>
         private static List<BranchSpec> MainBranches(BranchSkeleton skeleton)
         {
-            return skeleton.Branches.Where(b => b.ParentIndex == BranchSkeleton.Trunk && !b.IsLeader).ToList();
+            return skeleton.Branches.Where(b => b.ParentIndex == BranchSkeleton.Trunk && !b.IsLimb).ToList();
         }
 
         private static IEnumerable<BranchSkeleton> ManySkeletons()
@@ -107,7 +108,7 @@ namespace TreeGame.DevTools
         private static string Describe(IEnumerable<BranchSpec> branches)
         {
             return string.Join("\n", branches.Select(b =>
-                $"{b.Index} {b.ParentIndex} {b.Level} {b.IsLeader} {b.AttachAlong:R} {b.Tilt:R} {b.Yaw:R} {b.Length:R} {b.ThicknessRatio:R} {b.StartGrowth:R} {b.Bend:R}"));
+                $"{b.Index} {b.ParentIndex} {b.Level} {b.IsLimb}{b.AttachAlong:R} {b.Tilt:R} {b.Yaw:R} {b.Length:R} {b.ThicknessRatio:R} {b.StartGrowth:R} {b.Bend:R}"));
         }
 
         private static void CheckSameSeedSameTree(List<string> failures)
@@ -132,7 +133,8 @@ namespace TreeGame.DevTools
                 IReadOnlyList<BranchSpec> branches = skeleton.Branches;
                 bool ok = ExpectOnce(failures, MainBranches(skeleton).Count == tuning.MainBranchCount,
                     $"expected {tuning.MainBranchCount} main branches");
-                ok &= ExpectOnce(failures, branches.Count(b => b.IsLeader) == 1, "expected exactly one leader");
+                ok &= ExpectOnce(failures, branches.Count(b => b.IsLimb) >= tuning.MinLimbs && branches.Count(b => b.IsLimb) <= tuning.MaxLimbs,
+                    $"expected {tuning.MinLimbs} to {tuning.MaxLimbs} limbs");
 
                 for (int i = 0; ok && i < branches.Count; i++)
                 {
@@ -192,7 +194,7 @@ namespace TreeGame.DevTools
             {
                 foreach (BranchSpec branch in skeleton.Branches)
                 {
-                    bool inRange = branch.IsLeader
+                    bool inRange = branch.IsLimb
                         ? branch.AttachAlong == 1f
                         : branch.ParentIndex == BranchSkeleton.Trunk
                             ? branch.AttachAlong >= tuning.LowestMainBranch - Tolerance && branch.AttachAlong <= tuning.HighestMainBranch + Tolerance
@@ -350,8 +352,10 @@ namespace TreeGame.DevTools
 
                     if (ok && branch.ParentIndex != BranchSkeleton.Trunk)
                     {
-                        ok = ExpectOnce(failures, branch.Length < skeleton.Branches[branch.ParentIndex].Length,
-                            $"branch {branch.Index} is longer than its parent");
+                        float parentLength = skeleton.Branches[branch.ParentIndex].Length;
+                        ok = ExpectOnce(failures, branch.Length < parentLength, $"branch {branch.Index} is longer than its parent")
+                             && ExpectOnce(failures, branch.Length >= parentLength * new BranchSkeletonTuning().MinChildLengthRatio - Tolerance,
+                                 $"branch {branch.Index} is a stub, only {branch.Length / parentLength:P0} of its parent's length");
                     }
 
                     if (!ok)
@@ -423,54 +427,104 @@ namespace TreeGame.DevTools
         }
 
         /// <summary>
-        /// The leader carries the trunk on upward and tops the crown, with side branches fanning out to both sides, so
-        /// the crown is rounded off above the trunk rather than open in the middle.
+        /// The trunk splits at its top into a few thick limbs that fan out to both sides and hold up the crown, the way a
+        /// broadleaf tree forks rather than running one trunk up through its crown.
         /// </summary>
-        private static void CheckLeader(List<string> failures)
+        private static void CheckLimbs(List<string> failures)
         {
             var tuning = new BranchSkeletonTuning();
+            var countsSeen = new HashSet<int>();
             foreach (BranchSkeleton skeleton in ManySkeletons())
             {
-                BranchSpec leader = skeleton.Branches.FirstOrDefault(b => b.IsLeader);
-                if (!ExpectOnce(failures, leader != null, "the tree has no leader"))
+                List<BranchSpec> limbs = skeleton.Branches.Where(b => b.IsLimb).ToList();
+                countsSeen.Add(limbs.Count);
+                bool ok = ExpectOnce(failures, limbs.Count >= tuning.MinLimbs && limbs.Count <= tuning.MaxLimbs,
+                    $"the trunk splits into {limbs.Count} limbs, expected {tuning.MinLimbs} to {tuning.MaxLimbs}");
+
+                foreach (BranchSpec limb in limbs)
                 {
-                    return;
+                    ok = ok
+                         && ExpectOnce(failures, limb.ParentIndex == BranchSkeleton.Trunk && limb.Level == BranchSkeleton.MainLevel,
+                             $"limb {limb.Index} doesn't grow out of the trunk")
+                         && ExpectOnce(failures, limb.Tilt >= tuning.MinLimbTilt - Tolerance && limb.Tilt <= tuning.MaxLimbTilt + Tolerance,
+                             $"limb {limb.Index} leans {limb.Tilt} degrees, outside {tuning.MinLimbTilt} to {tuning.MaxLimbTilt}")
+                         && ExpectOnce(failures, limb.Length >= tuning.LimbLength * 0.85f - Tolerance && limb.Length <= tuning.LimbLength * 1.1f + Tolerance,
+                             $"limb {limb.Index} is {limb.Length} long, far from {tuning.LimbLength}")
+                         && ExpectOnce(failures, limb.ThicknessRatio == tuning.LimbThicknessRatio,
+                             $"limb {limb.Index} is {limb.ThicknessRatio} times the trunk's thickness, expected {tuning.LimbThicknessRatio}")
+                         && ExpectOnce(failures, MainBranches(skeleton).All(b => limb.StartGrowth <= b.StartGrowth),
+                             $"limb {limb.Index} sprouts after some main branches, though limbs hold up the crown");
+
+                    // Its side branches fill the crown out to both sides rather than crowding along it.
+                    List<BranchSpec> sides = skeleton.Branches.Where(b => b.ParentIndex == limb.Index).ToList();
+                    int sidesRight = sides.Count(b => b.Direction.X > 0f);
+                    int sidesLeft = sides.Count(b => b.Direction.X < 0f);
+                    ok = ok && ExpectOnce(failures, Math.Abs(sidesRight - sidesLeft) <= 1,
+                        $"limb {limb.Index}'s side branches lean {sidesRight} to the right and {sidesLeft} to the left, not both sides evenly");
+                    ok = ok && ExpectOnce(failures, sides.All(b => b.Tilt >= tuning.HighestMainBranchTilt - Tolerance && b.Tilt <= tuning.LowestMainBranchTilt + Tolerance),
+                        $"limb {limb.Index}'s side branches don't lean out like the main branches do");
                 }
 
-                bool ok = ExpectOnce(failures, leader.ParentIndex == BranchSkeleton.Trunk && leader.Level == BranchSkeleton.MainLevel,
-                              "the leader doesn't grow out of the trunk")
-                          && ExpectOnce(failures, leader.Tilt >= 0f && leader.Tilt <= tuning.MaxLeaderTilt,
-                              $"the leader leans {leader.Tilt} degrees, more than {tuning.MaxLeaderTilt}")
-                          && ExpectOnce(failures, leader.Bend == 0f, $"the leader curves {leader.Bend} degrees; it should grow straight up")
-                          && ExpectOnce(failures, leader.Length == tuning.LeaderLength,
-                              $"the leader is {leader.Length} long, expected {tuning.LeaderLength}")
-                          && ExpectOnce(failures, leader.ThicknessRatio == tuning.LeaderThicknessRatio,
-                              $"the leader is {leader.ThicknessRatio} times the trunk's thickness, expected {tuning.LeaderThicknessRatio}")
-                          && ExpectOnce(failures, MainBranches(skeleton).All(b => leader.StartGrowth <= b.StartGrowth),
-                              "the leader sprouts after some main branches, though it is the trunk carrying on");
+                // They fan out across the crown, to both sides, from upright in the middle to leaning well out.
+                int right = limbs.Count(b => b.Direction.X > 0f);
+                int left = limbs.Count(b => b.Direction.X < 0f);
+                ok = ok && ExpectOnce(failures, Math.Abs(right - left) <= 1, $"limbs lean {right} to the right and {left} to the left, not both sides evenly");
+                ok = ok && ExpectOnce(failures, limbs.Max(b => b.Tilt) - limbs.Min(b => b.Tilt) > (tuning.MaxLimbTilt - tuning.MinLimbTilt) * 0.3f,
+                    "the limbs all lean about the same amount, rather than fanning out");
 
-                // It tops the crown: its tip is above every main branch's, however tall the trunk.
+                // The limbs top the crown: the highest of them reaches above every main branch, however tall the trunk.
                 foreach (float height in TrunkHeights)
                 {
-                    float leaderTop = skeleton.TipPosition(leader.Index, height, 1f).Y;
-                    ok = ok && ExpectOnce(failures, MainBranches(skeleton).All(b => skeleton.TipPosition(b.Index, height, 1f).Y < leaderTop),
-                        $"a main branch reaches above the leader with a trunk {height} tall");
+                    float limbsTop = limbs.Max(b => skeleton.TipPosition(b.Index, height, 1f).Y);
+                    ok = ok && ExpectOnce(failures, MainBranches(skeleton).All(b => skeleton.TipPosition(b.Index, height, 1f).Y < limbsTop),
+                        $"a main branch reaches above the limbs with a trunk {height} tall");
                 }
-
-                // Its side branches round off the crown to both sides rather than crowding up beside it.
-                List<BranchSpec> sides = skeleton.Branches.Where(b => b.ParentIndex == leader.Index).ToList();
-                int right = sides.Count(b => b.Direction.X > 0f);
-                int left = sides.Count(b => b.Direction.X < 0f);
-                ok = ok && ExpectOnce(failures, Math.Abs(right - left) <= 1,
-                    $"the leader's side branches lean {right} to the right and {left} to the left, not both sides evenly");
-                ok = ok && ExpectOnce(failures, sides.All(b => b.Tilt >= tuning.HighestMainBranchTilt - Tolerance && b.Tilt <= tuning.LowestMainBranchTilt + Tolerance),
-                    "the leader's side branches don't lean out like the main branches do");
 
                 if (!ok)
                 {
                     return;
                 }
             }
+
+            Expect(failures, countsSeen.Contains(tuning.MinLimbs) && countsSeen.Contains(tuning.MaxLimbs),
+                $"limb counts seen were only {string.Join(", ", countsSeen)}");
+        }
+
+        /// <summary>
+        /// Side branches and twigs fork away from their parent at a clear angle, so the tree branches out rather than
+        /// having children run alongside their parents, yet not so wildly that it looks random.
+        /// </summary>
+        private static void CheckBranchesFork(List<string> failures)
+        {
+            double totalAngle = 0;
+            int forks = 0;
+            int curved = 0;
+            int branchCount = 0;
+            var tuning = new BranchSkeletonTuning();
+
+            foreach (BranchSkeleton skeleton in ManySkeletons())
+            {
+                foreach (BranchSpec branch in skeleton.Branches)
+                {
+                    branchCount++;
+                    curved += branch.Bend > tuning.MaxBend * 0.5f ? 1 : 0;
+                    if (branch.ParentIndex == BranchSkeleton.Trunk)
+                    {
+                        continue;
+                    }
+
+                    float dot = Math.Clamp(Vector3.Dot(branch.Direction, skeleton.Branches[branch.ParentIndex].Direction), -1f, 1f);
+                    totalAngle += MathF.Acos(dot) * 180f / MathF.PI;
+                    forks++;
+                }
+            }
+
+            double averageAngle = totalAngle / forks;
+            Expect(failures, averageAngle >= 20 && averageAngle <= 45,
+                $"branches fork from their parents by {averageAngle:F1} degrees on average, expected 20 to 45");
+
+            // Curves vary from straight to the most allowed, so plenty are well curved.
+            Expect(failures, curved > branchCount / 4, $"only {curved} of {branchCount} branches curve more than half the most allowed");
         }
 
         /// <summary>Compares positions with a differently written calculation, walking up from each branch to the trunk.</summary>
@@ -512,23 +566,23 @@ namespace TreeGame.DevTools
 
         private static void CheckTuningChangesTheTree(List<string> failures)
         {
-            // Eight main branches and the leader, each with 3 side branches of 3 twigs.
-            var bushy = new BranchSkeletonTuning { MainBranchCount = 8, MinSideBranches = 3, MaxSideBranches = 3, MinTwigs = 3, MaxTwigs = 3 };
-            Expect(failures, NewSkeleton(tuning: bushy).Branches.Count == 9 + 9 * 3 + 9 * 3 * 3, "a tuning with set counts gave the wrong number of branches");
+            // Eight main branches and three limbs, each with 3 side branches of 3 twigs.
+            var bushy = new BranchSkeletonTuning { MainBranchCount = 8, MinLimbs = 3, MaxLimbs = 3, MinSideBranches = 3, MaxSideBranches = 3, MinTwigs = 3, MaxTwigs = 3 };
+            Expect(failures, NewSkeleton(tuning: bushy).Branches.Count == 11 + 11 * 3 + 11 * 3 * 3, "a tuning with set counts gave the wrong number of branches");
 
-            var onlyLeader = new BranchSkeletonTuning { MainBranchCount = 0 };
-            Expect(failures, NewSkeleton(tuning: onlyLeader).Branches.Count(b => b.ParentIndex == BranchSkeleton.Trunk) == 1,
-                "a tree with no main branches should still have its leader");
+            var onlyLimbs = new BranchSkeletonTuning { MainBranchCount = 0, MinLimbs = 2, MaxLimbs = 2 };
+            Expect(failures, NewSkeleton(tuning: onlyLimbs).Branches.Count(b => b.ParentIndex == BranchSkeleton.Trunk) == 2,
+                "a tree with no main branches should still have its limbs");
 
-            var bare = new BranchSkeletonTuning { MainBranchCount = 0, LeaderLength = 0f };
-            Expect(failures, NewSkeleton(tuning: bare).Branches.Count == 0, "a tree with no main branches and no leader should have no branches at all");
+            var noLimbs = new BranchSkeletonTuning { MinLimbs = 0, MaxLimbs = 0 };
+            Expect(failures, !NewSkeleton(tuning: noLimbs).Branches.Any(b => b.IsLimb), "a tuning with no limbs still had limbs");
 
-            var noLeader = new BranchSkeletonTuning { LeaderLength = 0f };
-            Expect(failures, !NewSkeleton(tuning: noLeader).Branches.Any(b => b.IsLeader), "a leader length of 0 should mean no leader");
+            var bare = new BranchSkeletonTuning { MainBranchCount = 0, MinLimbs = 0, MaxLimbs = 0 };
+            Expect(failures, NewSkeleton(tuning: bare).Branches.Count == 0, "a tree with no main branches and no limbs should have no branches at all");
 
-            // The leader is added last, so the main branches don't change with or without one.
-            Expect(failures, Describe(MainBranches(NewSkeleton(5, noLeader))) == Describe(MainBranches(NewSkeleton(5))),
-                "adding the leader changed the main branches");
+            // The limbs are added last, so the main branches don't change with or without them.
+            Expect(failures, Describe(MainBranches(NewSkeleton(5, noLimbs))) == Describe(MainBranches(NewSkeleton(5))),
+                "adding the limbs changed the main branches");
 
             var noTwigs = new BranchSkeletonTuning { MinTwigs = 0, MaxTwigs = 0 };
             Expect(failures, NewSkeleton(tuning: noTwigs).Branches.All(b => b.Level < BranchSkeleton.TwigLevel), "a tuning with no twigs still had twigs");
@@ -579,12 +633,15 @@ namespace TreeGame.DevTools
             ExpectRejected("children sprouting with their parents", new BranchSkeletonTuning { MinChildStartDelay = 0f });
             ExpectRejected("twigs only sprouting at full growth", new BranchSkeletonTuning { LastMainBranchStart = 0.6f, MaxChildStartDelay = 0.25f });
             ExpectRejected("a downward bend limit", new BranchSkeletonTuning { MaxBend = -5f });
-            ExpectRejected("a negative leader length", new BranchSkeletonTuning { LeaderLength = -1f });
-            ExpectRejected("a NaN leader length", new BranchSkeletonTuning { LeaderLength = float.NaN });
-            ExpectRejected("an infinite leader length", new BranchSkeletonTuning { LeaderLength = float.PositiveInfinity });
-            ExpectRejected("a leader with no thickness", new BranchSkeletonTuning { LeaderThicknessRatio = 0f });
-            ExpectRejected("a leader thicker than the trunk", new BranchSkeletonTuning { LeaderThicknessRatio = 1.5f });
-            ExpectRejected("a leader leaning past the limit", new BranchSkeletonTuning { MaxLeaderTilt = 80f });
+            ExpectRejected("negative limbs", new BranchSkeletonTuning { MinLimbs = -1 });
+            ExpectRejected("fewer most limbs than fewest", new BranchSkeletonTuning { MinLimbs = 4, MaxLimbs = 3 });
+            ExpectRejected("no limb length", new BranchSkeletonTuning { LimbLength = 0f });
+            ExpectRejected("a NaN limb length", new BranchSkeletonTuning { LimbLength = float.NaN });
+            ExpectRejected("an infinite limb length", new BranchSkeletonTuning { LimbLength = float.PositiveInfinity });
+            ExpectRejected("limbs with no thickness", new BranchSkeletonTuning { LimbThicknessRatio = 0f });
+            ExpectRejected("limbs thicker than the trunk", new BranchSkeletonTuning { LimbThicknessRatio = 1.5f });
+            ExpectRejected("limbs leaning past the limit", new BranchSkeletonTuning { MaxLimbTilt = 80f });
+            ExpectRejected("the least limb lean above the most", new BranchSkeletonTuning { MinLimbTilt = 40f, MaxLimbTilt = 20f });
         }
     }
 }
