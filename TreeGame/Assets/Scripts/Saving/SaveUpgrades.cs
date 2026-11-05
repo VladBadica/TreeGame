@@ -17,6 +17,24 @@ namespace TreeGame.Saving
             {
                 FromVersion1(data, json);
             }
+
+            if (data.version == 2)
+            {
+                FromVersion2(data);
+            }
+        }
+
+        /// <summary>
+        /// Before version 3 every tree grew from this one seed, so it is the one an older save's tree grew from. Written
+        /// out rather than taken from the tree, as it must stay this even if the tree's default seed changes.
+        /// </summary>
+        private const int SeedBeforeVersion3 = 12345;
+
+        /// <summary>Version 3 saves the tree's seed. Older trees all grew from the same one, so they keep looking the same.</summary>
+        private static void FromVersion2(SaveData data)
+        {
+            data.treeSeed = SeedBeforeVersion3;
+            data.version = 3;
         }
 
         /// <summary>The fields of version 1 that later versions don't have.</summary>

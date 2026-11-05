@@ -28,6 +28,7 @@ namespace TreeGame.EditorTools
             var world = owner.AddComponent<WorldState>();
             SetReferences(world,
                 ("treeGrowth", tree.GetComponent<TreeGrowth>()),
+                ("treeSeed", tree.GetComponent<TreeSeed>()),
                 ("water", water),
                 ("nutrients", nutrients),
                 ("health", health),

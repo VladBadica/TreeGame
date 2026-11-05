@@ -48,6 +48,7 @@ namespace TreeGame.DevTools
                 {
                     CheckFullRoundTrip(failures, folder);
                     CheckUpgradeFromVersion1(failures, folder);
+                    CheckUpgradeFromVersion2(failures, folder);
                     CheckNoSave(failures, folder);
                     CheckUnusableFiles(failures, folder);
                     CheckFailedSaveKeepsThePreviousOne(failures, folder);
@@ -72,6 +73,7 @@ namespace TreeGame.DevTools
         {
             return new SaveData
             {
+                treeSeed = -123456789,
                 trunkGrowth = 0.42f,
                 branchGrowth = 0.3f,
                 foliageGrowth = 0.55f,
@@ -106,6 +108,7 @@ namespace TreeGame.DevTools
             }
 
             Expect(failures, read.version == SaveData.CurrentVersion, $"version read back as {read.version}");
+            Expect(failures, read.treeSeed == sample.treeSeed, $"the tree's seed read back as {read.treeSeed}");
             Expect(failures, read.trunkGrowth == sample.trunkGrowth && read.branchGrowth == sample.branchGrowth &&
                              read.foliageGrowth == sample.foliageGrowth, "the tree's growth changed");
             Expect(failures, read.waterFill == sample.waterFill, $"water read back as {read.waterFill}");
@@ -155,12 +158,37 @@ namespace TreeGame.DevTools
             Expect(failures, read.version == SaveData.CurrentVersion, $"a version 1 save read as version {read.version}");
             Expect(failures, read.trunkGrowth == 0.4f && read.branchGrowth == 0.4f && read.foliageGrowth == 0.4f,
                 $"a version 1 tree's growth of 0.4 became {read.trunkGrowth}, {read.branchGrowth} and {read.foliageGrowth}");
+            Expect(failures, read.treeSeed == 12345, $"a version 1 tree should keep the seed every tree grew from then, not {read.treeSeed}");
 
             // Everything else carries over as it was.
             Expect(failures, read.waterFill == 0.5f && read.nutrientsFill == 0.25f && read.playerX == -2f, "upgrading changed the resources or player");
             Expect(failures, read.inventorySlots.Length == 1 && read.inventorySlots[0].itemName == "Coin" && read.inventorySlots[0].count == 3, "upgrading changed the inventory");
             Expect(failures, read.insectAges.Length == 1 && read.insectAges[0] == 12f, "upgrading changed the insects");
             Expect(failures, File.ReadAllText(path) == version1Save, "reading an old save should leave the file as it was, until the game next saves");
+        }
+
+        /// <summary>A save as version 2 of the game wrote it, before the tree's seed was saved.</summary>
+        private static void CheckUpgradeFromVersion2(List<string> failures, string folder)
+        {
+            const string version2Save =
+                "{\"version\":2,\"trunkGrowth\":0.3,\"branchGrowth\":0.6,\"foliageGrowth\":0.9,\"waterFill\":0.5," +
+                "\"nutrientsFill\":0.25,\"healthFill\":1.0,\"playerX\":1.5,\"inventorySlots\":[]," +
+                "\"composter\":{\"state\":0,\"workSeconds\":0.0,\"workDuration\":0.0,\"compostGrams\":0.0}," +
+                "\"insectAges\":[],\"fallenLeaves\":[]}";
+
+            string path = Path.Combine(folder, "version 2.json");
+            File.WriteAllText(path, version2Save);
+
+            if (!new SaveFile(path).TryRead(out SaveData read))
+            {
+                failures.Add("a version 2 save couldn't be read");
+                return;
+            }
+
+            Expect(failures, read.version == SaveData.CurrentVersion, $"a version 2 save read as version {read.version}");
+            Expect(failures, read.treeSeed == 12345, $"a version 2 tree should keep the seed every tree grew from then, not {read.treeSeed}");
+            Expect(failures, read.trunkGrowth == 0.3f && read.branchGrowth == 0.6f && read.foliageGrowth == 0.9f &&
+                             read.playerX == 1.5f, "upgrading a version 2 save changed the tree's growth or the player");
         }
 
         private static void CheckNoSave(List<string> failures, string folder)

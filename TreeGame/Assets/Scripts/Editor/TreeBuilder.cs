@@ -21,10 +21,12 @@ namespace TreeGame.EditorTools
         {
             var go = new GameObject("Tree");
             var growth = go.AddComponent<TreeGrowth>();
+            var seed = go.AddComponent<TreeSeed>();
             var visuals = go.AddComponent<TreeVisuals>();
 
             SetReferences(visuals,
                 ("treeGrowth", growth),
+                ("treeSeed", seed),
                 ("barkMaterial", bark),
                 ("foliageMaterial", leaves));
 

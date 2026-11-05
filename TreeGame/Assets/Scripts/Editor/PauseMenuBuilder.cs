@@ -1,8 +1,10 @@
+using TMPro;
 using TreeGame.Interaction;
 using TreeGame.Items;
 using TreeGame.Menus;
 using TreeGame.Minigames;
 using TreeGame.Player;
+using TreeGame.Trees;
 using UnityEngine;
 using UnityEngine.UI;
 using static TreeGame.EditorTools.BuilderHelpers;
@@ -17,7 +19,7 @@ namespace TreeGame.EditorTools
         // Above the HUD and the debug panel, so the background blocks clicks on both.
         private const int CanvasSortingOrder = 200;
 
-        public static PauseMenu CreatePauseMenu(Transform player, MinigameRunner minigameRunner, out Button quitToMenuButton)
+        public static PauseMenu CreatePauseMenu(Transform player, MinigameRunner minigameRunner, TreeSeed treeSeed, out Button quitToMenuButton)
         {
             DefaultControls.Resources resources = GetUIResources();
             Transform canvas = CreateCanvas("Pause Menu", CanvasSortingOrder);
@@ -26,10 +28,11 @@ namespace TreeGame.EditorTools
             StretchInParent(background, canvas);
             background.GetComponent<Image>().color = new Color(0f, 0f, 0f, 0.5f);
 
-            GameObject mainPanel = CreateScreenPanel(canvas, "Main Panel", "Paused", height: 330f);
+            GameObject mainPanel = CreateScreenPanel(canvas, "Main Panel", "Paused", height: 460f);
             Button resume = CreateMenuButton(resources, mainPanel.transform, "Resume");
             Button settings = CreateMenuButton(resources, mainPanel.transform, "Settings");
             Button quitToMenu = CreateMenuButton(resources, mainPanel.transform, "Quit to Menu");
+            CreateTreeCode(resources, mainPanel, treeSeed);
 
             GameObject settingsPanel = CreateSettingsPanel(canvas);
             Button settingsBack = CreateMenuButton(resources, settingsPanel.transform, "Back");
@@ -64,6 +67,20 @@ namespace TreeGame.EditorTools
 
             quitToMenuButton = quitToMenu;
             return pauseMenu;
+        }
+
+        /// <summary>The code for this game's tree under the buttons, with a button that copies it for sharing.</summary>
+        private static void CreateTreeCode(DefaultControls.Resources resources, GameObject mainPanel, TreeSeed treeSeed)
+        {
+            TMP_Text codeLabel = CreateText("Tree Code", 24f, Color.white, TextAlignmentOptions.Center);
+            AddToLayout(codeLabel.gameObject, mainPanel.transform, 40f);
+            Button copy = CreateMenuButton(resources, mainPanel.transform, "Copy Tree Code");
+
+            SetReferences(mainPanel.AddComponent<TreeCodeDisplay>(),
+                ("treeSeed", treeSeed),
+                ("codeLabel", codeLabel),
+                ("copyButton", copy),
+                ("copyButtonLabel", copy.GetComponentInChildren<TMP_Text>()));
         }
     }
 }

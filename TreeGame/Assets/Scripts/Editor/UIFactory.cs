@@ -190,6 +190,27 @@ namespace TreeGame.EditorTools
             return dropdown;
         }
 
+        /// <summary>A TextMeshPro text field with larger text than Unity's default, and a grey hint while it is empty.</summary>
+        public static TMP_InputField CreateInputField(string objectName, float fontSize, string placeholder)
+        {
+            GameObject go = TMP_DefaultControls.CreateInputField(new TMP_DefaultControls.Resources
+            {
+                inputField = GetUIResources().inputField,
+            });
+            go.name = objectName;
+
+            var field = go.GetComponent<TMP_InputField>();
+            field.pointSize = fontSize;
+            field.textComponent.alignment = TextAlignmentOptions.Center;
+            if (field.placeholder is TMP_Text hint)
+            {
+                hint.text = placeholder;
+                hint.alignment = TextAlignmentOptions.Center;
+            }
+
+            return field;
+        }
+
         /// <summary>A TextMeshPro label; TMP renders crisp text at any size and resolution.</summary>
         public static TMP_Text CreateText(string objectName, float fontSize, Color color, TextAlignmentOptions alignment)
         {

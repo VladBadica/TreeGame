@@ -1,3 +1,4 @@
+using TMPro;
 using TreeGame.Menus;
 using UnityEditor;
 using UnityEngine;
@@ -81,10 +82,7 @@ namespace TreeGame.EditorTools
             // Fits its buttons, as how many are showing depends on whether there is a save.
             mainPanel.AddComponent<ContentSizeFitter>().verticalFit = ContentSizeFitter.FitMode.PreferredSize;
             Button continueGame = CreateMenuButton(resources, mainPanel.transform, "Continue");
-            // Two buttons that look the same: which one shows depends on whether there is a save to warn about.
-            Button play = CreateMenuButton(resources, mainPanel.transform, "Play");
-            Button playOverSave = CreateMenuButton(resources, mainPanel.transform, "Play");
-            playOverSave.name = "Play Over Save Button";
+            Button newTree = CreateMenuButton(resources, mainPanel.transform, "New Tree");
             Button settings = CreateMenuButton(resources, mainPanel.transform, "Settings");
             Button credits = CreateMenuButton(resources, mainPanel.transform, "Credits");
             Button quit = CreateMenuButton(resources, mainPanel.transform, "Quit");
@@ -94,18 +92,14 @@ namespace TreeGame.EditorTools
             Button settingsBack = CreateMenuButton(resources, settingsPanel.transform, "Back");
             Button creditsBack = CreateMenuButton(resources, creditsPanel.transform, "Back");
 
-            GameObject newGamePanel = CreateInfoPanel(canvas, "New Game Panel", "Start a new game?",
-                "Your current save will be replaced when this game saves.", height: 390f);
-            // Cancel comes first, so it is the button selected by default and a stray Enter can't risk the save.
-            Button cancelNewGame = CreateMenuButton(resources, newGamePanel.transform, "Cancel");
-            Button confirmNewGame = CreateMenuButton(resources, newGamePanel.transform, "Start");
+            GameObject newTreePanel = CreateNewTreePanel(canvas, resources, out GameObject saveWarning,
+                out Button cancelNewTree, out Button grow);
 
             var saveDependentButtons = canvas.gameObject.AddComponent<SaveDependentButtons>();
-            SetReferenceArray(saveDependentButtons, "shownWithSave", continueGame.gameObject, playOverSave.gameObject);
-            SetReferenceArray(saveDependentButtons, "shownWithoutSave", play.gameObject);
+            SetReferenceArray(saveDependentButtons, "shownWithSave", continueGame.gameObject, saveWarning);
 
             var menu = canvas.gameObject.AddComponent<MenuPanels>();
-            SetReferenceArray(menu, "panels", mainPanel, settingsPanel, creditsPanel, newGamePanel);
+            SetReferenceArray(menu, "panels", mainPanel, settingsPanel, creditsPanel, newTreePanel);
             SetReferences(menu, ("startPanel", mainPanel));
             SetReferences(canvas.gameObject.AddComponent<MenuBackInput>(),
                 ("backAction", FindActionReference("UI", "Cancel")),
@@ -116,18 +110,56 @@ namespace TreeGame.EditorTools
             ConnectPanelButton(credits, menu, creditsPanel);
             ConnectPanelButton(settingsBack, menu, mainPanel);
             ConnectPanelButton(creditsBack, menu, mainPanel);
-            ConnectPanelButton(playOverSave, menu, newGamePanel);
-            ConnectPanelButton(cancelNewGame, menu, mainPanel);
+            ConnectPanelButton(newTree, menu, newTreePanel);
+            ConnectPanelButton(cancelNewTree, menu, mainPanel);
             ConnectLoadSceneButton(continueGame, BuildSceneList.TreeGamePath, startFromSave: true);
-            ConnectLoadSceneButton(play, BuildSceneList.TreeGamePath);
-            ConnectLoadSceneButton(confirmNewGame, BuildSceneList.TreeGamePath);
+            ConnectLoadSceneButton(grow, BuildSceneList.TreeGamePath);
             quit.gameObject.AddComponent<QuitGameButton>();
             AddClickSound(canvas);
 
             // Saved hidden so only the main panel shows from the first frame.
             settingsPanel.SetActive(false);
             creditsPanel.SetActive(false);
-            newGamePanel.SetActive(false);
+            newTreePanel.SetActive(false);
+        }
+
+        /// <summary>
+        /// The New Tree screen: an optional tree code (empty grows a random tree), whether it can grow, a warning shown
+        /// only when there is a save it would replace, and Cancel and Grow.
+        /// </summary>
+        private static GameObject CreateNewTreePanel(Transform canvas, DefaultControls.Resources resources,
+            out GameObject saveWarning, out Button cancel, out Button grow)
+        {
+            GameObject panel = CreateScreenPanel(canvas, "New Tree Panel", "New Tree", height: 520f);
+            // Fits what shows, as the warning only shows with a save.
+            panel.AddComponent<ContentSizeFitter>().verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
+            TMP_Text fieldLabel = CreateText("Tree Code Label", 22f, Color.white, TextAlignmentOptions.MidlineLeft);
+            AddToLayout(fieldLabel.gameObject, panel.transform, 30f);
+            fieldLabel.text = "Tree code (optional)";
+
+            // First on the screen, so it is selected when the screen opens and a code can be typed or pasted at once.
+            TMP_InputField codeField = CreateInputField("Tree Code Field", 26f, "Leave empty for a random tree");
+            AddToLayout(codeField.gameObject, panel.transform, 56f);
+            codeField.characterLimit = 20;
+
+            TMP_Text status = CreateText("Tree Code Status", 22f, Color.white, TextAlignmentOptions.Center);
+            AddToLayout(status.gameObject, panel.transform, 34f);
+
+            TMP_Text warning = CreateText("Save Warning", 22f, new Color(1f, 0.85f, 0.6f), TextAlignmentOptions.Center);
+            AddToLayout(warning.gameObject, panel.transform, 60f);
+            warning.text = "Your current save will be replaced when this game saves.";
+            saveWarning = warning.gameObject;
+
+            cancel = CreateMenuButton(resources, panel.transform, "Cancel");
+            grow = CreateMenuButton(resources, panel.transform, "Grow");
+
+            SetReferences(panel.AddComponent<NewTreeScreen>(),
+                ("codeField", codeField),
+                ("statusLabel", status),
+                ("growButton", grow));
+
+            return panel;
         }
     }
 }

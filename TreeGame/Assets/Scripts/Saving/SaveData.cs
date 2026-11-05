@@ -15,10 +15,13 @@ namespace TreeGame.Saving
         /// The format this game writes. Raise it whenever the format changes, and add a step to
         /// <see cref="SaveUpgrades"/> that brings the previous version's saves up to it.
         /// Version 2 split the tree's one growth value into trunk, branches and foliage.
+        /// Version 3 added the seed the tree grows from.
         /// </summary>
-        public const int CurrentVersion = 2;
+        public const int CurrentVersion = 3;
 
         public int version;
+
+        public int treeSeed;
 
         public float trunkGrowth;
         public float branchGrowth;

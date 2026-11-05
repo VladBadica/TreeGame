@@ -8,7 +8,7 @@ namespace TreeGame.Trees
     /// <summary>
     /// The tree as seen, built from bark-textured wood and clusters of leaf cards, reacting to <see cref="TreeGrowth"/>:
     /// the trunk follows trunk growth, the branches branch growth and the leaves foliage growth. The branches come from a
-    /// <see cref="BranchSkeleton"/> built once from a fixed seed; growth changes only move, scale and show/hide the parts,
+    /// <see cref="BranchSkeleton"/> built once from a seed (see <see cref="TreeSeed"/>); growth changes only move, scale and show/hide the parts,
     /// so the same growth values always produce the same tree and nothing is rebuilt. Leaves only ever grow on branches,
     /// never on the trunk.
     /// The displayed growth eases toward the actual growth; that is purely presentation, TreeGrowth stays authoritative.
@@ -24,6 +24,9 @@ namespace TreeGame.Trees
 
         [Header("Source")]
         [SerializeField] private TreeGrowth treeGrowth;
+        [Tooltip("The seed the tree grows from: the same seed always grows the same tree. Without one, every tree grows " +
+                 "from the default seed.")]
+        [SerializeField] private TreeSeed treeSeed;
 
         [Header("Animation")]
         [Tooltip("Approximate time in seconds for the tree to catch up with a growth change. 0 = instant.")]
@@ -34,8 +37,6 @@ namespace TreeGame.Trees
         [SerializeField] private Material foliageMaterial;
 
         [Header("Layout (applied when the tree is built)")]
-        [Tooltip("Same seed = same branch and foliage placement.")]
-        [SerializeField] private int seed = 12345;
         [Tooltip("Main branches growing out of the trunk below where it splits into limbs.")]
         [SerializeField, Range(0, 16)] private int mainBranchCount = 4;
         [Tooltip("How main branches are spaced up the trunk: 1 spaces them evenly, lower values pack more toward the top.")]
@@ -196,6 +197,11 @@ namespace TreeGame.Trees
 
         private void OnEnable()
         {
+            if (treeSeed != null)
+            {
+                treeSeed.SeedChanged += OnSeedChanged;
+            }
+
             if (treeGrowth == null)
             {
                 Debug.LogWarning($"{nameof(TreeVisuals)}: no {nameof(TreeGrowth)} assigned.", this);
@@ -213,10 +219,31 @@ namespace TreeGame.Trees
 
         private void OnDisable()
         {
+            if (treeSeed != null)
+            {
+                treeSeed.SeedChanged -= OnSeedChanged;
+            }
+
             if (treeGrowth != null)
             {
                 treeGrowth.GrowthChanged -= OnGrowthChanged;
             }
+        }
+
+        /// <summary>The seed the tree grows from.</summary>
+        private int CurrentSeed => treeSeed != null ? treeSeed.Seed : TreeSeed.DefaultSeed;
+
+        /// <summary>A different seed grows a different tree, so the parts are thrown away and grown again from it.</summary>
+        private void OnSeedChanged(int newSeed)
+        {
+            // Not built yet: it will be built from the new seed.
+            if (generatedRoot == null)
+            {
+                return;
+            }
+
+            DiscardTree();
+            Render();
         }
 
         private void OnDestroy()
@@ -265,7 +292,7 @@ namespace TreeGame.Trees
 
         private void OnValidate()
         {
-            // Curve and size tweaks in Play Mode show up immediately. Layout changes (seed, counts) need a rebuild.
+            // Curve and size tweaks in Play Mode show up immediately. Layout changes (counts) need a rebuild.
             if (Application.isPlaying && generatedRoot != null)
             {
                 Render();
@@ -519,7 +546,7 @@ namespace TreeGame.Trees
             return (Mathf.PerlinNoise(time, row) - 0.5f) * 2f;
         }
 
-        /// <summary>Discards and regenerates the parts, e.g. after changing the seed or counts in Play Mode.</summary>
+        /// <summary>Discards and regenerates the parts, e.g. after changing the counts in Play Mode.</summary>
         [ContextMenu("Rebuild Tree")]
         private void Rebuild()
         {
@@ -529,14 +556,23 @@ namespace TreeGame.Trees
                 return;
             }
 
-            if (generatedRoot != null)
+            DiscardTree();
+            Render();
+        }
+
+        /// <summary>Throws the generated parts away, so the next render builds them again.</summary>
+        private void DiscardTree()
+        {
+            if (generatedRoot == null)
             {
-                Destroy(generatedRoot.gameObject);
-                generatedRoot = null;
-                DestroyGeneratedAssets();
+                return;
             }
 
-            Render();
+            // Switched off at once, as destroying waits until the end of the frame and the new parts are built now.
+            generatedRoot.gameObject.SetActive(false);
+            Destroy(generatedRoot.gameObject);
+            generatedRoot = null;
+            DestroyGeneratedAssets();
         }
 
         private void BuildIfNeeded()
@@ -565,7 +601,7 @@ namespace TreeGame.Trees
 
         private void BuildBranches()
         {
-            skeleton = new BranchSkeleton(LayoutTuning(), seed);
+            skeleton = new BranchSkeleton(LayoutTuning(), CurrentSeed);
             branches = new Branch[skeleton.Branches.Count];
             float fullTrunkThickness = trunkThickness.Evaluate(1f);
 
@@ -621,13 +657,13 @@ namespace TreeGame.Trees
         private void BuildFoliage()
         {
             // A private, seeded generator keeps the layout independent of UnityEngine.Random and of call order elsewhere.
-            var random = new System.Random(seed);
+            var random = new System.Random(CurrentSeed);
 
             // Leaves only ever grow on branches: with none, there are none.
             List<Branch> slots = LeafSlotsOnBranches(foliageClusterCount, random);
 
             // One mesh shared by every cluster; each cluster is turned and tinted differently, so they don't look alike.
-            Mesh leafCards = ToUnityMesh(LeafCardMesh.Build(leafCardsPerCluster, seed), "Leaf Cards");
+            Mesh leafCards = ToUnityMesh(LeafCardMesh.Build(leafCardsPerCluster, CurrentSeed), "Leaf Cards");
             meshes.Add(leafCards);
             leafCardBounds = leafCards.bounds;
 

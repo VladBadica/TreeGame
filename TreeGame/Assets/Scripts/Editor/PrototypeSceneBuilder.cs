@@ -94,7 +94,7 @@ namespace TreeGame.EditorTools
             HudBuilder.CreateOffScreenInsectBubble(hud, insects, tree.GetComponent<TreeVisuals>(), viewCamera, insect, notificationBubble);
             // Own canvas, drawn on top, so all dev tooling can be removed by deleting one object.
             DebugPanelBuilder.CreateDebugPanel(UIFactory.CreateCanvas("Debug UI", 100), tree.GetComponent<TreeGrowth>());
-            PauseMenu pauseMenu = PauseMenuBuilder.CreatePauseMenu(player, minigameRunner, out Button quitToMenuButton);
+            PauseMenu pauseMenu = PauseMenuBuilder.CreatePauseMenu(player, minigameRunner, tree.GetComponent<TreeSeed>(), out Button quitToMenuButton);
             GameSaver saver = SaveBuilder.CreateSaveAndLoad(minigameRunner, pauseMenu, quitToMenuButton, tree, water, nutrients, health,
                 player, composter, insects, camera, waterBucket, compostBucket, brownLeaves, coin);
             HudBuilder.CreateSaveMessage(hud, saver);

@@ -92,6 +92,8 @@ namespace TreeGame.DevTools
             Expect(failures, data.trunkGrowth == growth.GetGrowth(TreeGrowthPart.Trunk) &&
                              data.branchGrowth == growth.GetGrowth(TreeGrowthPart.Branches) &&
                              data.foliageGrowth == growth.GetGrowth(TreeGrowthPart.Foliage), "the captured growth differs from the tree's");
+            var seed = Object.FindAnyObjectByType<TreeSeed>();
+            Expect(failures, seed != null && data.treeSeed == seed.Seed, "the captured seed differs from the tree's");
             Expect(failures, data.waterFill == FillOf(TreeResourceType.Water), "the captured water differs from the tree's");
             Expect(failures, data.nutrientsFill == FillOf(TreeResourceType.Nutrients), "the captured nutrients differ from the tree's");
             Expect(failures, data.healthFill == FillOf(TreeResourceType.Health), "the captured health differs from the tree's");
@@ -153,6 +155,7 @@ namespace TreeGame.DevTools
 
             world.Restore(new SaveData
             {
+                treeSeed = original.treeSeed + 1,
                 trunkGrowth = 0.5f,
                 branchGrowth = 0.25f,
                 foliageGrowth = 0.75f,
@@ -174,6 +177,7 @@ namespace TreeGame.DevTools
             Expect(failures, leaves.GetLeafPositions().Count == 1, "the leaves weren't restored");
 
             SaveData changed = world.Capture();
+            Expect(failures, changed.treeSeed == unchecked(original.treeSeed + 1), $"the tree's seed restored as {changed.treeSeed}");
             Expect(failures, Mathf.Approximately(changed.waterFill, 0.25f), $"water restored as {changed.waterFill}");
             Expect(failures, Mathf.Approximately(changed.nutrientsFill, 0.75f), $"nutrients restored as {changed.nutrientsFill}");
             Expect(failures, Mathf.Approximately(changed.healthFill, 0.125f), $"health restored as {changed.healthFill}");
@@ -187,6 +191,7 @@ namespace TreeGame.DevTools
 
             world.Restore(original);
             SaveData restored = world.Capture();
+            Expect(failures, restored.treeSeed == original.treeSeed, "the tree's seed didn't go back");
 
             // The resources may round by a tiny amount, as they are stored as shares of their maximum.
             Expect(failures, Mathf.Approximately(restored.waterFill, original.waterFill), "water didn't go back");
