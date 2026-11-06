@@ -30,6 +30,8 @@ namespace TreeGame.EditorTools
                 ("treeGrowth", tree.GetComponent<TreeGrowth>()),
                 ("treeSeed", tree.GetComponent<TreeSeed>()),
                 ("treeName", tree.GetComponent<TreeName>()),
+                ("growthRates", tree.GetComponent<TreeGrowthRates>()),
+                ("extraGrowth", tree.GetComponent<TreeExtraGrowth>()),
                 ("water", water),
                 ("nutrients", nutrients),
                 ("health", health),

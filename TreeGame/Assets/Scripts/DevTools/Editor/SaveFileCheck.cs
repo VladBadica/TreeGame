@@ -80,6 +80,12 @@ namespace TreeGame.DevTools
             {
                 treeSeed = -123456789,
                 treeName = "Old Oak",
+                trunkGrowthRate = 9,
+                branchGrowthRate = 3,
+                foliageGrowthRate = 10,
+                trunkExtraGrowth = 0.25f,
+                branchExtraGrowth = 0f,
+                foliageExtraGrowth = 0.75f,
                 trunkGrowth = 0.42f,
                 branchGrowth = 0.3f,
                 foliageGrowth = 0.55f,
@@ -116,6 +122,8 @@ namespace TreeGame.DevTools
             Expect(failures, read.version == SaveData.CurrentVersion, $"version read back as {read.version}");
             Expect(failures, read.treeSeed == sample.treeSeed, $"the tree's seed read back as {read.treeSeed}");
             Expect(failures, read.treeName == sample.treeName, $"the tree's name read back as '{read.treeName}'");
+            Expect(failures, read.trunkGrowthRate == 9 && read.branchGrowthRate == 3 && read.foliageGrowthRate == 10, "the growth rates changed");
+            Expect(failures, read.trunkExtraGrowth == 0.25f && read.branchExtraGrowth == 0f && read.foliageExtraGrowth == 0.75f, "the extra growth changed");
             Expect(failures, read.trunkGrowth == sample.trunkGrowth && read.branchGrowth == sample.branchGrowth &&
                              read.foliageGrowth == sample.foliageGrowth, "the tree's growth changed");
             Expect(failures, read.waterFill == sample.waterFill, $"water read back as {read.waterFill}");
@@ -281,7 +289,7 @@ namespace TreeGame.DevTools
             File.SetLastWriteTimeUtc(oldPath, fileTime);
             Expect(failures, new SaveFile(oldPath).TryRead(out SaveData old) && old.version == SaveData.CurrentVersion &&
                              old.TryGetSavedAt(out DateTime oldSavedAt) && oldSavedAt == fileTime && old.treeSeed == 5 &&
-                             old.treeName == "",
+                             old.treeName == "" && old.trunkGrowthRate == 0 && old.foliageExtraGrowth == 0f,
                 $"a version 3 save should upgrade and take the file's time {fileTime:o}, not '{old?.savedAtUtc}'");
 
             // A damaged time reads as unknown rather than breaking the save.

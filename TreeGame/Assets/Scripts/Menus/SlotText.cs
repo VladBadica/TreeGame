@@ -20,6 +20,22 @@ namespace TreeGame.Menus
         }
 
         /// <summary>
+        /// How much extra growth (past full size) the tree has overall, as " +20% extra", the average of its parts; empty
+        /// with none. Any at all shows as at least 1%, so a tree that has started on it never reads as having none.
+        /// </summary>
+        public static string Extra(float trunk, float branches, float foliage)
+        {
+            float average = (Share(trunk) + Share(branches) + Share(foliage)) / 3f;
+            if (average <= 0f)
+            {
+                return "";
+            }
+
+            int percent = Math.Max(1, (int)MathF.Round(average * 100f));
+            return $" +{percent}% extra";
+        }
+
+        /// <summary>
         /// When the tree was last played, in the player's own days: today, yesterday, some days ago, or the date. Both
         /// times are the player's local time, as "today" means their today.
         /// </summary>

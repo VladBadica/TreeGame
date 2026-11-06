@@ -15,6 +15,15 @@ namespace TreeGame.Cameras
 
         private Vector3 offset;
         private Vector3 velocity;
+        private float rise;
+
+        /// <summary>
+        /// How far above its usual offset the camera sits, e.g. to fit a tall tree in view. Followed with the same easing.
+        /// </summary>
+        public void SetRise(float height)
+        {
+            rise = float.IsFinite(height) ? height : 0f;
+        }
 
         private void Start()
         {
@@ -33,15 +42,20 @@ namespace TreeGame.Cameras
         {
             if (target != null)
             {
-                transform.position = target.position + offset;
+                transform.position = Desired();
                 velocity = Vector3.zero;
             }
+        }
+
+        private Vector3 Desired()
+        {
+            return target.position + offset + Vector3.up * rise;
         }
 
         // LateUpdate so the target has finished moving this frame; avoids jitter.
         private void LateUpdate()
         {
-            Vector3 desired = target.position + offset;
+            Vector3 desired = Desired();
             if (transform.position == desired)
             {
                 return;

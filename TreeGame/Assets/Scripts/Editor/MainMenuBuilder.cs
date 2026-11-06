@@ -102,6 +102,7 @@ namespace TreeGame.EditorTools
             SetReferences(preview,
                 ("treeSeed", tree.GetComponent<TreeSeed>()),
                 ("treeGrowth", tree.GetComponent<TreeGrowth>()),
+                ("extraGrowth", tree.GetComponent<TreeExtraGrowth>()),
                 ("treeVisuals", visuals));
             return preview;
         }
@@ -244,8 +245,8 @@ namespace TreeGame.EditorTools
             var row = new GameObject("Slot Actions", typeof(RectTransform), typeof(HorizontalLayoutGroup));
             var rect = (RectTransform)row.transform;
             rect.SetParent(mainPanel, false);
-            // Under the tree, which the menu camera places about three quarters of the way across the screen.
-            rect.anchorMin = rect.anchorMax = rect.pivot = new Vector2(0.73f, 0f);
+            // Under the tree, where the menu camera places it across the screen.
+            rect.anchorMin = rect.anchorMax = rect.pivot = new Vector2(SceneLayout.MenuTreeScreenX, 0f);
             rect.anchoredPosition = new Vector2(0f, 48f);
             rect.sizeDelta = new Vector2(2f * buttonWidth + 20f, 64f);
 

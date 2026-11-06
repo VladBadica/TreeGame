@@ -19,6 +19,8 @@ namespace TreeGame.Saving
         [SerializeField] private TreeGrowth treeGrowth;
         [SerializeField] private TreeSeed treeSeed;
         [SerializeField] private TreeName treeName;
+        [SerializeField] private TreeGrowthRates growthRates;
+        [SerializeField] private TreeExtraGrowth extraGrowth;
         [SerializeField] private TreeResource water;
         [SerializeField] private TreeResource nutrients;
         [SerializeField] private TreeResource health;
@@ -32,7 +34,8 @@ namespace TreeGame.Saving
 
         /// <summary>True if everything it reads is assigned.</summary>
         public bool IsComplete =>
-            treeGrowth != null && treeSeed != null && treeName != null && water != null && nutrients != null && health != null && player != null &&
+            treeGrowth != null && treeSeed != null && treeName != null && growthRates != null && extraGrowth != null &&
+            water != null && nutrients != null && health != null && player != null &&
             inventory != null && composter != null && insects != null && leaves != null;
 
         /// <summary>The current state of the game, ready to write to a save.</summary>
@@ -45,6 +48,12 @@ namespace TreeGame.Saving
                 trunkGrowth = treeGrowth.GetGrowth(TreeGrowthPart.Trunk),
                 branchGrowth = treeGrowth.GetGrowth(TreeGrowthPart.Branches),
                 foliageGrowth = treeGrowth.GetGrowth(TreeGrowthPart.Foliage),
+                trunkGrowthRate = growthRates.GetRate(TreeGrowthPart.Trunk),
+                branchGrowthRate = growthRates.GetRate(TreeGrowthPart.Branches),
+                foliageGrowthRate = growthRates.GetRate(TreeGrowthPart.Foliage),
+                trunkExtraGrowth = extraGrowth.GetExtraGrowth(TreeGrowthPart.Trunk),
+                branchExtraGrowth = extraGrowth.GetExtraGrowth(TreeGrowthPart.Branches),
+                foliageExtraGrowth = extraGrowth.GetExtraGrowth(TreeGrowthPart.Foliage),
                 waterFill = water.Normalized,
                 nutrientsFill = nutrients.Normalized,
                 healthFill = health.Normalized,
@@ -73,6 +82,12 @@ namespace TreeGame.Saving
             treeGrowth.SetGrowth(TreeGrowthPart.Trunk, data.trunkGrowth);
             treeGrowth.SetGrowth(TreeGrowthPart.Branches, data.branchGrowth);
             treeGrowth.SetGrowth(TreeGrowthPart.Foliage, data.foliageGrowth);
+            RestoreRate(TreeGrowthPart.Trunk, data.trunkGrowthRate);
+            RestoreRate(TreeGrowthPart.Branches, data.branchGrowthRate);
+            RestoreRate(TreeGrowthPart.Foliage, data.foliageGrowthRate);
+            extraGrowth.SetExtraGrowth(TreeGrowthPart.Trunk, data.trunkExtraGrowth);
+            extraGrowth.SetExtraGrowth(TreeGrowthPart.Branches, data.branchExtraGrowth);
+            extraGrowth.SetExtraGrowth(TreeGrowthPart.Foliage, data.foliageExtraGrowth);
             water.SetAmount(data.waterFill * water.MaxAmount);
             nutrients.SetAmount(data.nutrientsFill * nutrients.MaxAmount);
             health.SetAmount(data.healthFill * health.MaxAmount);
@@ -82,6 +97,15 @@ namespace TreeGame.Saving
                 data.composter.workDuration, data.composter.compostGrams);
             insects.RestoreInsects(data.insectAges);
             RestoreLeaves(data.fallenLeaves);
+        }
+
+        /// <summary>A saved rate of 0 means none was saved: the part keeps the rate it starts a game at.</summary>
+        private void RestoreRate(TreeGrowthPart part, int savedRate)
+        {
+            if (savedRate != 0)
+            {
+                growthRates.SetRate(part, savedRate);
+            }
         }
 
         private void RestoreInventory(SavedSlot[] slots)

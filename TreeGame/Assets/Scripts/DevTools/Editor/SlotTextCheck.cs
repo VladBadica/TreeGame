@@ -36,6 +36,14 @@ namespace TreeGame.DevTools
             ExpectText(SlotText.Growth(5f, -2f, 1f), "67% grown", "values outside 0 to 1, as the save isn't trusted");
             ExpectText(SlotText.Growth(float.NaN, float.PositiveInfinity, 1f), "33% grown", "values that aren't numbers");
 
+            // Extra growth: nothing without any, the average otherwise, and at least 1% once there is some.
+            ExpectText(SlotText.Extra(0f, 0f, 0f), "", "no extra growth");
+            ExpectText(SlotText.Extra(1f, 1f, 1f), " +100% extra", "all extra growth");
+            ExpectText(SlotText.Extra(0.6f, 0f, 0f), " +20% extra", "one part's extra growth");
+            ExpectText(SlotText.Extra(0.001f, 0f, 0f), " +1% extra", "a tiny start on extra growth");
+            ExpectText(SlotText.Extra(-1f, float.NaN, 0f), "", "values below 0 or not numbers, as the save isn't trusted");
+            ExpectText(SlotText.Extra(9f, 9f, 9f), " +100% extra", "values above 1");
+
             // Last played: counted in the player's days, not 24-hour spans.
             var now = new DateTime(2026, 11, 5, 9, 30, 0);
             ExpectText(SlotText.LastPlayed(now.AddHours(-2), now), "Played today", "two hours ago");

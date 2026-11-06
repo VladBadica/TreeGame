@@ -121,7 +121,9 @@ namespace TreeGame.Menus
                     string played = data.TryGetSavedAt(out DateTime savedUtc)
                         ? SlotText.LastPlayed(savedUtc.ToLocalTime(), DateTime.Now)
                         : "Last played: unknown";
-                    cards[i].Show(title, $"{SlotText.Growth(data.trunkGrowth, data.branchGrowth, data.foliageGrowth)} · {played}");
+                    string growth = SlotText.Growth(data.trunkGrowth, data.branchGrowth, data.foliageGrowth) +
+                                    SlotText.Extra(data.trunkExtraGrowth, data.branchExtraGrowth, data.foliageExtraGrowth);
+                    cards[i].Show(title, $"{growth} · {played}");
 
                     if (savedUtc > latest)
                     {

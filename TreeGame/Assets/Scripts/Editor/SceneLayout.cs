@@ -38,10 +38,14 @@ namespace TreeGame.EditorTools
         public const float CameraDistance = 20f;
         public const float CameraOrthographicSize = 3f;
 
-        // The main menu shows a whole grown tree, standing at the origin, to the right of the screen: the camera looks
-        // at a point left of it, leaving the left of the screen for the save slots, and shows more height than the game.
-        public static readonly Vector3 MenuCameraTarget = new Vector3(-3f, 2.6f, 0f);
-        public const float MenuCameraOrthographicSize = 3.6f;
+        // The main menu shows a whole tree, standing at the origin, three quarters of the way across the screen: the
+        // camera looks at a point left of it, leaving the left of the screen for the save slots. It shows enough to fit a
+        // tree with all its extra growth (about 9 tall and 9.5 wide), so a fully grown tree fills about half the height.
+        // The x keeps the tree at MenuTreeScreenX on a 16:9 screen.
+        public const float MenuCameraOrthographicSize = 5.4f;
+        public const float MenuTreeScreenX = 0.75f;
+        public static readonly Vector3 MenuCameraTarget =
+            new Vector3(-(MenuTreeScreenX - 0.5f) * 2f * MenuCameraOrthographicSize * 16f / 9f, 4f, 0f);
 
         // Shared with the main menu, so going from one to the other feels like the same place.
         public static readonly Color SkyColor = new Color(0.78f, 0.88f, 0.95f);

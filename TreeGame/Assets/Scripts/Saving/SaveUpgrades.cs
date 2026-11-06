@@ -36,6 +36,15 @@ namespace TreeGame.Saving
                 data.treeName = "";
                 data.version = 5;
             }
+
+            if (data.version == 5)
+            {
+                // Version 6 added growth rates and extra growth. Before, rates couldn't change while playing, so the
+                // parts keep the rates a game starts at (a saved rate of 0), and no tree had grown past full size.
+                data.trunkGrowthRate = data.branchGrowthRate = data.foliageGrowthRate = 0;
+                data.trunkExtraGrowth = data.branchExtraGrowth = data.foliageExtraGrowth = 0f;
+                data.version = 6;
+            }
         }
 
         /// <summary>

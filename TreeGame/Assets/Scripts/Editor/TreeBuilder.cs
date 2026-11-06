@@ -22,15 +22,21 @@ namespace TreeGame.EditorTools
         {
             GameObject go = CreateTreeModel(config);
             go.AddComponent<TreeName>();
+
+            var rates = go.AddComponent<TreeGrowthRates>();
+            SetReferences(rates, ("config", config));
+
             SetReferences(go.AddComponent<PassiveGrowth>(),
                 ("treeGrowth", go.GetComponent<TreeGrowth>()),
+                ("growthRates", rates),
+                ("extraGrowth", go.GetComponent<TreeExtraGrowth>()),
                 ("config", config));
             return go;
         }
 
         /// <summary>
-        /// The tree as it looks, swaying in the wind: its growth, its seed and how it is drawn, but nothing that changes
-        /// its growth. The game grows it; the main menu shows a saved tree with it.
+        /// The tree as it looks, swaying in the wind: its growth and extra growth, its seed and how it is drawn, but
+        /// nothing that changes its growth. The game grows it; the main menu shows a saved tree with it.
         /// </summary>
         public static GameObject CreateTreeModel(GameConfig config)
         {
@@ -41,12 +47,14 @@ namespace TreeGame.EditorTools
 
             var go = new GameObject("Tree");
             var growth = go.AddComponent<TreeGrowth>();
+            var extraGrowth = go.AddComponent<TreeExtraGrowth>();
             var seed = go.AddComponent<TreeSeed>();
             var visuals = go.AddComponent<TreeVisuals>();
 
             SetReferences(visuals,
                 ("treeGrowth", growth),
                 ("treeSeed", seed),
+                ("extraGrowth", extraGrowth),
                 ("barkMaterial", bark),
                 ("foliageMaterial", leaves));
 

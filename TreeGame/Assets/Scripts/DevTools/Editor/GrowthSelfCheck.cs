@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using TreeGame.Care;
 using TreeGame.Trees;
@@ -81,9 +82,12 @@ namespace TreeGame.DevTools
 
                 CheckDebugSliders(failures, growth, visuals, initialState);
                 CheckAboveGround(failures, growth, visuals);
-                CheckCrownLightAndShade(failures, growth, visuals);
-                CheckProportions(failures, growth, visuals);
-                ReportCost(growth, visuals);
+                CheckExtraGrowth(failures, growth);
+                CheckExtraGrowthShows(failures, growth, visuals);
+                // Light and shade and the proportions are aimed at the fully grown tree; the cost is of the biggest tree.
+                WithAllExtraGrowth(growth, visuals, 0f, () => CheckCrownLightAndShade(failures, growth, visuals));
+                WithAllExtraGrowth(growth, visuals, 0f, () => CheckProportions(failures, growth, visuals));
+                WithAllExtraGrowth(growth, visuals, 1f, () => ReportCost(growth, visuals));
                 CheckResources(failures);
             }
             finally
@@ -206,6 +210,200 @@ namespace TreeGame.DevTools
                         }
                     }
                 }
+            }
+        }
+
+        /// <summary>
+        /// Passive growth fills a part's extra growth only while its rate is above 7, faster the higher the rate, from
+        /// the start, and keeps it once the rate drops; it stops at full. Leaves the tree's rates and extra growth as
+        /// they were.
+        /// </summary>
+        private static void CheckExtraGrowth(List<string> failures, TreeGrowth growth)
+        {
+            var passive = growth.GetComponent<PassiveGrowth>();
+            var rates = growth.GetComponent<TreeGrowthRates>();
+            var extra = growth.GetComponent<TreeExtraGrowth>();
+            if (passive == null || rates == null || extra == null)
+            {
+                failures.Add("the tree needs passive growth, growth rates and extra growth");
+                return;
+            }
+
+            var originalRates = new int[TreeGrowth.Parts.Length];
+            var originalExtra = new float[TreeGrowth.Parts.Length];
+            var originalGrowth = new float[TreeGrowth.Parts.Length];
+            for (int i = 0; i < TreeGrowth.Parts.Length; i++)
+            {
+                originalRates[i] = rates.GetRate(TreeGrowth.Parts[i]);
+                originalExtra[i] = extra.GetExtraGrowth(TreeGrowth.Parts[i]);
+                originalGrowth[i] = growth.GetGrowth(TreeGrowth.Parts[i]);
+            }
+
+            try
+            {
+                // From the start: a part at nothing yet still fills extra growth while its rate is high.
+                foreach (TreeGrowthPart part in TreeGrowth.Parts)
+                {
+                    growth.SetGrowth(part, 0f);
+                    extra.SetExtraGrowth(part, 0f);
+                }
+
+                rates.SetRate(TreeGrowthPart.Trunk, 10);
+                rates.SetRate(TreeGrowthPart.Branches, 7);
+                rates.SetRate(TreeGrowthPart.Foliage, 8);
+                passive.Advance(30f);
+
+                float trunk = extra.GetExtraGrowth(TreeGrowthPart.Trunk);
+                float foliage = extra.GetExtraGrowth(TreeGrowthPart.Foliage);
+                Expect(failures, trunk > 0f, "a part at rate 10 should fill extra growth, even before it is fully grown");
+                Expect(failures, extra.GetExtraGrowth(TreeGrowthPart.Branches) == 0f, "a part at rate 7 shouldn't fill extra growth");
+                Expect(failures, foliage > 0f && Mathf.Abs(trunk - 3f * foliage) < 0.0001f,
+                    $"rate 10 should fill extra growth three times as fast as rate 8 ({trunk} against {foliage})");
+
+                // Kept when the rate drops.
+                rates.SetRate(TreeGrowthPart.Trunk, 4);
+                passive.Advance(30f);
+                Expect(failures, extra.GetExtraGrowth(TreeGrowthPart.Trunk) == trunk, "extra growth should be kept, unchanged, once the rate drops to 7 or below");
+
+                // Stops at full, and bad time steps change nothing.
+                rates.SetRate(TreeGrowthPart.Trunk, 10);
+                passive.Advance(1000000f);
+                Expect(failures, extra.GetExtraGrowth(TreeGrowthPart.Trunk) == 1f, "extra growth should stop at full (100% extra)");
+                Expect(failures, growth.GetGrowth(TreeGrowthPart.Trunk) == 1f, "normal growth should still stop at 100%");
+
+                float before = extra.GetExtraGrowth(TreeGrowthPart.Foliage);
+                foreach (float bad in new[] { float.NaN, float.PositiveInfinity, -50f })
+                {
+                    passive.Advance(bad);
+                }
+
+                Expect(failures, extra.GetExtraGrowth(TreeGrowthPart.Foliage) == before, "a bad time step changed extra growth");
+
+                // Extra growth can't be taken away by adding, and bad values are ignored.
+                extra.AddExtraGrowth(TreeGrowthPart.Foliage, -0.5f);
+                extra.SetExtraGrowth(TreeGrowthPart.Foliage, float.NaN);
+                Expect(failures, extra.GetExtraGrowth(TreeGrowthPart.Foliage) == before, "a negative or NaN amount changed extra growth");
+                extra.SetExtraGrowth(TreeGrowthPart.Foliage, 7f);
+                Expect(failures, extra.GetExtraGrowth(TreeGrowthPart.Foliage) == 1f, "extra growth above full should be capped at 1");
+
+                // Rates stay whole numbers from 1 to 10.
+                rates.SetRate(TreeGrowthPart.Branches, 0);
+                Expect(failures, rates.GetRate(TreeGrowthPart.Branches) == 1, "a rate of 0 should become 1");
+                rates.SetRate(TreeGrowthPart.Branches, 99);
+                Expect(failures, rates.GetRate(TreeGrowthPart.Branches) == 10, "a rate of 99 should become 10");
+            }
+            finally
+            {
+                for (int i = 0; i < TreeGrowth.Parts.Length; i++)
+                {
+                    rates.SetRate(TreeGrowth.Parts[i], originalRates[i]);
+                    extra.SetExtraGrowth(TreeGrowth.Parts[i], originalExtra[i]);
+                    growth.SetGrowth(TreeGrowth.Parts[i], originalGrowth[i]);
+                }
+            }
+        }
+
+        /// <summary>Runs something with every part's extra growth at this value, then puts it back as it was.</summary>
+        private static void WithAllExtraGrowth(TreeGrowth growth, TreeVisuals visuals, float value, System.Action run)
+        {
+            var extra = growth.GetComponent<TreeExtraGrowth>();
+            if (extra == null)
+            {
+                run();
+                return;
+            }
+
+            float[] original = TreeGrowth.Parts.Select(extra.GetExtraGrowth).ToArray();
+            try
+            {
+                foreach (TreeGrowthPart part in TreeGrowth.Parts)
+                {
+                    extra.SetExtraGrowth(part, value);
+                }
+
+                visuals.SnapToTarget();
+                run();
+            }
+            finally
+            {
+                for (int i = 0; i < original.Length; i++)
+                {
+                    extra.SetExtraGrowth(TreeGrowth.Parts[i], original[i]);
+                }
+
+                visuals.SnapToTarget();
+            }
+        }
+
+        /// <summary>
+        /// Extra growth carries each part past its full size, only that part, and a tree without it looks exactly as it
+        /// did before extra growth existed: taking it away again gives back the very same tree.
+        /// </summary>
+        private static void CheckExtraGrowthShows(List<string> failures, TreeGrowth growth, TreeVisuals visuals)
+        {
+            var extra = growth.GetComponent<TreeExtraGrowth>();
+            Transform trunk = visuals.transform.Find("Generated/Trunk");
+            if (extra == null || trunk == null)
+            {
+                failures.Add("the tree needs extra growth and a trunk to check how extra growth shows");
+                return;
+            }
+
+            var original = new float[TreeGrowth.Parts.Length];
+            for (int i = 0; i < original.Length; i++)
+            {
+                original[i] = extra.GetExtraGrowth(TreeGrowth.Parts[i]);
+            }
+
+            void SetExtra(TreeGrowthPart part, float value)
+            {
+                extra.SetExtraGrowth(part, value);
+                visuals.SnapToTarget();
+            }
+
+            int ShownLeaves() => visuals.GetComponentsInChildren<MeshRenderer>().Count(renderer => renderer.name.StartsWith("Foliage"));
+
+            try
+            {
+                foreach (TreeGrowthPart part in TreeGrowth.Parts)
+                {
+                    extra.SetExtraGrowth(part, 0f);
+                }
+
+                SetAllAndSnap(growth, visuals, 1f);
+                string withoutExtra = Snapshot(visuals.transform, out _);
+                float trunkHeight = trunk.localScale.y;
+                string woodWithoutExtra = Snapshot(visuals.transform, out _, includeFoliage: false);
+                int leaves = ShownLeaves();
+
+                // The trunk: taller. The branches move up with it, but the leaves don't change.
+                SetExtra(TreeGrowthPart.Trunk, 1f);
+                Expect(failures, trunk.localScale.y > trunkHeight * 1.05f, "a trunk with all its extra growth should be taller than fully grown");
+                Expect(failures, ShownLeaves() == leaves, "extra trunk growth shouldn't change how many leaves show");
+                SetExtra(TreeGrowthPart.Trunk, 0f);
+
+                // The branches: longer, the trunk the same.
+                SetExtra(TreeGrowthPart.Branches, 1f);
+                Expect(failures, trunk.localScale.y == trunkHeight, "extra branch growth shouldn't change the trunk");
+                Expect(failures, Snapshot(visuals.transform, out _, includeFoliage: false) != woodWithoutExtra, "extra branch growth should change the branches");
+                SetExtra(TreeGrowthPart.Branches, 0f);
+
+                // The foliage: more leaves, the wood the same.
+                SetExtra(TreeGrowthPart.Foliage, 1f);
+                Expect(failures, ShownLeaves() > leaves, $"extra foliage growth should show more leaves ({ShownLeaves()} against {leaves})");
+                Expect(failures, Snapshot(visuals.transform, out _, includeFoliage: false) == woodWithoutExtra, "extra foliage growth shouldn't change the trunk or branches");
+                SetExtra(TreeGrowthPart.Foliage, 0f);
+
+                Expect(failures, Snapshot(visuals.transform, out _) == withoutExtra, "taking extra growth away again didn't give back the same tree");
+            }
+            finally
+            {
+                for (int i = 0; i < original.Length; i++)
+                {
+                    extra.SetExtraGrowth(TreeGrowth.Parts[i], original[i]);
+                }
+
+                visuals.SnapToTarget();
             }
         }
 
@@ -341,7 +539,7 @@ namespace TreeGame.DevTools
 
             watch.Stop();
             double millisecondsPerRedraw = watch.Elapsed.TotalMilliseconds / redraws;
-            Debug.Log($"Tree cost when fully grown: {objects.Length} objects, {meshes.Length} drawn, {triangles} triangles, " +
+            Debug.Log($"Tree cost when fully grown with all its extra growth: {objects.Length} objects, {meshes.Length} drawn, {triangles} triangles, " +
                       $"{materials.Count} materials, {overridden} with their own property overrides (which stop batching); " +
                       $"a redraw for a growth change takes {millisecondsPerRedraw:F3} ms (it happens each frame while the tree grows).");
         }
@@ -356,7 +554,8 @@ namespace TreeGame.DevTools
                 return;
             }
 
-            Slider[] sliders = panel.GetComponentsInChildren<Slider>();
+            // The growth sliders only: the panel also has a slider per part for extra growth.
+            Slider[] sliders = panel.GetComponentsInChildren<Slider>().Where(slider => !slider.name.Contains("Extra")).ToArray();
             if (sliders.Length != TreeGrowth.Parts.Length)
             {
                 failures.Add($"the debug panel has {sliders.Length} sliders, expected one per growth part");

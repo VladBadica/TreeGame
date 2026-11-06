@@ -14,6 +14,7 @@ namespace TreeGame.Menus
     {
         [SerializeField] private TreeSeed treeSeed;
         [SerializeField] private TreeGrowth treeGrowth;
+        [SerializeField] private TreeExtraGrowth extraGrowth;
         [SerializeField] private TreeVisuals treeVisuals;
 
         [Header("Empty slot")]
@@ -22,7 +23,7 @@ namespace TreeGame.Menus
         [SerializeField, Range(0f, 1f)] private float saplingBranches = 0.15f;
         [SerializeField, Range(0f, 1f)] private float saplingFoliage = 0.3f;
 
-        private bool HasWhatItNeeds => treeSeed != null && treeGrowth != null && treeVisuals != null;
+        private bool HasWhatItNeeds => treeSeed != null && treeGrowth != null && extraGrowth != null && treeVisuals != null;
 
         private void OnEnable()
         {
@@ -43,16 +44,19 @@ namespace TreeGame.Menus
 
             if (SaveSlots.ForThisGame().Slot(slot).TryRead(out SaveData data))
             {
-                Show(data.treeSeed, data.trunkGrowth, data.branchGrowth, data.foliageGrowth);
+                Show(data.treeSeed,
+                    new[] { data.trunkGrowth, data.branchGrowth, data.foliageGrowth },
+                    new[] { data.trunkExtraGrowth, data.branchExtraGrowth, data.foliageExtraGrowth });
             }
             else
             {
                 // Keeps whatever seed it has: any young tree will do for one not yet planted.
-                Show(treeSeed.Seed, saplingTrunk, saplingBranches, saplingFoliage);
+                Show(treeSeed.Seed, new[] { saplingTrunk, saplingBranches, saplingFoliage }, new float[TreeGrowth.Parts.Length]);
             }
         }
 
-        private void Show(int seed, float trunk, float branches, float foliage)
+        /// <summary>Shows a tree grown this much, with this much extra growth, both given in the order of TreeGrowth.Parts.</summary>
+        private void Show(int seed, float[] growth, float[] extra)
         {
             // A different tree starts from nothing, so it grows in instead of morphing out of the last one.
             if (seed != treeSeed.Seed)
@@ -60,6 +64,7 @@ namespace TreeGame.Menus
                 foreach (TreeGrowthPart part in TreeGrowth.Parts)
                 {
                     treeGrowth.SetGrowth(part, 0f);
+                    extraGrowth.SetExtraGrowth(part, 0f);
                 }
 
                 treeVisuals.SnapToTarget();
@@ -67,9 +72,11 @@ namespace TreeGame.Menus
             }
 
             // Eased toward by the visuals, so the tree grows into place.
-            treeGrowth.SetGrowth(TreeGrowthPart.Trunk, trunk);
-            treeGrowth.SetGrowth(TreeGrowthPart.Branches, branches);
-            treeGrowth.SetGrowth(TreeGrowthPart.Foliage, foliage);
+            for (int i = 0; i < TreeGrowth.Parts.Length; i++)
+            {
+                treeGrowth.SetGrowth(TreeGrowth.Parts[i], growth[i]);
+                extraGrowth.SetExtraGrowth(TreeGrowth.Parts[i], extra[i]);
+            }
         }
     }
 }

@@ -27,6 +27,8 @@ namespace TreeGame.Trees
         [Tooltip("The seed the tree grows from: the same seed always grows the same tree. Without one, every tree grows " +
                  "from the default seed.")]
         [SerializeField] private TreeSeed treeSeed;
+        [Tooltip("Growth past full size. Without it, the tree never grows past full size.")]
+        [SerializeField] private TreeExtraGrowth extraGrowth;
 
         [Header("Animation")]
         [Tooltip("Approximate time in seconds for the tree to catch up with a growth change. 0 = instant.")]
@@ -119,6 +121,20 @@ namespace TreeGame.Trees
                  "darker inside and underneath), against a shade of its own for variety. 0 = all random.")]
         [SerializeField, Range(0f, 1f)] private float shadingByPlace = 0.75f;
 
+        [Header("Extra Growth (past full size, at 100% extra)")]
+        [Tooltip("How much taller the trunk gets with all its extra growth, as a share of its full height.")]
+        [SerializeField, Range(0f, 2f)] private float trunkExtraHeight = 0.6f;
+        [Tooltip("How much thicker the trunk gets with all its extra growth, as a share of its full thickness.")]
+        [SerializeField, Range(0f, 2f)] private float trunkExtraThickness = 0.6f;
+        [Tooltip("How much longer every branch gets with all the branches' extra growth, as a share of its full length.")]
+        [SerializeField, Range(0f, 2f)] private float branchExtraLength = 0.6f;
+        [Tooltip("How much bigger leaf clusters get with all the foliage's extra growth, as a share of their full size.")]
+        [SerializeField, Range(0f, 2f)] private float foliageExtraClusterSize = 0.45f;
+        [Tooltip("Leaf clusters that only grow in with the foliage's extra growth, on top of the usual ones, so the crown " +
+                 "gets fuller as well as bigger. They are laid out after the others, so a tree without extra growth looks " +
+                 "the same whatever this is.")]
+        [SerializeField, Range(0, 400)] private int extraFoliageClusterCount = 250;
+
         [Header("Wind Response (at wind strength 1)")]
         [Tooltip("Degrees the whole tree leans from its base, over trunk growth. Saplings bend; by default the " +
                  "trunk eases to fully rigid at 40% trunk growth (the curve reaches 1 there), leaving only branches and leaves moving.")]
@@ -180,12 +196,16 @@ namespace TreeGame.Trees
         private BranchSkeleton skeleton;
         private Branch[] branches;
         private FoliageCluster[] foliage;
+        private MeshRenderer[] partRenderers = new MeshRenderer[0];
+        private int usualFoliageCount; // The clusters before this in the foliage grow with foliage growth, the rest with its extra growth.
         private Bounds leafCardBounds;
 
-        // One entry per growth part, indexed by TreeGrowthPart. Each eases toward its target on its own.
-        private readonly float[] displayedGrowth = new float[TreeGrowth.Parts.Length];
-        private readonly float[] targetGrowth = new float[TreeGrowth.Parts.Length];
-        private readonly float[] growthVelocity = new float[TreeGrowth.Parts.Length];
+        // Each part's growth, indexed by TreeGrowthPart, followed by each part's extra growth (see ExtraIndex). Each
+        // eases toward its target on its own.
+        private static readonly int PartCount = TreeGrowth.Parts.Length;
+        private readonly float[] displayedGrowth = new float[PartCount * 2];
+        private readonly float[] targetGrowth = new float[PartCount * 2];
+        private readonly float[] growthVelocity = new float[PartCount * 2];
 
         private float windStrength;
         private float appliedWindStrength;
@@ -200,6 +220,15 @@ namespace TreeGame.Trees
             if (treeSeed != null)
             {
                 treeSeed.SeedChanged += OnSeedChanged;
+            }
+
+            if (extraGrowth != null)
+            {
+                extraGrowth.ExtraGrowthChanged += OnExtraGrowthChanged;
+                foreach (TreeGrowthPart part in TreeGrowth.Parts)
+                {
+                    targetGrowth[ExtraIndex(part)] = extraGrowth.GetExtraGrowth(part);
+                }
             }
 
             if (treeGrowth == null)
@@ -222,6 +251,11 @@ namespace TreeGame.Trees
             if (treeSeed != null)
             {
                 treeSeed.SeedChanged -= OnSeedChanged;
+            }
+
+            if (extraGrowth != null)
+            {
+                extraGrowth.ExtraGrowthChanged -= OnExtraGrowthChanged;
             }
 
             if (treeGrowth != null)
@@ -321,6 +355,12 @@ namespace TreeGame.Trees
         }
 
         /// <summary>
+        /// The world height of the highest point of the tree as it is drawn now, leaves included, without the wind's
+        /// sway. Kept up to date as the tree grows, e.g. for a camera that keeps the whole tree in view.
+        /// </summary>
+        public float TopHeight { get; private set; }
+
+        /// <summary>
         /// A world position on the trunk as it looks right now, for things that sit on it. Height is 0 at the base and
         /// 1 at the top; side is -1 at its left edge and 1 at its right edge.
         /// </summary>
@@ -339,9 +379,29 @@ namespace TreeGame.Trees
             }
         }
 
+        private void OnExtraGrowthChanged(TreeGrowthPart part, float extra)
+        {
+            targetGrowth[ExtraIndex(part)] = extra;
+            if (growthSmoothTime <= 0f)
+            {
+                SnapToTarget();
+            }
+        }
+
+        /// <summary>Where a part's extra growth is kept in the displayed and target growth: after every part's growth.</summary>
+        private static int ExtraIndex(TreeGrowthPart part)
+        {
+            return PartCount + (int)part;
+        }
+
         private float Displayed(TreeGrowthPart part)
         {
             return Mathf.Clamp01(displayedGrowth[(int)part]);
+        }
+
+        private float DisplayedExtra(TreeGrowthPart part)
+        {
+            return Mathf.Clamp01(displayedGrowth[ExtraIndex(part)]);
         }
 
         /// <summary>Updates the existing parts to match the displayed growth. Never creates objects once built.</summary>
@@ -349,26 +409,45 @@ namespace TreeGame.Trees
         {
             BuildIfNeeded();
 
-            float height = trunkHeight.Evaluate(Displayed(TreeGrowthPart.Trunk));
-            float thickness = trunkThickness.Evaluate(Displayed(TreeGrowthPart.Trunk));
+            // Extra growth carries each part on past its full size, on top of how grown it is.
+            float trunkExtra = DisplayedExtra(TreeGrowthPart.Trunk);
+            float height = trunkHeight.Evaluate(Displayed(TreeGrowthPart.Trunk)) * (1f + trunkExtraHeight * trunkExtra);
+            float thickness = trunkThickness.Evaluate(Displayed(TreeGrowthPart.Trunk)) * (1f + trunkExtraThickness * trunkExtra);
 
             // The trunk's mesh is 1 long and 1 thick, so it scales straight to its size.
             trunk.localScale = new Vector3(thickness, height, thickness);
 
             // Parents come before their children, so each branch can sit on its parent as it is now.
             float branchGrowth = Displayed(TreeGrowthPart.Branches);
+            float branchSize = 1f + branchExtraLength * DisplayedExtra(TreeGrowthPart.Branches);
             foreach (Branch branch in branches)
             {
-                ApplyBranch(branch, branchGrowth, height, thickness);
+                ApplyBranch(branch, branchGrowth, branchSize, height, thickness);
             }
 
-            ApplyFoliage(Displayed(TreeGrowthPart.Foliage));
+            ApplyFoliage(Displayed(TreeGrowthPart.Foliage), DisplayedExtra(TreeGrowthPart.Foliage));
+            MeasureTop();
         }
 
-        private void ApplyBranch(Branch branch, float branchGrowth, float trunkHeightValue, float trunkThicknessValue)
+        /// <summary>Finds the tree's highest point, from the parts showing. Only on a redraw, so not every frame.</summary>
+        private void MeasureTop()
+        {
+            float top = transform.position.y;
+            foreach (MeshRenderer part in partRenderers)
+            {
+                if (part.gameObject.activeInHierarchy)
+                {
+                    top = Mathf.Max(top, part.bounds.max.y);
+                }
+            }
+
+            TopHeight = top;
+        }
+
+        private void ApplyBranch(Branch branch, float branchGrowth, float branchSize, float trunkHeightValue, float trunkThicknessValue)
         {
             branch.Progress = BranchSkeleton.Progress(branch.Spec, branchGrowth);
-            branch.Length = branch.Spec.Length * branchLengthOverProgress.Evaluate(branch.Progress);
+            branch.Length = branch.Spec.Length * branchLengthOverProgress.Evaluate(branch.Progress) * branchSize;
 
             bool parentGrown = branch.Parent == null || branch.Parent.LeafCarrier == branch.Parent;
             bool grown = parentGrown && branch.Progress > 0f && branch.Length > MinVisibleSize;
@@ -433,14 +512,17 @@ namespace TreeGame.Trees
             return new Vector3(point.X * scale.x, point.Y * scale.y, point.Z * scale.z);
         }
 
-        private void ApplyFoliage(float foliageGrowth)
+        private void ApplyFoliage(float foliageGrowth, float foliageExtra)
         {
-            float visibleCount = Mathf.Clamp01(foliageDensity.Evaluate(foliageGrowth)) * foliage.Length;
-            float baseSize = foliageClusterSize.Evaluate(foliageGrowth);
+            // The usual clusters grow in with foliage growth; the extra ones after them, with its extra growth.
+            float visibleCount = Mathf.Clamp01(foliageDensity.Evaluate(foliageGrowth)) * usualFoliageCount;
+            float extraVisibleCount = foliageExtra * (foliage.Length - usualFoliageCount);
+            float baseSize = foliageClusterSize.Evaluate(foliageGrowth) * (1f + foliageExtraClusterSize * foliageExtra);
 
             for (int i = 0; i < foliage.Length; i++)
             {
                 FoliageCluster cluster = foliage[i];
+                float shown = i < usualFoliageCount ? visibleCount - i : extraVisibleCount - (i - usualFoliageCount);
 
                 // Leaves belong to the grown tree's branches, most to twigs a young tree doesn't have yet. Until its own
                 // branch sprouts, a cluster sits on the nearest grown branch it belongs to, at the spot its branch will
@@ -452,9 +534,9 @@ namespace TreeGame.Trees
                     continue;
                 }
 
-                // Cluster i fades in as the visible count passes i, giving a continuous increase in density. Leaves on a
+                // A cluster fades in as its visible count passes it, giving a continuous increase in density. Leaves on a
                 // branch then grow in quickly as it sprouts.
-                float appear = Mathf.Clamp01(visibleCount - i) * Mathf.Clamp01(carrier.Progress / leavesFullAtBranchProgress);
+                float appear = Mathf.Clamp01(shown) * Mathf.Clamp01(carrier.Progress / leavesFullAtBranchProgress);
 
                 // Never bigger than the branch carrying it is long, so a just-sprouted branch carries small leaves rather
                 // than a big clump right against what it grows from.
@@ -597,6 +679,7 @@ namespace TreeGame.Trees
 
             BuildBranches();
             BuildFoliage();
+            partRenderers = generatedRoot.GetComponentsInChildren<MeshRenderer>(includeInactive: true);
         }
 
         private void BuildBranches()
@@ -667,14 +750,31 @@ namespace TreeGame.Trees
             meshes.Add(leafCards);
             leafCardBounds = leafCards.bounds;
 
-            foliage = new FoliageCluster[slots.Count];
-            var ownShade = new float[slots.Count];
+            var clusters = new List<FoliageCluster>();
+            var ownShade = new List<float>();
+            AddLeafClusters(slots, random, leafCards, "Foliage", clusters, ownShade);
+            usualFoliageCount = clusters.Count;
+
+            // The clusters only extra growth brings, after the usual ones and from a generator of their own, so the usual
+            // layout is the same however many extra there are, and a seed grows the same tree as before they existed.
+            var extraRandom = new System.Random(unchecked(CurrentSeed * 31 + 7));
+            AddLeafClusters(LeafSlotsOnBranches(extraFoliageClusterCount, extraRandom), extraRandom, leafCards, "Foliage Extra",
+                clusters, ownShade);
+
+            foliage = clusters.ToArray();
+            ShadeFoliage(ownShade.ToArray());
+        }
+
+        /// <summary>Creates a leaf cluster on each of these branches, laid out from this generator.</summary>
+        private void AddLeafClusters(List<Branch> slots, System.Random random, Mesh leafCards, string namePrefix,
+            List<FoliageCluster> clusters, List<float> ownShade)
+        {
             for (int i = 0; i < slots.Count; i++)
             {
                 Branch anchor = slots[i];
                 Quaternion rest = LeafClusterRotation(anchor, random);
-                ownShade[i] = random.NextFloat(0f, 1f);
-                Transform cluster = CreateLeafCluster($"Foliage {i}", anchor.Pivot, leafCards);
+                ownShade.Add(random.NextFloat(0f, 1f));
+                Transform cluster = CreateLeafCluster($"{namePrefix} {i}", anchor.Pivot, leafCards);
                 cluster.localRotation = rest;
 
                 // Branches straight off the trunk carry leaves only further out, so none sit against the trunk.
@@ -682,17 +782,15 @@ namespace TreeGame.Trees
                     ? Mathf.Max(leavesFromAlongBranch, leavesFromAlongMainBranch)
                     : leavesFromAlongBranch;
 
-                foliage[i] = new FoliageCluster
+                clusters.Add(new FoliageCluster
                 {
                     Transform = cluster,
                     Anchor = anchor,
                     Along = random.NextFloat(leavesFrom, 1f),
                     SizeScale = random.NextFloat(0.75f, 1.2f),
                     RestRotation = rest,
-                };
+                });
             }
-
-            ShadeFoliage(ownShade);
         }
 
         /// <summary>
@@ -708,7 +806,8 @@ namespace TreeGame.Trees
                 return;
             }
 
-            // Where each cluster is once everything is grown, and the box around them all: the crown.
+            // Where each cluster is once everything is grown, and the box around the usual ones: the crown. Only the usual
+            // ones, so extra clusters don't change how the rest of the tree is shaded.
             float fullTrunkHeight = trunkHeight.Evaluate(1f);
             var grownAt = new NumericsVector3[foliage.Length];
             var crownMin = new NumericsVector3(float.MaxValue);
@@ -717,8 +816,11 @@ namespace TreeGame.Trees
             {
                 BranchSpec spec = foliage[i].Anchor.Spec;
                 grownAt[i] = skeleton.BasePosition(spec.Index, fullTrunkHeight, 1f) + spec.Direction * (foliage[i].Along * spec.Length);
-                crownMin = NumericsVector3.Min(crownMin, grownAt[i]);
-                crownMax = NumericsVector3.Max(crownMax, grownAt[i]);
+                if (i < usualFoliageCount)
+                {
+                    crownMin = NumericsVector3.Min(crownMin, grownAt[i]);
+                    crownMax = NumericsVector3.Max(crownMax, grownAt[i]);
+                }
             }
 
             for (int i = 0; i < foliage.Length; i++)

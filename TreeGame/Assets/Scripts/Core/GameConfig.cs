@@ -16,21 +16,19 @@ namespace TreeGame.Core
     [CreateAssetMenu(fileName = "GameConfig", menuName = "Tree Game/Game Config")]
     public class GameConfig : ScriptableObject
     {
-        /// <summary>The slowest growth rate. There is no 0: every part of the tree always keeps growing.</summary>
-        public const int MinGrowthRate = 1;
-        public const int MaxGrowthRate = 10;
-        private const int MiddleGrowthRate = 5;
-
         [Header("Growth")]
         [Tooltip("Seconds of play time for a part of the tree to grow from 0% to 100% on its own at growth rate 5. " +
                  "Other rates scale it: 10 takes half as long, 1 five times as long.")]
         [SerializeField, Min(1f)] private float secondsToFullyGrow = 1800f;
-        [Tooltip("How fast the trunk grows on its own, from 1 (slow) to 10 (fast).")]
-        [SerializeField, Range(MinGrowthRate, MaxGrowthRate)] private int trunkGrowthRate = MiddleGrowthRate;
-        [Tooltip("How fast the branches grow on their own, from 1 (slow) to 10 (fast).")]
-        [SerializeField, Range(MinGrowthRate, MaxGrowthRate)] private int branchGrowthRate = MiddleGrowthRate;
-        [Tooltip("How fast the foliage grows on its own, from 1 (slow) to 10 (fast).")]
-        [SerializeField, Range(MinGrowthRate, MaxGrowthRate)] private int foliageGrowthRate = MiddleGrowthRate;
+        [Tooltip("Seconds of play time at growth rate 10 for a part's extra growth to fill from 0% to 100%. Only rates " +
+                 "above 7 fill it, slower the closer to 7: 9 takes 1.5 times as long, 8 three times as long.")]
+        [SerializeField, Min(1f)] private float secondsToFillExtraGrowth = 600f;
+        [Tooltip("The rate the trunk starts a new game growing at, from 1 (slow) to 10 (fast).")]
+        [SerializeField, Range(GrowthRates.Min, GrowthRates.Max)] private int trunkGrowthRate = GrowthRates.Middle;
+        [Tooltip("The rate the branches start a new game growing at, from 1 (slow) to 10 (fast).")]
+        [SerializeField, Range(GrowthRates.Min, GrowthRates.Max)] private int branchGrowthRate = GrowthRates.Middle;
+        [Tooltip("The rate the foliage starts a new game growing at, from 1 (slow) to 10 (fast).")]
+        [SerializeField, Range(GrowthRates.Min, GrowthRates.Max)] private int foliageGrowthRate = GrowthRates.Middle;
 
         [Header("Resources")]
         [Tooltip("Water is measured in liters, the same unit as a bucket, so pouring moves liters one to one.")]
@@ -78,8 +76,14 @@ namespace TreeGame.Core
         [Tooltip("Shared by everything the wind moves, so it all sways together.")]
         [SerializeField] private WindSettings wind = new WindSettings();
 
-        /// <summary>Seconds of play time for a part of the tree to grow from 0% to 100% on its own, at its growth rate.</summary>
-        public float SecondsToFullyGrow(TreeGrowthPart part)
+        /// <summary>Seconds of play time for a part to grow from 0% to 100% at the middle growth rate.</summary>
+        public float SecondsToFullyGrow => secondsToFullyGrow;
+
+        /// <summary>Seconds of play time for a part's extra growth to fill from 0% to 100% at the top growth rate.</summary>
+        public float SecondsToFillExtraGrowth => secondsToFillExtraGrowth;
+
+        /// <summary>The growth rate a part starts a new game at.</summary>
+        public int StartingGrowthRate(TreeGrowthPart part)
         {
             int rate = part switch
             {
@@ -90,7 +94,7 @@ namespace TreeGame.Core
             };
 
             // The Inspector keeps rates between 1 and 10, but the asset file itself could still hold anything.
-            return secondsToFullyGrow * MiddleGrowthRate / Mathf.Clamp(rate, MinGrowthRate, MaxGrowthRate);
+            return GrowthRates.Clamp(rate);
         }
 
         public float HealthRegenMinResourceShare => healthRegenMinResourceShare;

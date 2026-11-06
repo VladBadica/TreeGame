@@ -1,5 +1,6 @@
 using TreeGame.Cameras;
 using TreeGame.Core;
+using TreeGame.Trees;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.Rendering;
@@ -51,6 +52,14 @@ namespace TreeGame.EditorTools
             Transform camera = CreateViewCamera(CameraTarget, CameraOrthographicSize);
             SetReferences(camera.gameObject.AddComponent<CameraFollow>(), ("target", followTarget));
             return camera;
+        }
+
+        /// <summary>Makes the game's camera pull back as the tree grows, so the whole tree stays in view.</summary>
+        public static void FitCameraToTree(Transform camera, TreeVisuals tree)
+        {
+            SetReferences(camera.gameObject.AddComponent<CameraFitsTree>(),
+                ("tree", tree),
+                ("follow", camera.GetComponent<CameraFollow>()));
         }
 
         /// <summary>

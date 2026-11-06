@@ -19,8 +19,9 @@ namespace TreeGame.Saving
         /// Version 3 added the seed the tree grows from.
         /// Version 4 added when the game was saved.
         /// Version 5 added the tree's name.
+        /// Version 6 added each part's current growth rate and extra growth.
         /// </summary>
-        public const int CurrentVersion = 5;
+        public const int CurrentVersion = 6;
 
         public int version;
 
@@ -35,6 +36,16 @@ namespace TreeGame.Saving
         public float trunkGrowth;
         public float branchGrowth;
         public float foliageGrowth;
+
+        // Each part's growth rate, 1 to 10. 0 means it wasn't saved, and the part keeps the rate it starts a game at.
+        public int trunkGrowthRate;
+        public int branchGrowthRate;
+        public int foliageGrowthRate;
+
+        // Each part's growth past its full size, 0 to 1.
+        public float trunkExtraGrowth;
+        public float branchExtraGrowth;
+        public float foliageExtraGrowth;
 
         // As shares of their maximum (0..1), so changing a maximum in the config keeps the same proportion.
         public float waterFill;

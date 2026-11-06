@@ -159,6 +159,12 @@ namespace TreeGame.DevTools
             {
                 treeSeed = original.treeSeed + 1,
                 treeName = "  Restored <i>Oak</i>  ",
+                trunkGrowthRate = 9,
+                branchGrowthRate = 0,
+                foliageGrowthRate = 42,
+                trunkExtraGrowth = 0.4f,
+                branchExtraGrowth = float.NaN,
+                foliageExtraGrowth = 3f,
                 trunkGrowth = 0.5f,
                 branchGrowth = 0.25f,
                 foliageGrowth = 0.75f,
@@ -182,6 +188,12 @@ namespace TreeGame.DevTools
             SaveData changed = world.Capture();
             Expect(failures, changed.treeSeed == unchecked(original.treeSeed + 1), $"the tree's seed restored as {changed.treeSeed}");
             Expect(failures, changed.treeName == "Restored iOak/i", $"a saved name should be restored cleaned, not as '{changed.treeName}'");
+            Expect(failures, changed.trunkGrowthRate == 9, $"a saved rate of 9 restored as {changed.trunkGrowthRate}");
+            Expect(failures, changed.branchGrowthRate == original.branchGrowthRate, "a rate saved as 0 (not saved) should leave the part's rate as it was");
+            Expect(failures, changed.foliageGrowthRate == 10, $"a saved rate of 42 should be restored as 10, not {changed.foliageGrowthRate}");
+            Expect(failures, Mathf.Approximately(changed.trunkExtraGrowth, 0.4f), $"extra growth of 0.4 restored as {changed.trunkExtraGrowth}");
+            Expect(failures, changed.branchExtraGrowth == original.branchExtraGrowth, "a NaN extra growth should leave the part's extra growth as it was");
+            Expect(failures, changed.foliageExtraGrowth == 1f, $"extra growth of 3 should be restored as 1, not {changed.foliageExtraGrowth}");
             Expect(failures, Mathf.Approximately(changed.waterFill, 0.25f), $"water restored as {changed.waterFill}");
             Expect(failures, Mathf.Approximately(changed.nutrientsFill, 0.75f), $"nutrients restored as {changed.nutrientsFill}");
             Expect(failures, Mathf.Approximately(changed.healthFill, 0.125f), $"health restored as {changed.healthFill}");
@@ -197,6 +209,10 @@ namespace TreeGame.DevTools
             SaveData restored = world.Capture();
             Expect(failures, restored.treeSeed == original.treeSeed, "the tree's seed didn't go back");
             Expect(failures, restored.treeName == original.treeName, "the tree's name didn't go back");
+            Expect(failures, restored.trunkGrowthRate == original.trunkGrowthRate && restored.foliageGrowthRate == original.foliageGrowthRate,
+                "the growth rates didn't go back");
+            Expect(failures, restored.trunkExtraGrowth == original.trunkExtraGrowth && restored.foliageExtraGrowth == original.foliageExtraGrowth,
+                "the extra growth didn't go back");
 
             // The resources may round by a tiny amount, as they are stored as shares of their maximum.
             Expect(failures, Mathf.Approximately(restored.waterFill, original.waterFill), "water didn't go back");
