@@ -24,7 +24,7 @@ namespace TreeGame.Core
         [Header("Growth")]
         [Tooltip("Seconds of play time for a part of the tree to grow from 0% to 100% on its own at growth rate 5. " +
                  "Other rates scale it: 10 takes half as long, 1 five times as long.")]
-        [SerializeField, Min(1f)] private float secondsToFullyGrow = 300f;
+        [SerializeField, Min(1f)] private float secondsToFullyGrow = 1800f;
         [Tooltip("How fast the trunk grows on its own, from 1 (slow) to 10 (fast).")]
         [SerializeField, Range(MinGrowthRate, MaxGrowthRate)] private int trunkGrowthRate = MiddleGrowthRate;
         [Tooltip("How fast the branches grow on their own, from 1 (slow) to 10 (fast).")]
@@ -34,9 +34,9 @@ namespace TreeGame.Core
 
         [Header("Resources")]
         [Tooltip("Water is measured in liters, the same unit as a bucket, so pouring moves liters one to one.")]
-        [SerializeField] private ResourceSettings water = new ResourceSettings(maxAmount: 200f, secondsToEmpty: 120f);
+        [SerializeField] private ResourceSettings water = new ResourceSettings(maxAmount: 200f, secondsToEmpty: 300f);
         [Tooltip("Nutrients are measured in grams, the same unit as compost, so feeding moves grams one to one.")]
-        [SerializeField] private ResourceSettings nutrients = new ResourceSettings(maxAmount: 500f, secondsToEmpty: 240f);
+        [SerializeField] private ResourceSettings nutrients = new ResourceSettings(maxAmount: 500f, secondsToEmpty: 300f);
         [Tooltip("Health is a plain 0 to 100 score. It doesn't drain on its own; only damage to the tree lowers it.")]
         [SerializeField] private ResourceSettings health = new ResourceSettings(maxAmount: 100f, secondsToEmpty: 0f);
         [Tooltip("Health only regenerates while water and nutrients are both above this share of their maximum (0..1).")]
@@ -66,7 +66,7 @@ namespace TreeGame.Core
         [Tooltip("How long a batch of dropped-in leaves takes to become compost, in seconds.")]
         [SerializeField, Min(0f)] private float secondsToCompost = 30f;
         [Tooltip("Grams of compost made from each dropped-in leaf.")]
-        [SerializeField, Min(0f)] private float compostGramsPerLeaf = 20f;
+        [SerializeField, Min(0f)] private float compostGramsPerLeaf = 30f;
 
         [Header("Fallen Leaves")]
         [SerializeField] private FallenLeafSettings fallenLeaves = new FallenLeafSettings();

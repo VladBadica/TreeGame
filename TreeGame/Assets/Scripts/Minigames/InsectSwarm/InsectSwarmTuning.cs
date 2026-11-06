@@ -23,7 +23,7 @@ namespace TreeGame.Minigames.InsectSwarm
         public float ArrivalSeconds { get; set; } = 20f;
 
         /// <summary>How fast insects crawl, in field units per second.</summary>
-        public float CrawlSpeed { get; set; } = 1.8f;
+        public float CrawlSpeed { get; set; } = 2.3f;
 
         /// <summary>The middle of the healthy patch of bark that insects crawl toward.</summary>
         public Vector2 PatchCenter { get; set; } = new Vector2(8f, 4.5f);
