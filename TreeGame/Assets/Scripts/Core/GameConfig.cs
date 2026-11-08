@@ -43,7 +43,7 @@ namespace TreeGame.Core
                  "so ignoring them still costs something.")]
         [SerializeField, Min(1f)] private float secondsToRegenFullHealth = 1800f;
         [Tooltip("Seconds for health to go from full to 0 with one of water or nutrients empty. With both empty it takes half as long.")]
-        [SerializeField, Min(1f)] private float secondsToLoseFullHealthPerEmptyResource = 600f;
+        [SerializeField, Min(1f)] private float secondsToLoseFullHealthPerEmptyResource = 420f;
 
         [Header("Player")]
         [Tooltip("Walking speed in world units per second.")]

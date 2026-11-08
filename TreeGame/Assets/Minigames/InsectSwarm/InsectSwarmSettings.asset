@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::TreeGame.Minigames.InsectSwarm.InsectSwarmSettings
   swarmSize: 6
   arrivalSeconds: 20
-  crawlSpeed: 1.8
+  crawlSpeed: 2
   timeLimitSeconds: 30
   patchRadius: 1
   clickRadius: 0.6
