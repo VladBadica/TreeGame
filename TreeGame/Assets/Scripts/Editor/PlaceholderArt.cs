@@ -27,6 +27,9 @@ namespace TreeGame.EditorTools
         private const string DiscPath = ArtFolder + "/Disc.png";
         private const string CopyIconPath = ArtFolder + "/CopyIcon.png";
         private const string TickIconPath = ArtFolder + "/TickIcon.png";
+        private const string TrunkTonicIconPath = ArtFolder + "/TrunkTonicIcon.png";
+        private const string BranchTonicIconPath = ArtFolder + "/BranchTonicIcon.png";
+        private const string LeafTonicIconPath = ArtFolder + "/LeafTonicIcon.png";
         private const float PixelsPerUnit = 100f;
 
         // The camera is orthographic, so depth has to be painted in. The fence is drawn in one-point perspective:
@@ -264,6 +267,125 @@ namespace TreeGame.EditorTools
             }
 
             SaveSprite(CoinIconPath, size, size, pixels, new Vector2(0.5f, 0.5f));
+        }
+
+        // Where the symbol on a tonic bottle sits: the middle of the bottle's round body, below the liquid's surface.
+        private static readonly Vector2 TonicSymbolCenter = new Vector2(64f, 42f);
+
+        /// <summary>The trunk tonic's picture: a bottle of amber liquid marked with tree rings, as on the cut end of a log.</summary>
+        public static Sprite GetOrCreateTrunkTonicIcon()
+        {
+            return GetOrCreateTonicIcon(TrunkTonicIconPath, new Color32(196, 120, 52, 255), (x, y) =>
+            {
+                float distance = Vector2.Distance(new Vector2(x, y), TonicSymbolCenter);
+                return (distance >= 15f && distance < 19f) || (distance >= 8.5f && distance < 11.5f) || distance < 4.5f;
+            });
+        }
+
+        /// <summary>The branch tonic's picture: a bottle of golden liquid marked with a forking branch.</summary>
+        public static Sprite GetOrCreateBranchTonicIcon()
+        {
+            return GetOrCreateTonicIcon(BranchTonicIconPath, new Color32(222, 172, 48, 255), (x, y) =>
+            {
+                var point = new Vector2(x, y);
+                Vector2 c = TonicSymbolCenter;
+                Vector2 fork = c + new Vector2(0f, -2f);
+                return SegmentDistance(point, c + new Vector2(0f, -18f), fork) < 3.5f ||
+                       SegmentDistance(point, fork, c + new Vector2(-13f, 16f)) < 3f ||
+                       SegmentDistance(point, fork, c + new Vector2(13f, 16f)) < 3f ||
+                       SegmentDistance(point, c + new Vector2(-6f, 6f), c + new Vector2(-16f, 4f)) < 2.5f;
+            });
+        }
+
+        /// <summary>The leaf tonic's picture: a bottle of green liquid marked with a leaf.</summary>
+        public static Sprite GetOrCreateLeafTonicIcon()
+        {
+            return GetOrCreateTonicIcon(LeafTonicIconPath, new Color32(104, 176, 78, 255), (x, y) =>
+            {
+                // Pointed at both ends, like the coin's leaf: the half-width shrinks toward the tips like a parabola.
+                float dx = x - TonicSymbolCenter.x;
+                float along = (y - TonicSymbolCenter.y) / 19f;
+                bool isBlade = Mathf.Abs(along) < 1f && Mathf.Abs(dx) < 11f * (1f - along * along);
+                bool isVein = Mathf.Abs(dx) < 1.2f && Mathf.Abs(along) < 0.8f;
+                return isBlade && !isVein;
+            });
+        }
+
+        /// <summary>
+        /// A round glass bottle with a cork, two thirds full of liquid in the given color, with a light symbol on the
+        /// liquid saying what the tonic is for. <paramref name="isSymbol"/> takes pixel middles.
+        /// </summary>
+        private static Sprite GetOrCreateTonicIcon(string path, Color32 liquidColor, System.Func<float, float, bool> isSymbol)
+        {
+            if (!File.Exists(path))
+            {
+                PaintTonicIcon(path, liquidColor, isSymbol);
+            }
+
+            return AssetDatabase.LoadAssetAtPath<Sprite>(path);
+        }
+
+        private static void PaintTonicIcon(string path, Color32 liquidColor, System.Func<float, float, bool> isSymbol)
+        {
+            const int size = 128;
+            const float centerX = size / 2f;
+            var bodyCenter = new Vector2(centerX, 44f);
+            const float bodyRadius = 38f;
+            const float liquidTop = 62f;
+            var glassColor = new Color32(214, 236, 240, 255);
+            var corkColor = new Color32(176, 132, 90, 255);
+            var outlineColor = new Color32(62, 68, 78, 255);
+            var symbolColor = new Color32(255, 248, 230, 255);
+            var shineColor = new Color32(255, 255, 255, 255);
+
+            bool IsBody(int x, int y) => Vector2.Distance(new Vector2(x + 0.5f, y + 0.5f), bodyCenter) < bodyRadius;
+            bool IsNeck(int x, int y) => y >= 70 && y < 104 && Mathf.Abs(x + 0.5f - centerX) < 11f;
+            bool IsCork(int x, int y) => y >= 100 && y < 120 && Mathf.Abs(x + 0.5f - centerX) < 13f;
+            bool IsBottle(int x, int y) => IsBody(x, y) || IsNeck(x, y);
+
+            // A small curved glint on the glass, upper left, which makes it read as round glass.
+            bool IsShine(int x, int y)
+            {
+                float distance = Vector2.Distance(new Vector2(x + 0.5f, y + 0.5f), bodyCenter);
+                float angle = Mathf.Atan2(y + 0.5f - bodyCenter.y, x + 0.5f - bodyCenter.x) * Mathf.Rad2Deg;
+                return distance > 27f && distance < 32f && angle > 110f && angle < 150f;
+            }
+
+            var pixels = new Color32[size * size];
+            for (int y = 0; y < size; y++)
+            {
+                for (int x = 0; x < size; x++)
+                {
+                    Color32 color = Transparent;
+                    if (IsCork(x, y))
+                    {
+                        color = IsNearEdge(x, y, IsCork, 4) ? outlineColor : corkColor;
+                    }
+                    else if (IsBottle(x, y))
+                    {
+                        if (IsNearEdge(x, y, IsBottle, 4))
+                        {
+                            color = outlineColor;
+                        }
+                        else if (IsShine(x, y))
+                        {
+                            color = shineColor;
+                        }
+                        else if (y + 0.5f >= liquidTop)
+                        {
+                            color = glassColor;
+                        }
+                        else
+                        {
+                            color = isSymbol(x + 0.5f, y + 0.5f) ? symbolColor : liquidColor;
+                        }
+                    }
+
+                    pixels[y * size + x] = color;
+                }
+            }
+
+            SaveSprite(path, size, size, pixels, new Vector2(0.5f, 0.5f));
         }
 
         /// <summary>A small red beetle seen from above, head up, about 0.25 world units across. Pivoted at its center.</summary>

@@ -172,11 +172,63 @@ namespace TreeGame.Items
                     continue;
                 }
 
-                removed += item is StackableItem stack ? stack.Count : 1;
+                removed += AmountIn(item);
                 ClearSlot(i);
             }
 
             return removed;
+        }
+
+        /// <summary>How many items of a type the inventory holds (a stack counts as its size).</summary>
+        public int CountOf(ItemDefinition definition)
+        {
+            int count = 0;
+            foreach (Item item in Slots)
+            {
+                if (item != null && item.Definition == definition)
+                {
+                    count += AmountIn(item);
+                }
+            }
+
+            return count;
+        }
+
+        /// <summary>
+        /// Takes this many items of a type out of the inventory, e.g. to pay with coins. Takes from the last slots
+        /// first, so items near the start of the hotbar keep their place. Removes nothing and returns false if there
+        /// aren't that many.
+        /// </summary>
+        public bool TryRemove(ItemDefinition definition, int count)
+        {
+            if (definition == null || count < 0 || CountOf(definition) < count)
+            {
+                return false;
+            }
+
+            int remaining = count;
+            for (int i = Slots.Length - 1; i >= 0 && remaining > 0; i--)
+            {
+                Item item = Slots[i];
+                if (item == null || item.Definition != definition)
+                {
+                    continue;
+                }
+
+                int inSlot = AmountIn(item);
+                if (inSlot <= remaining)
+                {
+                    ClearSlot(i);
+                    remaining -= inSlot;
+                }
+                else
+                {
+                    ((StackableItem)item).SetCount(inSlot - remaining);
+                    remaining = 0;
+                }
+            }
+
+            return true;
         }
 
         /// <summary>
@@ -243,6 +295,11 @@ namespace TreeGame.Items
                     Debug.LogWarning($"{nameof(Inventory)}: no room for starting item '{definition.DisplayName}'.", this);
                 }
             }
+        }
+
+        private static int AmountIn(Item item)
+        {
+            return item is StackableItem stack ? stack.Count : 1;
         }
 
         private bool IsValidIndex(int index)

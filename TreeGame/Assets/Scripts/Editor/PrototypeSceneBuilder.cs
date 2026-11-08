@@ -3,6 +3,7 @@ using TreeGame.Core;
 using TreeGame.DevTools;
 using TreeGame.Interaction;
 using TreeGame.Items;
+using TreeGame.Market;
 using TreeGame.Menus;
 using TreeGame.Minigames;
 using TreeGame.Pests;
@@ -52,6 +53,7 @@ namespace TreeGame.EditorTools
             PlaceholderArt.GetOrCreateFenceSprites(out Sprite fenceNear, out Sprite fenceFar);
             MinigameDefinition wellMinigame = WellSpinSceneBuilder.GetOrCreateDefinition();
             MinigameDefinition insectMinigame = InsectSwarmSceneBuilder.GetOrCreateDefinition();
+            MarketOffer[] marketOffers = MarketBuilder.GetOrCreateOffers();
             AssetDatabase.SaveAssets();
 
             WorldBuilder.CreateStage();
@@ -70,8 +72,11 @@ namespace TreeGame.EditorTools
             StationBuilder.CreateRunningWaterSound(well, treeWaterReceiver);
             TreeBuilder.CreateFallenLeafSpawner(tree, config, fallenLeafPrefab);
             InsectInfestation insects = InsectBuilder.CreateInsects(tree, health, config, insect, out InsectVisuals insectVisuals);
+            MarketStall marketStall = MarketBuilder.CreateStall(marketOffers, coin, tree.GetComponent<TreeGrowthRates>(),
+                out Interactable marketInteractable);
             Transform player = PlayerBuilder.CreatePlayer(config, tree.transform);
             BuilderHelpers.SetReferences(well, ("inventory", player.GetComponent<Inventory>()));
+            BuilderHelpers.SetReferences(marketStall, ("inventory", player.GetComponent<Inventory>()));
             InsectBuilder.CreateInsectDefense(insectVisuals, insects, config, minigameRunner, insectMinigame, player.GetComponent<Inventory>(), coin);
             Transform camera = WorldBuilder.CreateCamera(player);
             WorldBuilder.FitCameraToTree(camera, tree.GetComponent<TreeVisuals>());
@@ -89,6 +94,7 @@ namespace TreeGame.EditorTools
             // Own canvas, drawn on top, so all dev tooling can be removed by deleting one object.
             DebugPanelBuilder.CreateDebugPanel(UIFactory.CreateCanvas("Debug UI", 100), tree);
             PauseMenu pauseMenu = PauseMenuBuilder.CreatePauseMenu(player, minigameRunner, tree.GetComponent<TreeSeed>(), out Button quitToMenuButton);
+            MarketBuilder.CreateMenu(marketStall, marketInteractable, player, pauseMenu);
             GameSaver saver = SaveBuilder.CreateSaveAndLoad(minigameRunner, pauseMenu, quitToMenuButton, tree, water, nutrients, health,
                 player, composter, insects, camera, waterBucket, compostBucket, brownLeaves, coin);
             HudBuilder.CreateSaveMessage(hud, saver);

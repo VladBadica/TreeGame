@@ -18,6 +18,9 @@ namespace TreeGame.EditorTools
         // so the player walks past in front of it.
         public static readonly Vector3 WellPosition = new Vector3(MaxDistanceFromTree - 1.8f, 0f, 0.3f);
 
+        // The market stall mirrors the well: just inside the left fence, at the same depth.
+        public static readonly Vector3 MarketPosition = new Vector3(-WellPosition.x, 0f, WellPosition.z);
+
         // The compost heap sits just left of the tree, at the same depth as the well, clear of the trunk and lowest branches.
         public static readonly Vector3 CompostPosition = new Vector3(-2.5f, 0f, 0.3f);
 
