@@ -15,10 +15,10 @@ MonoBehaviour:
   secondsToFullyGrow: 300
   water:
     maxAmount: 200
-    secondsToEmpty: 180
+    secondsToEmpty: 420
   nutrients:
     maxAmount: 500
-    secondsToEmpty: 240
+    secondsToEmpty: 420
   playerMoveSpeed: 4
   inventorySlotCount: 9
   startingItems:
