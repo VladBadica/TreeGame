@@ -62,7 +62,7 @@ namespace TreeGame.Core
 
         [Header("Composter")]
         [Tooltip("How long a batch of dropped-in leaves takes to become compost, in seconds.")]
-        [SerializeField, Min(0f)] private float secondsToCompost = 30f;
+        [SerializeField, Min(0f)] private float secondsToCompost = 20f;
         [Tooltip("Grams of compost made from each dropped-in leaf.")]
         [SerializeField, Min(0f)] private float compostGramsPerLeaf = 30f;
 

@@ -24,7 +24,7 @@ MonoBehaviour:
   startingItems:
   - {fileID: 11400000, guid: 7b4f43cf13d3dd14ba1ddc94c17fda10, type: 2}
   - {fileID: 11400000, guid: 56304d56daa9f79468cc636f3dd096c9, type: 2}
-  wellFillPerUse: 0.1
+  wellFillPerUse: 0.2
   wind:
     direction: 1
     baseStrength: 0.1

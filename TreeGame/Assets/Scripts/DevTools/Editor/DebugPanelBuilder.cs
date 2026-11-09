@@ -8,11 +8,17 @@ using static TreeGame.EditorTools.UIFactory;
 
 namespace TreeGame.DevTools
 {
-    /// <summary>Builds the development-only growth panel. Kept with the dev tools so they can be removed together.</summary>
+    /// <summary>
+    /// Builds the development-only growth panel, which is left out of builds. Kept with the dev tools so they can be
+    /// removed together.
+    /// </summary>
     internal static class DebugPanelBuilder
     {
         public static void CreateDebugPanel(Transform canvas, GameObject tree)
         {
+            // Unity leaves objects with this built-in tag out of builds, so the panel only exists when playing in the Editor.
+            canvas.gameObject.tag = "EditorOnly";
+
             var treeGrowth = tree.GetComponent<TreeGrowth>();
             DefaultControls.Resources resources = GetUIResources();
             GameObject panel = CreatePanel(canvas, "Growth Debug Panel", new Vector2(0f, 1f), new Vector2(24f, -24f), new Vector2(460f, 560f));
