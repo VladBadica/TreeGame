@@ -45,6 +45,14 @@ namespace TreeGame.Saving
                 data.trunkExtraGrowth = data.branchExtraGrowth = data.foliageExtraGrowth = 0f;
                 data.version = 6;
             }
+
+            if (data.version == 6)
+            {
+                // Version 7 added the countdown to the next insect, which older saves didn't keep: they get a fresh wait,
+                // as they did when loaded before.
+                data.secondsUntilNextInsect = -1f;
+                data.version = 7;
+            }
         }
 
         /// <summary>

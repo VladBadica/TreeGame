@@ -39,6 +39,7 @@ namespace TreeGame.EditorTools
                 ("inventory", player.GetComponent<Inventory>()),
                 ("composter", composter),
                 ("insects", insects),
+                ("insectSpawner", tree.GetComponent<InsectSpawner>()),
                 ("leaves", tree.GetComponent<FallenLeafSpawner>()));
             SetReferenceArray(world, "knownItems", knownItems);
 

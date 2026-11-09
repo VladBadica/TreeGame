@@ -14,4 +14,4 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::TreeGame.Items.WaterBucketDefinition
   displayName: Water Bucket
   icon: {fileID: 21300000, guid: 126a9c83484694749b96a0c5b32243a2, type: 3}
-  capacity: 100
+  capacity: 150

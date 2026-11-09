@@ -44,6 +44,7 @@ namespace TreeGame.DevTools
 
                 CheckComposter(failures, composter);
                 CheckInsects(failures, insects);
+                CheckInsectWait(failures);
                 CheckLeaves(failures, leaves);
                 CheckPlayer(failures, player);
                 CheckCapture(failures, composter, insects, leaves, player);
@@ -175,6 +176,7 @@ namespace TreeGame.DevTools
                 inventorySlots = slots,
                 composter = new SavedComposter { state = (int)CompostState.Done, workSeconds = 30f, workDuration = 30f, compostGrams = 40f },
                 insectAges = new[] { 12f },
+                secondsUntilNextInsect = 12.5f,
                 fallenLeaves = new[] { new SavedLeaf { x = 2f, y = 0f, z = -1f } },
             });
 
@@ -194,6 +196,7 @@ namespace TreeGame.DevTools
             Expect(failures, Mathf.Approximately(changed.trunkExtraGrowth, 0.4f), $"extra growth of 0.4 restored as {changed.trunkExtraGrowth}");
             Expect(failures, changed.branchExtraGrowth == original.branchExtraGrowth, "a NaN extra growth should leave the part's extra growth as it was");
             Expect(failures, changed.foliageExtraGrowth == 1f, $"extra growth of 3 should be restored as 1, not {changed.foliageExtraGrowth}");
+            Expect(failures, changed.secondsUntilNextInsect == 12.5f, $"a wait of 12.5s for the next insect restored as {changed.secondsUntilNextInsect}");
             Expect(failures, Mathf.Approximately(changed.waterFill, 0.25f), $"water restored as {changed.waterFill}");
             Expect(failures, Mathf.Approximately(changed.nutrientsFill, 0.75f), $"nutrients restored as {changed.nutrientsFill}");
             Expect(failures, Mathf.Approximately(changed.healthFill, 0.125f), $"health restored as {changed.healthFill}");
@@ -301,6 +304,32 @@ namespace TreeGame.DevTools
 
             insects.CountChanged -= OnCountChanged;
             insects.RestoreInsects(original);
+        }
+
+        private static void CheckInsectWait(List<string> failures)
+        {
+            var spawner = Object.FindAnyObjectByType<InsectSpawner>();
+            if (spawner == null)
+            {
+                failures.Add("the scene needs an insect spawner");
+                return;
+            }
+
+            float original = spawner.SecondsUntilNextInsect;
+
+            spawner.RestoreSecondsUntilNextInsect(20f);
+            Expect(failures, spawner.SecondsUntilNextInsect == 20f, $"a saved wait of 20s restored as {spawner.SecondsUntilNextInsect}");
+
+            spawner.RestoreSecondsUntilNextInsect(-1f);
+            Expect(failures, spawner.SecondsUntilNextInsect > 0f, "an unsaved wait should be replaced by a fresh one");
+
+            spawner.RestoreSecondsUntilNextInsect(float.NaN);
+            Expect(failures, float.IsFinite(spawner.SecondsUntilNextInsect) && spawner.SecondsUntilNextInsect > 0f, "a NaN wait should be replaced by a fresh one");
+
+            spawner.RestoreSecondsUntilNextInsect(1000000f);
+            Expect(failures, spawner.SecondsUntilNextInsect < 1000000f, "a wait longer than the longest allowed should be cut");
+
+            spawner.RestoreSecondsUntilNextInsect(original);
         }
 
         private static void CheckLeaves(List<string> failures, FallenLeafSpawner leaves)

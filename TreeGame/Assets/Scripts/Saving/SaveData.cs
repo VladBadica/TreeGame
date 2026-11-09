@@ -20,8 +20,9 @@ namespace TreeGame.Saving
         /// Version 4 added when the game was saved.
         /// Version 5 added the tree's name.
         /// Version 6 added each part's current growth rate and extra growth.
+        /// Version 7 added how long until the next insect comes.
         /// </summary>
-        public const int CurrentVersion = 6;
+        public const int CurrentVersion = 7;
 
         public int version;
 
@@ -59,6 +60,12 @@ namespace TreeGame.Saving
 
         /// <summary>How long each insect on the tree has been there, in seconds, oldest first.</summary>
         public float[] insectAges = new float[0];
+
+        /// <summary>
+        /// Seconds of play until the next insect comes, so saving and loading can't reset the wait. Negative means it
+        /// wasn't saved, and a fresh wait is picked.
+        /// </summary>
+        public float secondsUntilNextInsect = -1f;
 
         public SavedLeaf[] fallenLeaves = new SavedLeaf[0];
 

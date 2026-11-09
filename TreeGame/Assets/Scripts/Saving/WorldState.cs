@@ -30,13 +30,14 @@ namespace TreeGame.Saving
         [SerializeField] private ItemDefinition[] knownItems = new ItemDefinition[0];
         [SerializeField] private Composter composter;
         [SerializeField] private InsectInfestation insects;
+        [SerializeField] private InsectSpawner insectSpawner;
         [SerializeField] private FallenLeafSpawner leaves;
 
         /// <summary>True if everything it reads is assigned.</summary>
         public bool IsComplete =>
             treeGrowth != null && treeSeed != null && treeName != null && growthRates != null && extraGrowth != null &&
             water != null && nutrients != null && health != null && player != null &&
-            inventory != null && composter != null && insects != null && leaves != null;
+            inventory != null && composter != null && insects != null && insectSpawner != null && leaves != null;
 
         /// <summary>The current state of the game, ready to write to a save.</summary>
         public SaveData Capture()
@@ -67,6 +68,7 @@ namespace TreeGame.Saving
                     compostGrams = composter.CompostGrams,
                 },
                 insectAges = new List<float>(insects.InsectAges).ToArray(),
+                secondsUntilNextInsect = insectSpawner.SecondsUntilNextInsect,
                 fallenLeaves = CaptureLeaves(),
             };
         }
@@ -96,6 +98,7 @@ namespace TreeGame.Saving
             composter.RestoreState((CompostState)data.composter.state, data.composter.workSeconds,
                 data.composter.workDuration, data.composter.compostGrams);
             insects.RestoreInsects(data.insectAges);
+            insectSpawner.RestoreSecondsUntilNextInsect(data.secondsUntilNextInsect);
             RestoreLeaves(data.fallenLeaves);
         }
 

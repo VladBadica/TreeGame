@@ -45,6 +45,9 @@ namespace TreeGame.Core
 
         public float RandomSecondsBetweenInsects() => RandomInterval.Pick(secondsBetweenInsects);
 
+        /// <summary>The longest wait there can be between two insects, in seconds.</summary>
+        public float LongestSecondsBetweenInsects => Mathf.Max(0f, secondsBetweenInsects.x, secondsBetweenInsects.y);
+
         /// <summary>How many insects come in the minigame when this many are on the tree. Always at least 1.</summary>
         public int SwarmSizeFor(int insectsOnTree) => Mathf.Max(1, baseSwarmSize + swarmSizePerInsect * insectsOnTree);
     }
