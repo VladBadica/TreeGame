@@ -2,6 +2,7 @@ using System;
 using TreeGame.Core;
 using TreeGame.Interaction;
 using TreeGame.Items;
+using TreeGame.Seasons;
 using UnityEngine;
 
 namespace TreeGame.World
@@ -29,6 +30,8 @@ namespace TreeGame.World
     {
         [SerializeField] private Interactable interactable;
         [SerializeField] private GameConfig config;
+        [Tooltip("Makes composting faster or slower with the season. Without one, it takes the same time all year.")]
+        [SerializeField] private SeasonClock seasons;
         [Tooltip("The item that can be dropped in, e.g. Brown Leaves.")]
         [SerializeField] private ItemDefinition compostableItem;
 
@@ -122,7 +125,8 @@ namespace TreeGame.World
                 return;
             }
 
-            workSeconds += seconds;
+            // Faster when it's warm, slower in the cold.
+            workSeconds += seconds * SeasonClock.MultiplierOf(seasons, SeasonEffect.Composting);
             if (workSeconds >= workDuration)
             {
                 SetState(CompostState.Done);

@@ -88,6 +88,9 @@ namespace TreeGame.Core
         [Tooltip("Shared by everything the wind moves, so it all sways together.")]
         [SerializeField] private WindSettings wind = new WindSettings();
 
+        [Header("Seasons")]
+        [SerializeField] private SeasonSettings seasons = new SeasonSettings();
+
         /// <summary>Seconds of play time for a part to grow from 0% to 100% at the middle growth rate.</summary>
         public float SecondsToFullyGrow => secondsToFullyGrow;
 
@@ -148,6 +151,8 @@ namespace TreeGame.Core
         public InsectSettings Insects => insects;
 
         public WindSettings Wind => wind;
+
+        public SeasonSettings Seasons => seasons;
 
         public ResourceSettings GetResourceSettings(TreeResourceType type)
         {

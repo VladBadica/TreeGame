@@ -1,6 +1,8 @@
 using System;
 using TMPro;
+using TreeGame.Core;
 using TreeGame.Saving;
+using TreeGame.Seasons;
 using TreeGame.Trees;
 using UnityEngine;
 using UnityEngine.Events;
@@ -18,6 +20,8 @@ namespace TreeGame.Menus
     {
         [SerializeField] private SaveSlotCard[] cards = new SaveSlotCard[0];
         [SerializeField] private MenuTreePreview preview;
+        [Tooltip("How long seasons last, to say which season each tree is in.")]
+        [SerializeField] private GameConfig config;
 
         [Header("Actions for the chosen slot")]
         [SerializeField] private Button continueButton;
@@ -123,7 +127,8 @@ namespace TreeGame.Menus
                         : "Last played: unknown";
                     string growth = SlotText.Growth(data.trunkGrowth, data.branchGrowth, data.foliageGrowth) +
                                     SlotText.Extra(data.trunkExtraGrowth, data.branchExtraGrowth, data.foliageExtraGrowth);
-                    cards[i].Show(title, $"{growth} · {played}");
+                    string season = SeasonRules.Describe(data.seasonSeconds, SecondsPerSeason);
+                    cards[i].Show(title, $"{growth} · {played}\n{season}");
 
                     if (savedUtc > latest)
                     {
@@ -165,6 +170,8 @@ namespace TreeGame.Menus
             deleteButton.gameObject.SetActive(state != SlotState.Empty);
             newTreeButton.gameObject.SetActive(state == SlotState.Empty);
         }
+
+        private float SecondsPerSeason => config != null ? config.Seasons.SecondsPerSeason : 300f;
 
         /// <summary>A slot's own name, used for a tree the player didn't name.</summary>
         private static string SlotName(int slot)

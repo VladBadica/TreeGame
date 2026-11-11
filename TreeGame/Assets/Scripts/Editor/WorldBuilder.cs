@@ -16,11 +16,12 @@ namespace TreeGame.EditorTools
         /// What every scene set in the tree's world stands on: the light, the sun and the ground. The game and the main
         /// menu both use it, so going from one to the other feels like the same place.
         /// </summary>
-        public static void CreateStage()
+        /// <returns>The ground, e.g. to color it with the seasons.</returns>
+        public static Renderer CreateStage()
         {
             ConfigureEnvironment();
             CreateSun();
-            CreateGround(GetOrCreateMaterial("Ground", new Color(0.58f, 0.72f, 0.42f)));
+            return CreateGround(GetOrCreateMaterial("Ground", new Color(0.58f, 0.72f, 0.42f)));
         }
 
         private static void ConfigureEnvironment()
@@ -84,7 +85,7 @@ namespace TreeGame.EditorTools
             return go.transform;
         }
 
-        private static void CreateGround(Material material)
+        private static Renderer CreateGround(Material material)
         {
             GameObject ground = GameObject.CreatePrimitive(PrimitiveType.Cube);
             ground.name = "Ground";
@@ -92,7 +93,9 @@ namespace TreeGame.EditorTools
             // Top face sits at y = 0.
             ground.transform.position = new Vector3(0f, -GroundThickness * 0.5f, GroundFrontZ + depth * 0.5f);
             ground.transform.localScale = new Vector3(GroundWidth, GroundThickness, depth);
-            ground.GetComponent<Renderer>().sharedMaterial = material;
+            var renderer = ground.GetComponent<Renderer>();
+            renderer.sharedMaterial = material;
+            return renderer;
         }
 
         /// <summary>
@@ -143,7 +146,8 @@ namespace TreeGame.EditorTools
         }
 
         /// <summary>Flat, layered hills behind the play area; further layers are paler and drift more with the camera.</summary>
-        public static void CreateBackdrop(Transform cameraTransform)
+        /// <returns>The backdrop, with a child per layer of hills, e.g. to color them with the seasons.</returns>
+        public static Transform CreateBackdrop(Transform cameraTransform)
         {
             var root = new GameObject("Backdrop").transform;
             CreateHillLayer(root, cameraTransform, "Far Hills", depth: 30f, followFactor: 0.8f,
@@ -152,6 +156,7 @@ namespace TreeGame.EditorTools
                 new Color(0.62f, 0.77f, 0.62f), heightRange: new Vector2(2.5f, 4f), seed: 2);
             CreateHillLayer(root, cameraTransform, "Near Hills", depth: 8f, followFactor: 0.25f,
                 new Color(0.5f, 0.68f, 0.47f), heightRange: new Vector2(1.2f, 2.2f), seed: 3);
+            return root;
         }
 
         private static void CreateHillLayer(Transform parent, Transform cameraTransform, string layerName,

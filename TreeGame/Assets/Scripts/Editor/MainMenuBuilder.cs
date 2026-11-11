@@ -103,7 +103,8 @@ namespace TreeGame.EditorTools
                 ("treeSeed", tree.GetComponent<TreeSeed>()),
                 ("treeGrowth", tree.GetComponent<TreeGrowth>()),
                 ("extraGrowth", tree.GetComponent<TreeExtraGrowth>()),
-                ("treeVisuals", visuals));
+                ("treeVisuals", visuals),
+                ("config", config));
             return preview;
         }
 
@@ -136,6 +137,7 @@ namespace TreeGame.EditorTools
             SetReferenceArray(slotMenu, "cards", cards);
             SetReferences(slotMenu,
                 ("preview", preview),
+                ("config", GameAssets.GetOrCreateConfig()),
                 ("continueButton", continueGame),
                 ("deleteButton", deleteTree),
                 ("newTreeButton", newTree),

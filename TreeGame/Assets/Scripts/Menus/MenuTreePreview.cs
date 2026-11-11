@@ -1,4 +1,6 @@
+using TreeGame.Core;
 using TreeGame.Saving;
+using TreeGame.Seasons;
 using TreeGame.Trees;
 using UnityEngine;
 
@@ -7,8 +9,8 @@ namespace TreeGame.Menus
     /// <summary>
     /// Shows a save slot's tree on the main menu, live: grown from the slot's seed to the slot's growth. A newly shown
     /// tree starts small and grows into place, so changing slots feels like looking at a different tree rather than a
-    /// picture swapping. An empty slot shows a young sapling, where a new tree would be planted.
-    /// It only sets the tree's seed and growth; the tree draws itself as it does in the game.
+    /// picture swapping. An empty slot shows a young sapling, where a new tree would be planted. A saved tree shows in its
+    /// season, e.g. bare in winter. It only sets the tree's seed, growth and season; the tree draws itself as in the game.
     /// </summary>
     public class MenuTreePreview : MonoBehaviour
     {
@@ -16,6 +18,8 @@ namespace TreeGame.Menus
         [SerializeField] private TreeGrowth treeGrowth;
         [SerializeField] private TreeExtraGrowth extraGrowth;
         [SerializeField] private TreeVisuals treeVisuals;
+        [Tooltip("How long seasons last, to show a saved tree in its season. Without it, trees show in full leaf.")]
+        [SerializeField] private GameConfig config;
 
         [Header("Empty slot")]
         [Tooltip("How grown the sapling is that stands in for a tree not yet planted.")]
@@ -47,12 +51,21 @@ namespace TreeGame.Menus
                 Show(data.treeSeed,
                     new[] { data.trunkGrowth, data.branchGrowth, data.foliageGrowth },
                     new[] { data.trunkExtraGrowth, data.branchExtraGrowth, data.foliageExtraGrowth });
+                ShowSeason(config != null
+                    ? SeasonRules.LookAt(data.seasonSeconds, config.Seasons.SecondsPerSeason)
+                    : SeasonLook.FullLeaves);
             }
             else
             {
                 // Keeps whatever seed it has: any young tree will do for one not yet planted.
                 Show(treeSeed.Seed, new[] { saplingTrunk, saplingBranches, saplingFoliage }, new float[TreeGrowth.Parts.Length]);
+                ShowSeason(SeasonLook.FullLeaves);
             }
+        }
+
+        private void ShowSeason(SeasonLook look)
+        {
+            treeVisuals.SetSeasonLook(look.LeafCover, look.Autumn, look.Fresh);
         }
 
         /// <summary>Shows a tree grown this much, with this much extra growth, both given in the order of TreeGrowth.Parts.</summary>

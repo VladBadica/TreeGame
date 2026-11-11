@@ -104,6 +104,7 @@ namespace TreeGame.DevTools
                 secondsUntilNextInsect = 37.5f,
                 overwateredSecondsLeft = 14.25f,
                 overfedSecondsLeft = 6.5f,
+                seasonSeconds = 1234.5f,
                 fallenLeaves = new[] { new SavedLeaf { x = 1f, y = 0f, z = -2.5f } },
             };
         }
@@ -149,6 +150,7 @@ namespace TreeGame.DevTools
             Expect(failures, read.secondsUntilNextInsect == 37.5f, $"the wait for the next insect read back as {read.secondsUntilNextInsect}");
             Expect(failures, read.overwateredSecondsLeft == 14.25f, $"the time left overwatered read back as {read.overwateredSecondsLeft}");
             Expect(failures, read.overfedSecondsLeft == 6.5f, $"the time left overfed read back as {read.overfedSecondsLeft}");
+            Expect(failures, read.seasonSeconds == 1234.5f, $"the seasons' time read back as {read.seasonSeconds}");
             Expect(failures, read.fallenLeaves.Length == 1 && read.fallenLeaves[0].x == 1f && read.fallenLeaves[0].z == -2.5f, "the leaves changed");
 
             // A new game's empty lists must survive too, without coming back as nothing.
@@ -188,6 +190,7 @@ namespace TreeGame.DevTools
             Expect(failures, read.secondsUntilNextInsect < 0f, $"an old save has no wait for the next insect, so it should read as unsaved, not {read.secondsUntilNextInsect}");
             Expect(failures, read.overwateredSecondsLeft == 0f, $"an old save's tree can't be overwatered, but read as {read.overwateredSecondsLeft}s");
             Expect(failures, read.overfedSecondsLeft == 0f, $"an old save's tree can't be overfed, but read as {read.overfedSecondsLeft}s");
+            Expect(failures, read.seasonSeconds == 0f, $"an old save's tree should start at the beginning of spring, but read as {read.seasonSeconds}s");
             Expect(failures, File.ReadAllText(path) == version1Save, "reading an old save should leave the file as it was, until the game next saves");
         }
 

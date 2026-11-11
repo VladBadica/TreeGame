@@ -1,13 +1,19 @@
 using TreeGame.Core;
+using TreeGame.Seasons;
 using UnityEngine;
 
 namespace TreeGame.Pests
 {
-    /// <summary>Brings insects to the tree at random intervals (settings in <see cref="GameConfig"/>).</summary>
+    /// <summary>
+    /// Brings insects to the tree at random intervals (settings in <see cref="GameConfig"/>), more or less often with the
+    /// season, and none in winter.
+    /// </summary>
     public class InsectSpawner : MonoBehaviour, IAdvancesWithTime
     {
         [SerializeField] private InsectInfestation infestation;
         [SerializeField] private GameConfig config;
+        [Tooltip("Makes insects come more or less often with the season. Without one, they come the same all year.")]
+        [SerializeField] private SeasonClock seasons;
 
         private float secondsUntilNextInsect;
         // The first wait is picked on first use rather than in Start, so a save restored before or after Start keeps
@@ -59,7 +65,9 @@ namespace TreeGame.Pests
         public void Advance(float seconds)
         {
             PickFirstWaitIfNeeded();
-            secondsUntilNextInsect -= seconds;
+
+            // The season makes the wait count down faster or slower; in winter it stands still, so no insects come.
+            secondsUntilNextInsect -= seconds * SeasonClock.MultiplierOf(seasons, SeasonEffect.Insects);
 
             // A loop, because catching up after a long time can mean several insects are due at once.
             while (secondsUntilNextInsect <= 0f)

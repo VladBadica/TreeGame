@@ -1,4 +1,5 @@
 using TreeGame.Core;
+using TreeGame.Seasons;
 using UnityEngine;
 
 namespace TreeGame.Trees
@@ -8,7 +9,8 @@ namespace TreeGame.Trees
     /// <see cref="TreeGrowthRates"/>), so it keeps growing without player input. A part with a rate above 7 also fills
     /// its extra growth, from the start rather than only once it is fully grown, and keeps it. Uses only the public APIs
     /// of the growth, rate and extra growth components; later rules (e.g. growth needing water) can gate or replace
-    /// this component. Disable the component to pause passive growth.
+    /// this component. The season speeds growth up or slows it down, and pauses it in winter. Disable the component to
+    /// pause passive growth.
     /// </summary>
     public class PassiveGrowth : MonoBehaviour, IAdvancesWithTime
     {
@@ -16,6 +18,8 @@ namespace TreeGame.Trees
         [SerializeField] private TreeGrowthRates growthRates;
         [SerializeField] private TreeExtraGrowth extraGrowth;
         [SerializeField] private GameConfig config;
+        [Tooltip("Speeds growth up or slows it down with the season. Without one, the tree grows the same all year.")]
+        [SerializeField] private SeasonClock seasons;
 
         private void OnEnable()
         {
@@ -37,6 +41,13 @@ namespace TreeGame.Trees
         {
             // Called directly after a minigame too, so it must hold up to what it is given.
             if (!enabled || !(seconds > 0f) || !float.IsFinite(seconds))
+            {
+                return;
+            }
+
+            // The season scales time, not the rates: rates stay 1 to 10, and in winter nothing grows at all.
+            seconds *= SeasonClock.MultiplierOf(seasons, SeasonEffect.Growth);
+            if (!(seconds > 0f))
             {
                 return;
             }

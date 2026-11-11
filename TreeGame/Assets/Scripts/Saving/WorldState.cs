@@ -4,6 +4,7 @@ using TreeGame.Care;
 using TreeGame.Items;
 using TreeGame.Pests;
 using TreeGame.Player;
+using TreeGame.Seasons;
 using TreeGame.Trees;
 using TreeGame.World;
 using UnityEngine;
@@ -34,12 +35,14 @@ namespace TreeGame.Saving
         [SerializeField] private InsectInfestation insects;
         [SerializeField] private InsectSpawner insectSpawner;
         [SerializeField] private FallenLeafSpawner leaves;
+        [SerializeField] private SeasonClock seasons;
 
         /// <summary>True if everything it reads is assigned.</summary>
         public bool IsComplete =>
             treeGrowth != null && treeSeed != null && treeName != null && growthRates != null && extraGrowth != null &&
             water != null && nutrients != null && health != null && overwatering != null && overfeeding != null && player != null &&
-            inventory != null && composter != null && insects != null && insectSpawner != null && leaves != null;
+            inventory != null && composter != null && insects != null && insectSpawner != null && leaves != null &&
+            seasons != null;
 
         /// <summary>The current state of the game, ready to write to a save.</summary>
         public SaveData Capture()
@@ -62,6 +65,7 @@ namespace TreeGame.Saving
                 healthFill = health.Normalized,
                 overwateredSecondsLeft = overwatering.SecondsLeft,
                 overfedSecondsLeft = overfeeding.SecondsLeft,
+                seasonSeconds = seasons.TotalSeconds,
                 playerX = player.transform.position.x,
                 inventorySlots = CaptureInventory(),
                 composter = new SavedComposter
@@ -99,6 +103,7 @@ namespace TreeGame.Saving
             health.SetAmount(data.healthFill * health.MaxAmount);
             overwatering.RestoreSecondsLeft(data.overwateredSecondsLeft);
             overfeeding.RestoreSecondsLeft(data.overfedSecondsLeft);
+            seasons.SetTotalSeconds(data.seasonSeconds);
             player.PlaceAt(data.playerX);
             RestoreInventory(data.inventorySlots);
             composter.RestoreState((CompostState)data.composter.state, data.composter.workSeconds,

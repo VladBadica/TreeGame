@@ -23,8 +23,9 @@ namespace TreeGame.Saving
         /// Version 7 added how long until the next insect comes.
         /// Version 8 added how long the tree stays overwatered.
         /// Version 9 added how long the tree stays overfed.
+        /// Version 10 added the seasons' time.
         /// </summary>
-        public const int CurrentVersion = 9;
+        public const int CurrentVersion = 10;
 
         public int version;
 
@@ -60,6 +61,11 @@ namespace TreeGame.Saving
 
         /// <summary>Seconds of play until the tree recovers from being overfed; 0 if it isn't.</summary>
         public float overfedSecondsLeft;
+
+        /// <summary>
+        /// Seconds of play since the tree was planted, which set the season and year. 0 is the very start of spring.
+        /// </summary>
+        public float seasonSeconds;
 
         public float playerX;
 

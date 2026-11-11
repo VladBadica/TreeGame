@@ -676,6 +676,107 @@ namespace TreeGame.EditorTools
             return AssetDatabase.LoadAssetAtPath<Sprite>(DownArrowIconPath);
         }
 
+        /// <summary>
+        /// A white icon for a season, tinted by whatever displays it: a sprout for spring, a sun for summer, a leaf for
+        /// autumn and a snowflake for winter.
+        /// </summary>
+        public static Sprite GetOrCreateSeasonIcon(Seasons.Season season)
+        {
+            string path = $"{ArtFolder}/{season}Icon.png";
+            if (!File.Exists(path))
+            {
+                PaintIcon(path, season switch
+                {
+                    Seasons.Season.Spring => SproutInk,
+                    Seasons.Season.Summer => SunInk,
+                    Seasons.Season.Autumn => LeafInk,
+                    _ => SnowflakeInk,
+                });
+            }
+
+            return AssetDatabase.LoadAssetAtPath<Sprite>(path);
+        }
+
+        private static readonly Vector2 IconMiddle = new Vector2(IconSize / 2f, IconSize / 2f);
+
+        /// <summary>A short stem with two leaves opening from its top.</summary>
+        private static float SproutInk(float x, float y)
+        {
+            var point = new Vector2(x, y);
+            float stem = LineInk(SegmentDistance(point, new Vector2(32f, 8f), new Vector2(32f, 36f)), 5f);
+            float left = EllipseInk(point, new Vector2(21f, 42f), 13f, 7f, 35f);
+            float right = EllipseInk(point, new Vector2(43f, 46f), 13f, 7f, -35f);
+            return Mathf.Max(stem, Mathf.Max(left, right));
+        }
+
+        /// <summary>A round sun with eight short rays.</summary>
+        private static float SunInk(float x, float y)
+        {
+            var point = new Vector2(x, y);
+            float ink = Mathf.Clamp01(13f - Vector2.Distance(point, IconMiddle) + 0.5f);
+            for (int ray = 0; ray < 8; ray++)
+            {
+                float angle = ray * Mathf.PI / 4f;
+                var direction = new Vector2(Mathf.Cos(angle), Mathf.Sin(angle));
+                ink = Mathf.Max(ink, LineInk(SegmentDistance(point, IconMiddle + direction * 19f, IconMiddle + direction * 28f), 5f));
+            }
+
+            return ink;
+        }
+
+        /// <summary>A pointed leaf leaning to one side, on a short stem, with its middle vein left clear.</summary>
+        private static float LeafInk(float x, float y)
+        {
+            var point = new Vector2(x, y);
+            var center = new Vector2(34f, 36f);
+            float leaf = EllipseInk(point, center, 12f, 23f, -35f);
+            Vector2 along = Rotate(Vector2.up, -35f);
+            float vein = LineInk(SegmentDistance(point, center - along * 16f, center + along * 18f), 2f);
+            float stem = LineInk(SegmentDistance(point, center - along * 20f, center - along * 29f), 4f);
+            return Mathf.Max(leaf * (1f - vein), stem);
+        }
+
+        /// <summary>Six arms, each with a small V near its end.</summary>
+        private static float SnowflakeInk(float x, float y)
+        {
+            var point = new Vector2(x, y);
+            float ink = 0f;
+            for (int arm = 0; arm < 6; arm++)
+            {
+                Vector2 direction = Rotate(Vector2.up, arm * 60f);
+                Vector2 tip = IconMiddle + direction * 27f;
+                Vector2 fork = IconMiddle + direction * 17f;
+                ink = Mathf.Max(ink, LineInk(SegmentDistance(point, IconMiddle, tip), 4.5f));
+                ink = Mathf.Max(ink, LineInk(SegmentDistance(point, fork, fork + Rotate(direction, 45f) * 8f), 3.5f));
+                ink = Mathf.Max(ink, LineInk(SegmentDistance(point, fork, fork + Rotate(direction, -45f) * 8f), 3.5f));
+            }
+
+            return ink;
+        }
+
+        /// <summary>How much a line this wide, this far away, covers a point; smooth over a pixel.</summary>
+        private static float LineInk(float distance, float width)
+        {
+            return Mathf.Clamp01(width * 0.5f - distance + 0.5f);
+        }
+
+        /// <summary>How much an ellipse with these half-sizes, turned this many degrees, covers a point; smooth over a pixel.</summary>
+        private static float EllipseInk(Vector2 point, Vector2 center, float halfWidth, float halfHeight, float degrees)
+        {
+            Vector2 local = Rotate(point - center, -degrees);
+            float reach = new Vector2(local.x / halfWidth, local.y / halfHeight).magnitude;
+            float outside = (reach - 1f) * Mathf.Min(halfWidth, halfHeight);
+            return Mathf.Clamp01(0.5f - outside);
+        }
+
+        private static Vector2 Rotate(Vector2 vector, float degrees)
+        {
+            float radians = degrees * Mathf.Deg2Rad;
+            float cos = Mathf.Cos(radians);
+            float sin = Mathf.Sin(radians);
+            return new Vector2(vector.x * cos - vector.y * sin, vector.x * sin + vector.y * cos);
+        }
+
         /// <summary>A square white icon, its alpha at each pixel's middle given by <paramref name="inkAt"/> (0 to 1).</summary>
         private static void PaintIcon(string path, System.Func<float, float, float> inkAt)
         {

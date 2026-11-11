@@ -1,19 +1,23 @@
 using System.Collections.Generic;
 using TreeGame.Core;
 using TreeGame.Items;
+using TreeGame.Seasons;
 using UnityEngine;
 
 namespace TreeGame.Trees
 {
     /// <summary>
     /// Drops leaves on the ground around the tree at random intervals once its foliage has grown enough
-    /// (settings in <see cref="GameConfig"/>), up to a maximum lying around at once. Each leaf is a copy of a
+    /// (settings in <see cref="GameConfig"/>), up to a maximum lying around at once. They fall most in autumn and not at
+    /// all in winter. Each leaf is a copy of a
     /// pickup prefab, so how a leaf looks and what it gives is edited on the prefab, not here.
     /// </summary>
     public class FallenLeafSpawner : MonoBehaviour, IAdvancesWithTime
     {
         [SerializeField] private TreeGrowth treeGrowth;
         [SerializeField] private GameConfig config;
+        [Tooltip("Makes leaves fall more or less often with the season. Without one, they fall the same all year.")]
+        [SerializeField] private SeasonClock seasons;
         [SerializeField] private ItemPickup leafPrefab;
         [Tooltip("Where spawned leaves are parented. Kept outside the tree so its generated parts stay separate.")]
         [SerializeField] private Transform container;
@@ -47,7 +51,8 @@ namespace TreeGame.Trees
 
         public void Advance(float seconds)
         {
-            secondsUntilNextLeaf -= seconds;
+            // The season makes the wait count down faster or slower; in winter it stands still, as the tree is bare.
+            secondsUntilNextLeaf -= seconds * SeasonClock.MultiplierOf(seasons, SeasonEffect.LeafFall);
 
             // A loop, because catching up after a long time can mean several leaves are due at once.
             while (secondsUntilNextLeaf <= 0f)

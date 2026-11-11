@@ -175,6 +175,7 @@ namespace TreeGame.DevTools
                 healthFill = 0.125f,
                 overwateredSecondsLeft = 8f,
                 overfedSecondsLeft = 3f,
+                seasonSeconds = 950f,
                 playerX = 0.5f,
                 inventorySlots = slots,
                 composter = new SavedComposter { state = (int)CompostState.Done, workSeconds = 30f, workDuration = 30f, compostGrams = 40f },
@@ -201,6 +202,7 @@ namespace TreeGame.DevTools
             Expect(failures, changed.foliageExtraGrowth == 1f, $"extra growth of 3 should be restored as 1, not {changed.foliageExtraGrowth}");
             Expect(failures, changed.overwateredSecondsLeft == 8f, $"8s left overwatered restored as {changed.overwateredSecondsLeft}");
             Expect(failures, changed.overfedSecondsLeft == 3f, $"3s left overfed restored as {changed.overfedSecondsLeft}");
+            Expect(failures, changed.seasonSeconds == 950f, $"950s into the seasons restored as {changed.seasonSeconds}");
             Expect(failures, changed.secondsUntilNextInsect == 12.5f, $"a wait of 12.5s for the next insect restored as {changed.secondsUntilNextInsect}");
             Expect(failures, Mathf.Approximately(changed.waterFill, 0.25f), $"water restored as {changed.waterFill}");
             Expect(failures, Mathf.Approximately(changed.nutrientsFill, 0.75f), $"nutrients restored as {changed.nutrientsFill}");

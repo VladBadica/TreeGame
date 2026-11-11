@@ -8,6 +8,7 @@ using TreeGame.Menus;
 using TreeGame.Minigames;
 using TreeGame.Pests;
 using TreeGame.Saving;
+using TreeGame.Seasons;
 using TreeGame.Trees;
 using TreeGame.World;
 using UnityEditor;
@@ -56,8 +57,9 @@ namespace TreeGame.EditorTools
             MarketOffer[] marketOffers = MarketBuilder.GetOrCreateOffers();
             AssetDatabase.SaveAssets();
 
-            WorldBuilder.CreateStage();
+            Renderer ground = WorldBuilder.CreateStage();
             WorldBuilder.CreateFences(fenceNear, fenceFar);
+            SeasonClock seasons = SeasonBuilder.CreateClock(config);
             MinigameRunner minigameRunner = CreateMinigameRunner();
             MusicBuilder.CreateGameMusic();
             WaterWell well = StationBuilder.CreateWell(config, minigameRunner, wellMinigame);
@@ -77,6 +79,7 @@ namespace TreeGame.EditorTools
             StationBuilder.CreateRunningWaterSound(well, treeWaterReceiver);
             TreeBuilder.CreateFallenLeafSpawner(tree, config, fallenLeafPrefab);
             InsectInfestation insects = InsectBuilder.CreateInsects(tree, health, config, insect, out InsectVisuals insectVisuals);
+            SeasonBuilder.ConnectToSeasons(seasons, tree, water, nutrients, composter);
             MarketStall marketStall = MarketBuilder.CreateStall(marketOffers, coin, tree.GetComponent<TreeGrowthRates>(),
                 out Interactable marketInteractable);
             Transform player = PlayerBuilder.CreatePlayer(config, tree.transform);
@@ -87,7 +90,8 @@ namespace TreeGame.EditorTools
             WorldBuilder.FitCameraToTree(camera, tree.GetComponent<TreeVisuals>());
             var viewCamera = camera.GetComponent<Camera>();
             PlayerBuilder.ConnectToCamera(player, viewCamera);
-            WorldBuilder.CreateBackdrop(camera);
+            Transform backdrop = WorldBuilder.CreateBackdrop(camera);
+            SeasonBuilder.ColorScenery(seasons, ground, backdrop);
 
             UIFactory.CreateEventSystem();
             Transform hud = UIFactory.CreateCanvas("HUD", 0);
@@ -97,12 +101,13 @@ namespace TreeGame.EditorTools
             HudBuilder.CreateGatherPrompt(hud, player.GetComponent<ItemCollector>(), viewCamera);
             HudBuilder.CreateInventoryBar(hud, player.GetComponent<Inventory>());
             HudBuilder.CreateOffScreenInsectBubble(hud, insects, tree.GetComponent<TreeVisuals>(), viewCamera, insect, notificationBubble);
+            SeasonBuilder.CreateSeasonHud(hud, seasons);
             // Own canvas, drawn on top, so all dev tooling can be removed by deleting one object.
-            DebugPanelBuilder.CreateDebugPanel(UIFactory.CreateCanvas("Debug UI", 100), tree);
+            DebugPanelBuilder.CreateDebugPanel(UIFactory.CreateCanvas("Debug UI", 100), tree, seasons);
             PauseMenu pauseMenu = PauseMenuBuilder.CreatePauseMenu(player, minigameRunner, tree.GetComponent<TreeSeed>(), out Button quitToMenuButton);
             MarketBuilder.CreateMenu(marketStall, marketInteractable, player, pauseMenu);
             GameSaver saver = SaveBuilder.CreateSaveAndLoad(minigameRunner, pauseMenu, quitToMenuButton, tree, water, nutrients, health,
-                overwatering, overfeeding, player, composter, insects, camera, waterBucket, compostBucket, brownLeaves, coin);
+                overwatering, overfeeding, player, composter, insects, seasons, camera, waterBucket, compostBucket, brownLeaves, coin);
             HudBuilder.CreateSaveMessage(hud, saver);
 
             BuilderHelpers.SaveGeneratedScene(scene, scenePath);

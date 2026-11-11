@@ -6,6 +6,7 @@ using TreeGame.Minigames;
 using TreeGame.Pests;
 using TreeGame.Player;
 using TreeGame.Saving;
+using TreeGame.Seasons;
 using TreeGame.Trees;
 using TreeGame.World;
 using UnityEngine;
@@ -22,7 +23,7 @@ namespace TreeGame.EditorTools
         public static GameSaver CreateSaveAndLoad(MinigameRunner minigameRunner, PauseMenu pauseMenu, Button quitToMenuButton,
             GameObject tree, TreeResource water, TreeResource nutrients, TreeResource health,
             OverflowPenalty overwatering, OverflowPenalty overfeeding, Transform player,
-            Composter composter, InsectInfestation insects, Transform camera, params ItemDefinition[] knownItems)
+            Composter composter, InsectInfestation insects, SeasonClock seasons, Transform camera, params ItemDefinition[] knownItems)
         {
             GameObject owner = minigameRunner.gameObject;
 
@@ -43,7 +44,8 @@ namespace TreeGame.EditorTools
                 ("composter", composter),
                 ("insects", insects),
                 ("insectSpawner", tree.GetComponent<InsectSpawner>()),
-                ("leaves", tree.GetComponent<FallenLeafSpawner>()));
+                ("leaves", tree.GetComponent<FallenLeafSpawner>()),
+                ("seasons", seasons));
             SetReferenceArray(world, "knownItems", knownItems);
 
             SetReferences(owner.AddComponent<GameLoader>(),

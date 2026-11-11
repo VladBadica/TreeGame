@@ -1,5 +1,6 @@
 using TMPro;
 using TreeGame.EditorTools;
+using TreeGame.Seasons;
 using TreeGame.Trees;
 using UnityEngine;
 using UnityEngine.UI;
@@ -14,14 +15,15 @@ namespace TreeGame.DevTools
     /// </summary>
     internal static class DebugPanelBuilder
     {
-        public static void CreateDebugPanel(Transform canvas, GameObject tree)
+        public static void CreateDebugPanel(Transform canvas, GameObject tree, SeasonClock seasons)
         {
             // Unity leaves objects with this built-in tag out of builds, so the panel only exists when playing in the Editor.
             canvas.gameObject.tag = "EditorOnly";
 
             var treeGrowth = tree.GetComponent<TreeGrowth>();
             DefaultControls.Resources resources = GetUIResources();
-            GameObject panel = CreatePanel(canvas, "Growth Debug Panel", new Vector2(0f, 1f), new Vector2(24f, -24f), new Vector2(460f, 560f));
+            // Below the season wheel, which sits in the same corner.
+            GameObject panel = CreatePanel(canvas, "Growth Debug Panel", new Vector2(0f, 1f), new Vector2(24f, -300f), new Vector2(460f, 680f));
 
             // Mouse-only: otherwise a selected control would also react to the arrow keys used for walking.
             var noNavigation = new Navigation { mode = Navigation.Mode.None };
@@ -70,6 +72,30 @@ namespace TreeGame.DevTools
             SetReferenceArray(debugPanel, "labels", labels);
 
             CreateRateControls(panel.transform, resources, noNavigation, tree);
+            CreateSeasonControls(panel.transform, resources, noNavigation, seasons);
+        }
+
+        /// <summary>The season and year, a slider through the year, and a button to skip to the next season.</summary>
+        private static void CreateSeasonControls(Transform panel, DefaultControls.Resources resources, Navigation noNavigation, SeasonClock seasons)
+        {
+            TMP_Text label = CreateText("Season Label", 22f, Color.white, TextAlignmentOptions.MidlineLeft);
+            AddToLayout(label.gameObject, panel, 28f);
+            label.text = "Season: Year 1 · Early Spring"; // Placeholder; the panel shows the real season at runtime.
+
+            Slider slider = DefaultControls.CreateSlider(resources).GetComponent<Slider>();
+            slider.name = "Year Slider";
+            AddToLayout(slider.gameObject, panel, 20f);
+            slider.navigation = noNavigation;
+
+            Button nextSeason = CreateButton(resources, panel, "Next Season Button", "Skip to next season");
+            AddToLayout(nextSeason.gameObject, panel, 34f);
+            nextSeason.navigation = noNavigation;
+
+            SetReferences(panel.gameObject.AddComponent<SeasonDebugPanel>(),
+                ("clock", seasons),
+                ("label", label),
+                ("yearSlider", slider),
+                ("nextSeasonButton", nextSeason));
         }
 
         /// <summary>

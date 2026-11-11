@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using TreeGame.Core;
+using TreeGame.Seasons;
 using UnityEngine;
 using NumericsVector3 = System.Numerics.Vector3;
 
@@ -12,6 +13,7 @@ namespace TreeGame.Trees
     /// so the same growth values always produce the same tree and nothing is rebuilt. Leaves only ever grow on branches,
     /// never on the trunk.
     /// The displayed growth eases toward the actual growth; that is purely presentation, TreeGrowth stays authoritative.
+    /// The leaves also show the season they are told (see <see cref="SetSeasonLook"/>): color, falling and growing back.
     /// Any other visual (authored model, sprites) can replace this by listening to the same event.
     /// </summary>
     public class TreeVisuals : MonoBehaviour
@@ -135,6 +137,22 @@ namespace TreeGame.Trees
                  "the same whatever this is.")]
         [SerializeField, Range(0, 400)] private int extraFoliageClusterCount = 250;
 
+        [Header("Seasons")]
+        [Tooltip("Multiplies the leaves' colors while they are fresh in spring: lighter and more yellow-green.")]
+        [SerializeField, ColorUsage(false, true)] private Color springLeafTint = new Color(1.2f, 1.22f, 0.8f);
+        [Tooltip("The colors leaves turn in autumn, from those shaded inside the crown to sunlit ones. Each tree turns one " +
+                 "of these, picked by its seed, so different trees have different autumns. They multiply the green leaf " +
+                 "texture, so they go above 1 to turn it red or gold.")]
+        [SerializeField] private AutumnColors[] autumnPalettes =
+        {
+            new AutumnColors("Maple red", new Color(1.9f, 0.32f, 0.32f), new Color(2.9f, 0.62f, 0.42f)),
+            new AutumnColors("Birch gold", new Color(1.7f, 0.95f, 0.3f), new Color(2.7f, 1.45f, 0.4f)),
+            new AutumnColors("Oak orange", new Color(2f, 0.62f, 0.28f), new Color(3f, 1f, 0.38f)),
+        };
+        [Tooltip("How gradually leaves fall and grow in with the seasons: the share of the crown that is part way at once. " +
+                 "Higher looks softer; lower, more like leaves popping one at a time.")]
+        [SerializeField, Range(0.01f, 0.5f)] private float leafCoverSoftness = 0.15f;
+
         [Header("Wind Response (at wind strength 1)")]
         [Tooltip("Degrees the whole tree leans from its base, over trunk growth. Saplings bend; by default the " +
                  "trunk eases to fully rigid at 40% trunk growth (the curve reaches 1 there), leaving only branches and leaves moving.")]
@@ -186,6 +204,25 @@ namespace TreeGame.Trees
             public float Along; // Where on its branch it grows, as a share of the branch's length.
             public float SizeScale;
             public Quaternion RestRotation;
+
+            // When it falls in autumn and grows back in spring, 0..1: the first to fall is the last to grow back.
+            public float SeasonOrder;
+        }
+
+        /// <summary>The colors a tree's leaves turn in autumn, one set per kind of tree.</summary>
+        [System.Serializable]
+        private struct AutumnColors
+        {
+            public string name;
+            [ColorUsage(false, true)] public Color shaded;
+            [ColorUsage(false, true)] public Color sunlit;
+
+            public AutumnColors(string name, Color shaded, Color sunlit)
+            {
+                this.name = name;
+                this.shaded = shaded;
+                this.sunlit = sunlit;
+            }
         }
 
         private readonly List<Mesh> meshes = new List<Mesh>();
@@ -209,6 +246,16 @@ namespace TreeGame.Trees
 
         private float windStrength;
         private float appliedWindStrength;
+
+        // The leaves' season (see SetSeasonLook). A full green crown until told otherwise.
+        private float leafCover = 1f;
+        private float autumnAmount;
+        private float freshAmount;
+        private float topWithAllLeaves = float.MinValue;
+
+        // The leaf shade materials and where each sits between the dark and light tints, so they can be recolored.
+        private readonly List<Material> leafShades = new List<Material>();
+        private readonly List<float> leafShadeLight = new List<float>();
 
         private void Awake()
         {
@@ -355,6 +402,46 @@ namespace TreeGame.Trees
         }
 
         /// <summary>
+        /// Sets how the leaves look for the season, each 0 to 1: <paramref name="cover"/> is how much of the crown has
+        /// leaves (0 bare, 1 full), <paramref name="autumn"/> how far they have turned to this tree's autumn colors, and
+        /// <paramref name="fresh"/> how light and new their spring green still is. Leaves fall and grow back in a fixed
+        /// order, so the same tree always loses its leaves the same way. It doesn't change the tree's growth: a bare
+        /// winter tree keeps its foliage growth for spring. The tree doesn't know about seasons; it just shows this.
+        /// </summary>
+        public void SetSeasonLook(float cover, float autumn, float fresh)
+        {
+            cover = Clean01(cover);
+            autumn = Clean01(autumn);
+            fresh = Clean01(fresh);
+
+            const float unnoticeable = 0.001f;
+            bool colorChanged = Mathf.Abs(autumn - autumnAmount) > unnoticeable || Mathf.Abs(fresh - freshAmount) > unnoticeable;
+            bool coverChanged = Mathf.Abs(cover - leafCover) > unnoticeable ||
+                                (cover != leafCover && (cover == 0f || cover == 1f)); // Always reach bare and full exactly.
+
+            if (colorChanged)
+            {
+                autumnAmount = autumn;
+                freshAmount = fresh;
+                ColorLeaves();
+            }
+
+            if (coverChanged)
+            {
+                leafCover = cover;
+                if (generatedRoot != null)
+                {
+                    Render();
+                }
+            }
+        }
+
+        private static float Clean01(float value)
+        {
+            return float.IsFinite(value) ? Mathf.Clamp01(value) : 0f;
+        }
+
+        /// <summary>
         /// The world height of the highest point of the tree as it is drawn now, leaves included, without the wind's
         /// sway. Kept up to date as the tree grows, e.g. for a camera that keeps the whole tree in view.
         /// </summary>
@@ -441,7 +528,14 @@ namespace TreeGame.Trees
                 }
             }
 
-            TopHeight = top;
+            // Losing leaves for the winter doesn't make the tree any smaller, so it stays as tall as it last was with all
+            // of them; otherwise a camera keeping it in view would move in and out with every year.
+            if (leafCover >= 1f)
+            {
+                topWithAllLeaves = top;
+            }
+
+            TopHeight = Mathf.Max(top, topWithAllLeaves);
         }
 
         private void ApplyBranch(Branch branch, float branchGrowth, float branchSize, float trunkHeightValue, float trunkThicknessValue)
@@ -535,8 +629,10 @@ namespace TreeGame.Trees
                 }
 
                 // A cluster fades in as its visible count passes it, giving a continuous increase in density. Leaves on a
-                // branch then grow in quickly as it sprouts.
-                float appear = Mathf.Clamp01(shown) * Mathf.Clamp01(carrier.Progress / leavesFullAtBranchProgress);
+                // branch then grow in quickly as it sprouts. The season shrinks it away as it falls and grows it back in
+                // spring.
+                float appear = Mathf.Clamp01(shown) * Mathf.Clamp01(carrier.Progress / leavesFullAtBranchProgress) *
+                               SeasonCover(cluster);
 
                 // Never bigger than the branch carrying it is long, so a just-sprouted branch carries small leaves rather
                 // than a big clump right against what it grows from.
@@ -556,6 +652,17 @@ namespace TreeGame.Trees
                 // of it, as moving them up would leave them floating away from their branch.
                 cluster.Transform.gameObject.SetActive(LowestPoint(cluster.Transform) >= transform.position.y);
             }
+        }
+
+        /// <summary>
+        /// How much of a cluster the season leaves, 0..1. Each cluster has its own place in the order, and goes over a
+        /// short stretch of the cover around it, so the crown thins and fills smoothly rather than all at once. Full cover
+        /// leaves every cluster whole; none leaves none.
+        /// </summary>
+        private float SeasonCover(FoliageCluster cluster)
+        {
+            float softness = Mathf.Max(0.01f, leafCoverSoftness);
+            return Mathf.Clamp01((leafCover * (1f + softness) - cluster.SeasonOrder) / softness);
         }
 
         /// <summary>
@@ -654,6 +761,7 @@ namespace TreeGame.Trees
             generatedRoot.gameObject.SetActive(false);
             Destroy(generatedRoot.gameObject);
             generatedRoot = null;
+            topWithAllLeaves = float.MinValue; // A different tree, with a height of its own.
             DestroyGeneratedAssets();
         }
 
@@ -762,6 +870,14 @@ namespace TreeGame.Trees
                 clusters, ownShade);
 
             foliage = clusters.ToArray();
+
+            // From a generator of its own, so the leaves' places are the same as before seasons existed.
+            var seasonRandom = new System.Random(unchecked(CurrentSeed * 53 + 11));
+            foreach (FoliageCluster cluster in foliage)
+            {
+                cluster.SeasonOrder = seasonRandom.NextFloat(0f, 1f);
+            }
+
             ShadeFoliage(ownShade.ToArray());
         }
 
@@ -899,16 +1015,48 @@ namespace TreeGame.Trees
                 return shades;
             }
 
+            leafShades.Clear();
+            leafShadeLight.Clear();
             for (int i = 0; i < leafTintShades; i++)
             {
                 float t = leafTintShades > 1 ? i / (leafTintShades - 1f) : 0.5f;
                 var shade = new Material(foliageMaterial) { name = $"{foliageMaterial.name} (shade {i})" };
-                shade.SetColor("_BaseColor", Color.Lerp(darkLeafTint, lightLeafTint, t));
                 shades.Add(shade);
                 materials.Add(shade);
+                leafShades.Add(shade);
+                leafShadeLight.Add(t);
             }
 
+            ColorLeaves();
             return shades;
+        }
+
+        /// <summary>
+        /// Gives each leaf shade its color for the season: its green between the dark and light tints, lighter while
+        /// fresh in spring, turning to this tree's autumn colors. Only a few shared materials, so it's cheap to do often.
+        /// </summary>
+        private void ColorLeaves()
+        {
+            AutumnColors palette = AutumnPalette();
+            for (int i = 0; i < leafShades.Count; i++)
+            {
+                float light = leafShadeLight[i];
+                Color green = Color.Lerp(darkLeafTint, lightLeafTint, light);
+                Color spring = Color.Lerp(green, green * springLeafTint, freshAmount);
+                Color autumn = Color.Lerp(palette.shaded, palette.sunlit, light);
+                leafShades[i].SetColor("_BaseColor", Color.Lerp(spring, autumn, autumnAmount));
+            }
+        }
+
+        /// <summary>The autumn colors this tree turns, picked by its seed; plain green if there are none to pick from.</summary>
+        private AutumnColors AutumnPalette()
+        {
+            if (autumnPalettes == null || autumnPalettes.Length == 0)
+            {
+                return new AutumnColors("Green", darkLeafTint, lightLeafTint);
+            }
+
+            return autumnPalettes[SeasonRules.AutumnPalette(CurrentSeed, autumnPalettes.Length)];
         }
 
         /// <summary>A leaf cluster without its material, which <see cref="ShadeFoliage"/> gives it once all are placed.</summary>
@@ -989,6 +1137,8 @@ namespace TreeGame.Trees
 
             meshes.Clear();
             materials.Clear();
+            leafShades.Clear();
+            leafShadeLight.Clear();
         }
 
         private static Transform CreateEmpty(string objectName, Transform parent)

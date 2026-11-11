@@ -67,6 +67,13 @@ namespace TreeGame.Saving
                 data.overfedSecondsLeft = 0f;
                 data.version = 9;
             }
+
+            if (data.version == 9)
+            {
+                // Version 10 added the seasons, which didn't exist before, so older trees start at the beginning of spring.
+                data.seasonSeconds = 0f;
+                data.version = 10;
+            }
         }
 
         /// <summary>
