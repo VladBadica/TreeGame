@@ -178,6 +178,15 @@ namespace TreeGame.EditorTools
             return waterReceiver;
         }
 
+        /// <summary>Slows the tree's growth while this resource is empty. On the tree itself, next to its other penalties.</summary>
+        public static void CreateEmptyResourcePenalty(GameObject tree, TreeResource resource, GameConfig config)
+        {
+            SetReferences(tree.AddComponent<EmptyResourcePenalty>(),
+                ("resource", resource),
+                ("growthRates", tree.GetComponent<TreeGrowthRates>()),
+                ("config", config));
+        }
+
         /// <summary>
         /// The penalty for pouring too much of a resource onto the tree at once (e.g. overwatering), for the resource the
         /// receiver takes. On the tree itself, next to its growth, so after a minigame the penalty is still in place while

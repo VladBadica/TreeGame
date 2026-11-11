@@ -386,6 +386,24 @@ namespace TreeGame.DevTools
             overwatering.RestoreSecondsLeft(float.NaN);
             Expect(failures, !overwatering.IsActive, "a NaN time shouldn't bring a penalty");
 
+            // An empty resource slows growth by 2, both empty by 4; filling them again lifts it.
+            TreeResource water = System.Array.Find(resources, resource => resource.Type == TreeResourceType.Water);
+            TreeResource nutrients = System.Array.Find(resources, resource => resource.Type == TreeResourceType.Nutrients);
+            float originalWaterAmount = water.Amount;
+            float originalNutrientsAmount = nutrients.Amount;
+            water.SetAmount(water.MaxAmount);
+            nutrients.SetAmount(nutrients.MaxAmount);
+            int fed = rates.TemporaryChange;
+            water.SetAmount(0f);
+            Expect(failures, rates.TemporaryChange == fed - 2, $"no water should slow growth by 2, changed it by {rates.TemporaryChange - fed}");
+            nutrients.SetAmount(0f);
+            Expect(failures, rates.TemporaryChange == fed - 4, $"no water and no nutrients should slow growth by 4, changed it by {rates.TemporaryChange - fed}");
+            water.SetAmount(1f);
+            nutrients.SetAmount(1f);
+            Expect(failures, rates.TemporaryChange == fed, "watering and feeding should lift the slowdown");
+            water.SetAmount(originalWaterAmount);
+            nutrients.SetAmount(originalNutrientsAmount);
+
             overwatering.RestoreSecondsLeft(originalWater);
             overfeeding.RestoreSecondsLeft(originalNutrients);
         }

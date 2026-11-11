@@ -72,6 +72,8 @@ namespace TreeGame.EditorTools
                 out ResourceReceiver treeNutrientsReceiver);
             OverflowPenalty overwatering = TreeBuilder.CreateOverflowPenalty(tree, treeWaterReceiver, config);
             OverflowPenalty overfeeding = TreeBuilder.CreateOverflowPenalty(tree, treeNutrientsReceiver, config);
+            TreeBuilder.CreateEmptyResourcePenalty(tree, water, config);
+            TreeBuilder.CreateEmptyResourcePenalty(tree, nutrients, config);
             StationBuilder.CreateRunningWaterSound(well, treeWaterReceiver);
             TreeBuilder.CreateFallenLeafSpawner(tree, config, fallenLeafPrefab);
             InsectInfestation insects = InsectBuilder.CreateInsects(tree, health, config, insect, out InsectVisuals insectVisuals);
@@ -90,7 +92,7 @@ namespace TreeGame.EditorTools
             UIFactory.CreateEventSystem();
             Transform hud = UIFactory.CreateCanvas("HUD", 0);
             HudBuilder.CreateResourceHud(hud, health, water, nutrients);
-            HudBuilder.CreatePenaltyBadges(hud, overwatering, overfeeding);
+            HudBuilder.CreateStatusBadges(hud, water, nutrients, overwatering, overfeeding);
             HudBuilder.CreateInteractionPrompt(hud, player.GetComponent<Interactor>(), viewCamera);
             HudBuilder.CreateGatherPrompt(hud, player.GetComponent<ItemCollector>(), viewCamera);
             HudBuilder.CreateInventoryBar(hud, player.GetComponent<Inventory>());

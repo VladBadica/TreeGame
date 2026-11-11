@@ -26,14 +26,16 @@ namespace TreeGame.EditorTools
         }
 
         /// <summary>
-        /// A row of badges just under the tree's needs, at its right edge, one per penalty slowing the tree's growth: a
-        /// down arrow over the seconds left, so two penalties at once show two arrows. Hidden badges take no room, so
-        /// whichever are showing sit at the right edge. Hovering over a badge says what it means.
+        /// A row of badges just under the tree's needs, at its right edge, each a down arrow showing something wrong with
+        /// the tree. A red arrow per empty resource, while the tree is losing health for lack of it; a white arrow over the
+        /// seconds left per penalty slowing its growth (overwatered, overfed). Two problems at once show two arrows. Hidden
+        /// badges take no room, so whichever are showing sit at the right edge. Hovering over a badge says what it means.
         /// </summary>
-        public static void CreatePenaltyBadges(Transform canvas, OverflowPenalty overwatering, OverflowPenalty overfeeding)
+        public static void CreateStatusBadges(Transform canvas, TreeResource water, TreeResource nutrients,
+            OverflowPenalty overwatering, OverflowPenalty overfeeding)
         {
             // Under the Tree Needs panel (24 from the top, 168 tall), with a small gap.
-            var row = new GameObject("Growth Penalties", typeof(RectTransform), typeof(HorizontalLayoutGroup));
+            var row = new GameObject("Tree Status", typeof(RectTransform), typeof(HorizontalLayoutGroup));
             var rowRect = (RectTransform)row.transform;
             rowRect.SetParent(canvas, false);
             rowRect.anchorMin = rowRect.anchorMax = rowRect.pivot = new Vector2(1f, 1f);
@@ -45,49 +47,82 @@ namespace TreeGame.EditorTools
             layout.childControlWidth = layout.childControlHeight = true;
             layout.childForceExpandWidth = layout.childForceExpandHeight = false;
 
-            // Overwatering last, so on its own it sits at the right edge, where it always has.
+            // Health warnings first, so they sit to the left; overwatering last, so on its own it sits at the right edge,
+            // where it always has. Every badge's component lives on the always-active row.
+            var warningBackground = new Color(0.12f, 0.12f, 0.12f, 0.85f);
+            var warningArrow = new Color(0.95f, 0.3f, 0.28f);
+            CreateEmptyResourceBadge(rowRect, nutrients, "No nutrients, tree is suffering", warningBackground, warningArrow);
+            CreateEmptyResourceBadge(rowRect, water, "No water, tree is suffering", warningBackground, warningArrow);
             CreatePenaltyBadge(rowRect, overfeeding, "Overfed, slower growth", new Color(0.55f, 0.38f, 0.16f, 0.85f));
             CreatePenaltyBadge(rowRect, overwatering, "Overwatered, slower growth", new Color(0.16f, 0.32f, 0.55f, 0.85f));
         }
 
-        /// <summary>One penalty's badge in the row, hidden until the penalty is active. Its component lives on the always-active row.</summary>
-        private static void CreatePenaltyBadge(RectTransform row, OverflowPenalty penalty, string tooltipText, Color color)
+        /// <summary>A badge shown while a resource is empty: just a red arrow, as it lasts until the player acts rather than a set time.</summary>
+        private static void CreateEmptyResourceBadge(RectTransform row, TreeResource resource, string tooltipText,
+            Color background, Color arrowColor)
         {
-            var badge = new GameObject($"{penalty.ResourceType} Penalty Badge", typeof(RectTransform), typeof(Image), typeof(LayoutElement));
+            GameObject badge = CreateBadge(row, $"No {resource.Type} Badge", tooltipText, background, arrowColor, showsTime: false, out _);
+            SetReferences(row.gameObject.AddComponent<EmptyResourceStatus>(),
+                ("resource", resource),
+                ("badge", badge));
+        }
+
+        /// <summary>A badge shown while a penalty is active: a white arrow over the seconds left.</summary>
+        private static void CreatePenaltyBadge(RectTransform row, OverflowPenalty penalty, string tooltipText, Color background)
+        {
+            GameObject badge = CreateBadge(row, $"{penalty.ResourceType} Penalty Badge", tooltipText, background, Color.white,
+                showsTime: true, out TMP_Text timeLabel);
+            SetReferences(row.gameObject.AddComponent<OverflowPenaltyStatus>(),
+                ("penalty", penalty),
+                ("badge", badge),
+                ("label", timeLabel));
+        }
+
+        /// <summary>
+        /// One badge in the status row: a down arrow on a colored square, with the seconds left under it if it
+        /// <paramref name="showsTime"/> (otherwise the arrow sits in the middle), and a tooltip on hover. Saved hidden; the
+        /// caller adds what shows it.
+        /// </summary>
+        private static GameObject CreateBadge(RectTransform row, string objectName, string tooltipText, Color background,
+            Color arrowColor, bool showsTime, out TMP_Text timeLabel)
+        {
+            var badge = new GameObject(objectName, typeof(RectTransform), typeof(Image), typeof(LayoutElement));
             var badgeRect = (RectTransform)badge.transform;
             badgeRect.SetParent(row, false);
             var size = badge.GetComponent<LayoutElement>();
             size.preferredWidth = 76f;
             size.preferredHeight = 84f;
             // Takes raycasts, so the pointer hovering over it can be noticed.
-            StyleImage(badge.GetComponent<Image>(), color);
+            StyleImage(badge.GetComponent<Image>(), background);
 
             var arrow = new GameObject("Arrow", typeof(RectTransform), typeof(Image));
             var arrowRect = (RectTransform)arrow.transform;
             arrowRect.SetParent(badgeRect, false);
-            arrowRect.anchorMin = arrowRect.anchorMax = arrowRect.pivot = new Vector2(0.5f, 1f);
-            arrowRect.anchoredPosition = new Vector2(0f, -8f);
+            Vector2 arrowAnchor = showsTime ? new Vector2(0.5f, 1f) : new Vector2(0.5f, 0.5f);
+            arrowRect.anchorMin = arrowRect.anchorMax = arrowRect.pivot = arrowAnchor;
+            arrowRect.anchoredPosition = showsTime ? new Vector2(0f, -8f) : Vector2.zero;
             arrowRect.sizeDelta = new Vector2(44f, 44f);
             var arrowImage = arrow.GetComponent<Image>();
             arrowImage.sprite = PlaceholderArt.GetOrCreateDownArrowIcon();
+            arrowImage.color = arrowColor;
             arrowImage.preserveAspect = true;
             arrowImage.raycastTarget = false;
 
-            TMP_Text label = CreateText("Time Left", 22f, Color.white, TextAlignmentOptions.Bottom);
-            RectTransform labelRect = StretchInParent(label.gameObject, badgeRect);
-            labelRect.offsetMin = new Vector2(0f, 6f);
-            label.fontStyle = FontStyles.Bold;
-            label.raycastTarget = false;
-            label.text = "10s"; // Placeholder; the component sets the real time left at runtime.
+            timeLabel = null;
+            if (showsTime)
+            {
+                timeLabel = CreateText("Time Left", 22f, Color.white, TextAlignmentOptions.Bottom);
+                RectTransform labelRect = StretchInParent(timeLabel.gameObject, badgeRect);
+                labelRect.offsetMin = new Vector2(0f, 6f);
+                timeLabel.fontStyle = FontStyles.Bold;
+                timeLabel.raycastTarget = false;
+                timeLabel.text = "10s"; // Placeholder; the component sets the real time left at runtime.
+            }
 
             GameObject tooltip = CreateTooltip(badgeRect, tooltipText);
             SetReferences(badge.AddComponent<HoverTooltip>(), ("tooltip", tooltip));
-            badge.SetActive(false); // Saved hidden; shown only while the penalty is active.
-
-            SetReferences(row.gameObject.AddComponent<OverflowPenaltyStatus>(),
-                ("penalty", penalty),
-                ("badge", badge),
-                ("label", label));
+            badge.SetActive(false);
+            return badge;
         }
 
         /// <summary>

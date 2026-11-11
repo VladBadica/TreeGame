@@ -44,6 +44,9 @@ namespace TreeGame.Core
         [SerializeField, Min(1f)] private float secondsToRegenFullHealth = 1800f;
         [Tooltip("Seconds for health to go from full to 0 with one of water or nutrients empty. With both empty it takes half as long.")]
         [SerializeField, Min(1f)] private float secondsToLoseFullHealthPerEmptyResource = 420f;
+        [Tooltip("How much every part's growth rate drops while water or nutrients is empty. With both empty it drops twice " +
+                 "as much. Rates never go below 1.")]
+        [SerializeField, Min(0)] private int emptyResourceRatePenalty = 2;
 
         [Header("Overflow Penalties")]
         [Tooltip("Pouring too much water onto the tree at once overwaters it.")]
@@ -108,6 +111,8 @@ namespace TreeGame.Core
         public float SecondsToRegenFullHealth => secondsToRegenFullHealth;
 
         public float SecondsToLoseFullHealthPerEmptyResource => secondsToLoseFullHealthPerEmptyResource;
+
+        public int EmptyResourceRatePenalty => emptyResourceRatePenalty;
 
         /// <summary>The penalty for pouring too much of a resource onto the tree, or null if there is none for it.</summary>
         public OverflowPenaltySettings GetOverflowPenaltySettings(TreeResourceType type)
