@@ -76,9 +76,20 @@ namespace TreeGame.Market
             return CurrentRate(offer) >= GrowthRates.Max;
         }
 
+        /// <summary>
+        /// What the offer costs right now: its base price, doubled for each step the part's rate is above the rate it
+        /// started the game at. Going from 5 to 10 one step at a time costs 1, 2, 4, 8, 16 for a base price of 1.
+        /// </summary>
+        public int PriceOf(MarketOffer offer)
+        {
+            int stepsAboveStart = Mathf.Max(0, CurrentRate(offer) - growthRates.StartingRate(offer.Part));
+            // Rates stay within 1 to 10, so there are at most 9 steps and the doubling can't overflow.
+            return offer.BasePrice << stepsAboveStart;
+        }
+
         public bool CanAfford(MarketOffer offer)
         {
-            return offer != null && Coins >= offer.Price;
+            return offer != null && Coins >= PriceOf(offer);
         }
 
         public bool CanBuy(MarketOffer offer)
@@ -89,7 +100,7 @@ namespace TreeGame.Market
         /// <summary>Takes the price in coins and raises the part's growth rate. Returns false if it couldn't be bought.</summary>
         public bool TryBuy(MarketOffer offer)
         {
-            if (!CanBuy(offer) || !inventory.TryRemove(coin, offer.Price))
+            if (!CanBuy(offer) || !inventory.TryRemove(coin, PriceOf(offer)))
             {
                 return false;
             }

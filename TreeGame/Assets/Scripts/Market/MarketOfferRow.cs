@@ -77,7 +77,9 @@ namespace TreeGame.Market
                 ? $"Growth rate {rate}, the highest it goes"
                 : $"Growth rate {rate}, then {stall.RateAfterBuying(offer)}";
 
-            priceLabel.text = offer.Price == 1 ? "1 coin" : $"{offer.Price} coins";
+            // At the top rate there is no next purchase, so no price to show.
+            int price = stall.PriceOf(offer);
+            priceLabel.text = maxed ? "-" : price == 1 ? "1 coin" : $"{price} coins";
             priceLabel.color = stall.CanAfford(offer) ? priceColor : tooExpensiveColor;
 
             buyButton.interactable = stall.CanBuy(offer);

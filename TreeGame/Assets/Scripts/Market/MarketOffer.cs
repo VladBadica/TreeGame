@@ -18,7 +18,8 @@ namespace TreeGame.Market
         [SerializeField] private TreeGrowthPart part = TreeGrowthPart.Trunk;
         [Tooltip("How much the part's growth rate goes up per purchase. Rates stop at 10.")]
         [SerializeField, Min(1)] private int rateIncrease = 1;
-        [Tooltip("Price in coins.")]
+        [Tooltip("Price in coins of the first purchase, while the part is at its starting rate. The price doubles for " +
+                 "each step the part's rate is above that, e.g. 1, 2, 4, 8, 16.")]
         [SerializeField, Min(0)] private int price = 1;
 
         public string DisplayName => displayName;
@@ -32,6 +33,7 @@ namespace TreeGame.Market
         // The asset file could still hold values the Inspector wouldn't allow.
         public int RateIncrease => Mathf.Max(1, rateIncrease);
 
-        public int Price => Mathf.Max(0, price);
+        /// <summary>The price of the first purchase; <see cref="MarketStall.PriceOf"/> gives the price right now.</summary>
+        public int BasePrice => Mathf.Max(0, price);
     }
 }

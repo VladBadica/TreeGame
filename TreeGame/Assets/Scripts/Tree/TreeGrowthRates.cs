@@ -105,8 +105,14 @@ namespace TreeGame.Trees
             started = true;
             foreach (TreeGrowthPart part in TreeGrowth.Parts)
             {
-                rates[IndexOf(part)] = config != null ? config.StartingGrowthRate(part) : GrowthRates.Middle;
+                rates[IndexOf(part)] = StartingRate(part);
             }
+        }
+
+        /// <summary>The rate a part starts a new game at, e.g. so prices can depend on how far it has been raised since.</summary>
+        public int StartingRate(TreeGrowthPart part)
+        {
+            return config != null ? config.StartingGrowthRate(part) : GrowthRates.Middle;
         }
 
         private static int IndexOf(TreeGrowthPart part)
