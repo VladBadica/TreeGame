@@ -19,9 +19,10 @@ namespace TreeGame.World
     }
 
     /// <summary>
-    /// The compost heap: the player drops in all their leaves, they compost for a while (time and yield in
-    /// <see cref="GameConfig"/>), then the compost can be collected into the player's compost bucket.
-    /// Collecting more than the bucket can hold leaves the rest in the heap. Drives the heap's
+    /// The compost heap: the player drops in leaves (up to a maximum per batch; the rest stay in the inventory),
+    /// they compost for a while (time, yield and maximum in <see cref="GameConfig"/>), then the compost can be
+    /// collected into the player's compost bucket. With a full bucket nothing is collected; collecting more than the
+    /// bucket can hold leaves the rest in the heap. Drives the heap's
     /// <see cref="Interactable"/> prompt for each state; connects interaction and inventory at this level.
     /// </summary>
     public class Composter : MonoBehaviour, IAdvancesWithTime
@@ -35,7 +36,12 @@ namespace TreeGame.World
         [SerializeField] private string dropInAction = "drop leaves";
         [SerializeField] private string workingStatus = "Composting...";
         [SerializeField] private string collectAction = "collect";
+        [Tooltip("Shown briefly instead of the prompt when the player tries to collect with a full compost bucket.")]
+        [SerializeField] private string bucketFullStatus = "Compost bucket is full";
+        [Tooltip("How long the full bucket message shows, in seconds.")]
+        [SerializeField, Min(0f)] private float bucketFullSeconds = 2f;
 
+        private float bucketFullSecondsLeft;
         private float workSeconds;
         private float workDuration;
         private float compostGrams;
@@ -96,6 +102,17 @@ namespace TreeGame.World
         {
             // Scaled time, so pausing via Time.timeScale also pauses composting.
             Advance(Time.deltaTime);
+
+            // The message is only feedback, not world state, so it counts down here rather than in Advance.
+            if (bucketFullSecondsLeft > 0f)
+            {
+                bucketFullSecondsLeft -= Time.deltaTime;
+                if (bucketFullSecondsLeft <= 0f)
+                {
+                    bucketFullSecondsLeft = 0f;
+                    UpdatePrompt();
+                }
+            }
         }
 
         public void Advance(float seconds)
@@ -148,9 +165,10 @@ namespace TreeGame.World
 
         private void DropIn(Inventory inventory)
         {
+            // Only up to a batch's worth goes in; the rest wait in the inventory for the next batch.
             // Without leaves there is nothing to compost; stay idle.
-            int leaves = inventory.RemoveAll(compostableItem);
-            if (leaves == 0)
+            int leaves = Mathf.Min(inventory.CountOf(compostableItem), config.MaxLeavesPerBatch);
+            if (leaves == 0 || !inventory.TryRemove(compostableItem, leaves))
             {
                 return;
             }
@@ -163,9 +181,17 @@ namespace TreeGame.World
 
         private void CollectInto(Inventory inventory)
         {
+            // A full bucket can't take any: the compost stays in the heap until there's room.
             CompostBucket bucket = inventory.FindFirst<CompostBucket>(candidate => !candidate.IsFull);
             if (bucket == null)
             {
+                // Only say so when the player has a bucket and it's full; without a bucket there's nothing to explain.
+                if (inventory.FindFirst<CompostBucket>() != null)
+                {
+                    bucketFullSecondsLeft = bucketFullSeconds;
+                    UpdatePrompt();
+                }
+
                 return;
             }
 
@@ -184,6 +210,7 @@ namespace TreeGame.World
         private void SetState(CompostState state)
         {
             State = state;
+            bucketFullSecondsLeft = 0f;
             UpdatePrompt();
             StateChanged?.Invoke(State);
         }
@@ -193,6 +220,12 @@ namespace TreeGame.World
             if (State == CompostState.Working)
             {
                 interactable.SetStatusText(workingStatus);
+                return;
+            }
+
+            if (bucketFullSecondsLeft > 0f)
+            {
+                interactable.SetStatusText(bucketFullStatus);
                 return;
             }
 

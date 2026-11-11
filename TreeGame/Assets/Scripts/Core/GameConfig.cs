@@ -74,6 +74,9 @@ namespace TreeGame.Core
         [SerializeField, Min(0f)] private float secondsToCompost = 20f;
         [Tooltip("Grams of compost made from each dropped-in leaf.")]
         [SerializeField, Min(0f)] private float compostGramsPerLeaf = 30f;
+        [Tooltip("The most leaves one batch takes. Any more stay in the inventory for later batches, so the player can " +
+                 "spread compost out instead of using every leaf at once.")]
+        [SerializeField, Min(1)] private int maxLeavesPerBatch = 5;
 
         [Header("Fallen Leaves")]
         [SerializeField] private FallenLeafSettings fallenLeaves = new FallenLeafSettings();
@@ -136,6 +139,9 @@ namespace TreeGame.Core
         public float SecondsToCompost => secondsToCompost;
 
         public float CompostGramsPerLeaf => compostGramsPerLeaf;
+
+        /// <summary>The most leaves one composter batch takes. Always at least 1.</summary>
+        public int MaxLeavesPerBatch => Mathf.Max(1, maxLeavesPerBatch);
 
         public FallenLeafSettings FallenLeaves => fallenLeaves;
 
