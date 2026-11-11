@@ -45,6 +45,12 @@ namespace TreeGame.Core
         [Tooltip("Seconds for health to go from full to 0 with one of water or nutrients empty. With both empty it takes half as long.")]
         [SerializeField, Min(1f)] private float secondsToLoseFullHealthPerEmptyResource = 420f;
 
+        [Header("Overflow Penalties")]
+        [Tooltip("Pouring too much water onto the tree at once overwaters it.")]
+        [SerializeField] private OverflowPenaltySettings overwatering = new OverflowPenaltySettings();
+        [Tooltip("Pouring too much compost onto the tree at once overfeeds it.")]
+        [SerializeField] private OverflowPenaltySettings overfeeding = new OverflowPenaltySettings();
+
         [Header("Player")]
         [Tooltip("Walking speed in world units per second.")]
         [SerializeField, Min(0.1f)] private float playerMoveSpeed = 4f;
@@ -102,6 +108,17 @@ namespace TreeGame.Core
         public float SecondsToRegenFullHealth => secondsToRegenFullHealth;
 
         public float SecondsToLoseFullHealthPerEmptyResource => secondsToLoseFullHealthPerEmptyResource;
+
+        /// <summary>The penalty for pouring too much of a resource onto the tree, or null if there is none for it.</summary>
+        public OverflowPenaltySettings GetOverflowPenaltySettings(TreeResourceType type)
+        {
+            return type switch
+            {
+                TreeResourceType.Water => overwatering,
+                TreeResourceType.Nutrients => overfeeding,
+                _ => null,
+            };
+        }
 
         public float PlayerMoveSpeed => playerMoveSpeed;
 

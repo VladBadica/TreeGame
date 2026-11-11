@@ -61,12 +61,9 @@ namespace TreeGame.DevTools
 
             clearExtraButton.onClick.AddListener(ClearExtraGrowth);
             growthRates.RateChanged += OnRateChanged;
+            growthRates.TemporaryChangeChanged += RefreshAll;
             extraGrowth.ExtraGrowthChanged += OnExtraGrowthChanged;
-
-            foreach (TreeGrowthPart part in TreeGrowth.Parts)
-            {
-                Refresh(part);
-            }
+            RefreshAll();
         }
 
         private void OnDisable()
@@ -86,6 +83,7 @@ namespace TreeGame.DevTools
             if (growthRates != null)
             {
                 growthRates.RateChanged -= OnRateChanged;
+                growthRates.TemporaryChangeChanged -= RefreshAll;
             }
 
             if (extraGrowth != null)
@@ -112,13 +110,24 @@ namespace TreeGame.DevTools
             }
         }
 
+        private void RefreshAll()
+        {
+            foreach (TreeGrowthPart part in TreeGrowth.Parts)
+            {
+                Refresh(part);
+            }
+        }
+
         private void Refresh(TreeGrowthPart part)
         {
             int index = Array.IndexOf(TreeGrowth.Parts, part);
             int rate = growthRates.GetRate(part);
+            int effectiveRate = growthRates.GetEffectiveRate(part);
             float extra = extraGrowth.GetExtraGrowth(part);
-            string filling = rate > GrowthRates.ExtraGrowthAbove ? " (filling)" : "";
-            labels[index].text = $"{part} rate {rate} · extra {extra * 100f:0}%{filling}";
+            string filling = effectiveRate > GrowthRates.ExtraGrowthAbove ? " (filling)" : "";
+            // While something temporary (e.g. overwatering) changes it, the rate the part actually grows at shows too.
+            string rateText = effectiveRate == rate ? $"{rate}" : $"{rate} (now {effectiveRate})";
+            labels[index].text = $"{part} rate {rateText} · extra {extra * 100f:0}%{filling}";
 
             // Without notify, so extra growth changes from other sources don't echo back into it.
             extraSliders[index].SetValueWithoutNotify(extra);

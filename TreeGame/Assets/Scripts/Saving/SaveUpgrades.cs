@@ -53,6 +53,20 @@ namespace TreeGame.Saving
                 data.secondsUntilNextInsect = -1f;
                 data.version = 7;
             }
+
+            if (data.version == 7)
+            {
+                // Version 8 added overwatering, which didn't exist before, so no older tree is overwatered.
+                data.overwateredSecondsLeft = 0f;
+                data.version = 8;
+            }
+
+            if (data.version == 8)
+            {
+                // Version 9 added overfeeding, which didn't exist before, so no older tree is overfed.
+                data.overfedSecondsLeft = 0f;
+                data.version = 9;
+            }
         }
 
         /// <summary>

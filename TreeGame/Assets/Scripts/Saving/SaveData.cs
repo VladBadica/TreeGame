@@ -21,8 +21,10 @@ namespace TreeGame.Saving
         /// Version 5 added the tree's name.
         /// Version 6 added each part's current growth rate and extra growth.
         /// Version 7 added how long until the next insect comes.
+        /// Version 8 added how long the tree stays overwatered.
+        /// Version 9 added how long the tree stays overfed.
         /// </summary>
-        public const int CurrentVersion = 7;
+        public const int CurrentVersion = 9;
 
         public int version;
 
@@ -52,6 +54,12 @@ namespace TreeGame.Saving
         public float waterFill;
         public float nutrientsFill;
         public float healthFill;
+
+        /// <summary>Seconds of play until the tree recovers from being overwatered; 0 if it isn't.</summary>
+        public float overwateredSecondsLeft;
+
+        /// <summary>Seconds of play until the tree recovers from being overfed; 0 if it isn't.</summary>
+        public float overfedSecondsLeft;
 
         public float playerX;
 

@@ -156,7 +156,9 @@ namespace TreeGame.EditorTools
         /// while standing at the trunk.
         /// </summary>
         /// <returns>The receiver for water, for anything that reacts to watering.</returns>
-        public static ResourceReceiver CreateTreeCare(Transform tree, TreeResource water, TreeResource nutrients)
+        /// <param name="nutrientsReceiver">The receiver for compost, for anything that reacts to feeding.</param>
+        public static ResourceReceiver CreateTreeCare(Transform tree, TreeResource water, TreeResource nutrients,
+            out ResourceReceiver nutrientsReceiver)
         {
             // Both actions use the buckets' hotbar keys rather than the interact key, so the prompts name those keys.
             // Narrow, so the player has to stand almost at the trunk, leaving room for other interactables nearby.
@@ -171,8 +173,24 @@ namespace TreeGame.EditorTools
 
             var waterReceiver = interactable.gameObject.AddComponent<ResourceReceiver>();
             SetReferences(waterReceiver, ("resource", water));
-            SetReferences(interactable.gameObject.AddComponent<ResourceReceiver>(), ("resource", nutrients));
+            nutrientsReceiver = interactable.gameObject.AddComponent<ResourceReceiver>();
+            SetReferences(nutrientsReceiver, ("resource", nutrients));
             return waterReceiver;
+        }
+
+        /// <summary>
+        /// The penalty for pouring too much of a resource onto the tree at once (e.g. overwatering), for the resource the
+        /// receiver takes. On the tree itself, next to its growth, so after a minigame the penalty is still in place while
+        /// growth catches up.
+        /// </summary>
+        public static OverflowPenalty CreateOverflowPenalty(GameObject tree, ResourceReceiver receiver, GameConfig config)
+        {
+            var penalty = tree.AddComponent<OverflowPenalty>();
+            SetReferences(penalty,
+                ("receiver", receiver),
+                ("growthRates", tree.GetComponent<TreeGrowthRates>()),
+                ("config", config));
+            return penalty;
         }
 
         /// <summary>Leaves fall around the tree once it has grown; they collect under their own root, not the tree.</summary>

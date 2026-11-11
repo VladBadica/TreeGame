@@ -30,6 +30,7 @@ namespace TreeGame.EditorTools
         private const string TrunkTonicIconPath = ArtFolder + "/TrunkTonicIcon.png";
         private const string BranchTonicIconPath = ArtFolder + "/BranchTonicIcon.png";
         private const string LeafTonicIconPath = ArtFolder + "/LeafTonicIcon.png";
+        private const string DownArrowIconPath = ArtFolder + "/DownArrowIcon.png";
         private const float PixelsPerUnit = 100f;
 
         // The camera is orthographic, so depth has to be painted in. The fence is drawn in one-point perspective:
@@ -650,6 +651,29 @@ namespace TreeGame.EditorTools
             }
 
             return AssetDatabase.LoadAssetAtPath<Sprite>(TickIconPath);
+        }
+
+        /// <summary>A white arrow pointing down, tinted by whatever displays it, e.g. to show something is lowered.</summary>
+        public static Sprite GetOrCreateDownArrowIcon()
+        {
+            if (!File.Exists(DownArrowIconPath))
+            {
+                const float line = 9f;
+                var shaftTop = new Vector2(32f, 54f);
+                var tip = new Vector2(32f, 11f);
+                var leftWing = new Vector2(15f, 28f);
+                var rightWing = new Vector2(49f, 28f);
+
+                PaintIcon(DownArrowIconPath, (x, y) =>
+                {
+                    var point = new Vector2(x, y);
+                    float distance = Mathf.Min(SegmentDistance(point, shaftTop, tip),
+                        Mathf.Min(SegmentDistance(point, leftWing, tip), SegmentDistance(point, rightWing, tip)));
+                    return Mathf.Clamp01(line * 0.5f - distance + 0.5f);
+                });
+            }
+
+            return AssetDatabase.LoadAssetAtPath<Sprite>(DownArrowIconPath);
         }
 
         /// <summary>A square white icon, its alpha at each pixel's middle given by <paramref name="inkAt"/> (0 to 1).</summary>

@@ -25,6 +25,103 @@ namespace TreeGame.EditorTools
             CreateResourceBar(panel.transform, nutrients, new Color(0.9f, 0.68f, 0.28f));
         }
 
+        /// <summary>
+        /// A row of badges just under the tree's needs, at its right edge, one per penalty slowing the tree's growth: a
+        /// down arrow over the seconds left, so two penalties at once show two arrows. Hidden badges take no room, so
+        /// whichever are showing sit at the right edge. Hovering over a badge says what it means.
+        /// </summary>
+        public static void CreatePenaltyBadges(Transform canvas, OverflowPenalty overwatering, OverflowPenalty overfeeding)
+        {
+            // Under the Tree Needs panel (24 from the top, 168 tall), with a small gap.
+            var row = new GameObject("Growth Penalties", typeof(RectTransform), typeof(HorizontalLayoutGroup));
+            var rowRect = (RectTransform)row.transform;
+            rowRect.SetParent(canvas, false);
+            rowRect.anchorMin = rowRect.anchorMax = rowRect.pivot = new Vector2(1f, 1f);
+            rowRect.anchoredPosition = new Vector2(-24f, -204f);
+            rowRect.sizeDelta = new Vector2(360f, 84f);
+            var layout = row.GetComponent<HorizontalLayoutGroup>();
+            layout.spacing = 8f;
+            layout.childAlignment = TextAnchor.UpperRight;
+            layout.childControlWidth = layout.childControlHeight = true;
+            layout.childForceExpandWidth = layout.childForceExpandHeight = false;
+
+            // Overwatering last, so on its own it sits at the right edge, where it always has.
+            CreatePenaltyBadge(rowRect, overfeeding, "Overfed, slower growth", new Color(0.55f, 0.38f, 0.16f, 0.85f));
+            CreatePenaltyBadge(rowRect, overwatering, "Overwatered, slower growth", new Color(0.16f, 0.32f, 0.55f, 0.85f));
+        }
+
+        /// <summary>One penalty's badge in the row, hidden until the penalty is active. Its component lives on the always-active row.</summary>
+        private static void CreatePenaltyBadge(RectTransform row, OverflowPenalty penalty, string tooltipText, Color color)
+        {
+            var badge = new GameObject($"{penalty.ResourceType} Penalty Badge", typeof(RectTransform), typeof(Image), typeof(LayoutElement));
+            var badgeRect = (RectTransform)badge.transform;
+            badgeRect.SetParent(row, false);
+            var size = badge.GetComponent<LayoutElement>();
+            size.preferredWidth = 76f;
+            size.preferredHeight = 84f;
+            // Takes raycasts, so the pointer hovering over it can be noticed.
+            StyleImage(badge.GetComponent<Image>(), color);
+
+            var arrow = new GameObject("Arrow", typeof(RectTransform), typeof(Image));
+            var arrowRect = (RectTransform)arrow.transform;
+            arrowRect.SetParent(badgeRect, false);
+            arrowRect.anchorMin = arrowRect.anchorMax = arrowRect.pivot = new Vector2(0.5f, 1f);
+            arrowRect.anchoredPosition = new Vector2(0f, -8f);
+            arrowRect.sizeDelta = new Vector2(44f, 44f);
+            var arrowImage = arrow.GetComponent<Image>();
+            arrowImage.sprite = PlaceholderArt.GetOrCreateDownArrowIcon();
+            arrowImage.preserveAspect = true;
+            arrowImage.raycastTarget = false;
+
+            TMP_Text label = CreateText("Time Left", 22f, Color.white, TextAlignmentOptions.Bottom);
+            RectTransform labelRect = StretchInParent(label.gameObject, badgeRect);
+            labelRect.offsetMin = new Vector2(0f, 6f);
+            label.fontStyle = FontStyles.Bold;
+            label.raycastTarget = false;
+            label.text = "10s"; // Placeholder; the component sets the real time left at runtime.
+
+            GameObject tooltip = CreateTooltip(badgeRect, tooltipText);
+            SetReferences(badge.AddComponent<HoverTooltip>(), ("tooltip", tooltip));
+            badge.SetActive(false); // Saved hidden; shown only while the penalty is active.
+
+            SetReferences(row.gameObject.AddComponent<OverflowPenaltyStatus>(),
+                ("penalty", penalty),
+                ("badge", badge),
+                ("label", label));
+        }
+
+        /// <summary>
+        /// A dark text box to the left of a HUD element, hidden until something shows it. It takes no raycasts, so it never
+        /// steals the hover from the element it describes.
+        /// </summary>
+        private static GameObject CreateTooltip(RectTransform owner, string text)
+        {
+            var tooltip = new GameObject("Tooltip", typeof(RectTransform), typeof(Image), typeof(HorizontalLayoutGroup), typeof(ContentSizeFitter));
+            var tooltipRect = (RectTransform)tooltip.transform;
+            tooltipRect.SetParent(owner, false);
+            tooltipRect.anchorMin = tooltipRect.anchorMax = new Vector2(0f, 0.5f);
+            tooltipRect.pivot = new Vector2(1f, 0.5f);
+            tooltipRect.anchoredPosition = new Vector2(-10f, 0f);
+            var background = tooltip.GetComponent<Image>();
+            StyleImage(background, new Color(0f, 0f, 0f, 0.75f));
+            background.raycastTarget = false;
+
+            // Sized to its text, growing to the left from the owner.
+            var layout = tooltip.GetComponent<HorizontalLayoutGroup>();
+            layout.padding = new RectOffset(14, 14, 8, 8);
+            layout.childControlWidth = layout.childControlHeight = true;
+            var fitter = tooltip.GetComponent<ContentSizeFitter>();
+            fitter.horizontalFit = fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
+            TMP_Text label = CreateText("Label", 22f, Color.white, TextAlignmentOptions.Center);
+            label.transform.SetParent(tooltipRect, false);
+            label.raycastTarget = false;
+            label.text = text;
+
+            tooltip.SetActive(false);
+            return tooltip;
+        }
+
         private static void CreateResourceBar(Transform parent, TreeResource resource, Color fillColor)
         {
             var bar = new GameObject($"{resource.Type} Bar", typeof(RectTransform), typeof(Image));

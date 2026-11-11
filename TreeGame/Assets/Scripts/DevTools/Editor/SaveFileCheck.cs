@@ -102,6 +102,8 @@ namespace TreeGame.DevTools
                 composter = new SavedComposter { state = 1, workSeconds = 12.5f, workDuration = 30f, compostGrams = 200f },
                 insectAges = new[] { 25f, 3.5f },
                 secondsUntilNextInsect = 37.5f,
+                overwateredSecondsLeft = 14.25f,
+                overfedSecondsLeft = 6.5f,
                 fallenLeaves = new[] { new SavedLeaf { x = 1f, y = 0f, z = -2.5f } },
             };
         }
@@ -145,6 +147,8 @@ namespace TreeGame.DevTools
 
             Expect(failures, read.insectAges.Length == 2 && read.insectAges[0] == 25f && read.insectAges[1] == 3.5f, "the insects changed");
             Expect(failures, read.secondsUntilNextInsect == 37.5f, $"the wait for the next insect read back as {read.secondsUntilNextInsect}");
+            Expect(failures, read.overwateredSecondsLeft == 14.25f, $"the time left overwatered read back as {read.overwateredSecondsLeft}");
+            Expect(failures, read.overfedSecondsLeft == 6.5f, $"the time left overfed read back as {read.overfedSecondsLeft}");
             Expect(failures, read.fallenLeaves.Length == 1 && read.fallenLeaves[0].x == 1f && read.fallenLeaves[0].z == -2.5f, "the leaves changed");
 
             // A new game's empty lists must survive too, without coming back as nothing.
@@ -182,6 +186,8 @@ namespace TreeGame.DevTools
             Expect(failures, read.inventorySlots.Length == 1 && read.inventorySlots[0].itemName == "Coin" && read.inventorySlots[0].count == 3, "upgrading changed the inventory");
             Expect(failures, read.insectAges.Length == 1 && read.insectAges[0] == 12f, "upgrading changed the insects");
             Expect(failures, read.secondsUntilNextInsect < 0f, $"an old save has no wait for the next insect, so it should read as unsaved, not {read.secondsUntilNextInsect}");
+            Expect(failures, read.overwateredSecondsLeft == 0f, $"an old save's tree can't be overwatered, but read as {read.overwateredSecondsLeft}s");
+            Expect(failures, read.overfedSecondsLeft == 0f, $"an old save's tree can't be overfed, but read as {read.overfedSecondsLeft}s");
             Expect(failures, File.ReadAllText(path) == version1Save, "reading an old save should leave the file as it was, until the game next saves");
         }
 

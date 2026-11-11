@@ -20,7 +20,8 @@ namespace TreeGame.EditorTools
         /// <summary>On the minigame runner's object, because that is the one object that stays on during minigames.</summary>
         /// <param name="knownItems">Every item that can be in the inventory, so a load can find them by name.</param>
         public static GameSaver CreateSaveAndLoad(MinigameRunner minigameRunner, PauseMenu pauseMenu, Button quitToMenuButton,
-            GameObject tree, TreeResource water, TreeResource nutrients, TreeResource health, Transform player,
+            GameObject tree, TreeResource water, TreeResource nutrients, TreeResource health,
+            OverflowPenalty overwatering, OverflowPenalty overfeeding, Transform player,
             Composter composter, InsectInfestation insects, Transform camera, params ItemDefinition[] knownItems)
         {
             GameObject owner = minigameRunner.gameObject;
@@ -35,6 +36,8 @@ namespace TreeGame.EditorTools
                 ("water", water),
                 ("nutrients", nutrients),
                 ("health", health),
+                ("overwatering", overwatering),
+                ("overfeeding", overfeeding),
                 ("player", player.GetComponent<PlayerMovement>()),
                 ("inventory", player.GetComponent<Inventory>()),
                 ("composter", composter),

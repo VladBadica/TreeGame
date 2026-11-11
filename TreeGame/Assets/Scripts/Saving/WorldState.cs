@@ -24,6 +24,8 @@ namespace TreeGame.Saving
         [SerializeField] private TreeResource water;
         [SerializeField] private TreeResource nutrients;
         [SerializeField] private TreeResource health;
+        [SerializeField] private OverflowPenalty overwatering;
+        [SerializeField] private OverflowPenalty overfeeding;
         [SerializeField] private PlayerMovement player;
         [SerializeField] private Inventory inventory;
         [Tooltip("Every item that can be in the inventory. A save names its items, so this is how they are found again.")]
@@ -36,7 +38,7 @@ namespace TreeGame.Saving
         /// <summary>True if everything it reads is assigned.</summary>
         public bool IsComplete =>
             treeGrowth != null && treeSeed != null && treeName != null && growthRates != null && extraGrowth != null &&
-            water != null && nutrients != null && health != null && player != null &&
+            water != null && nutrients != null && health != null && overwatering != null && overfeeding != null && player != null &&
             inventory != null && composter != null && insects != null && insectSpawner != null && leaves != null;
 
         /// <summary>The current state of the game, ready to write to a save.</summary>
@@ -58,6 +60,8 @@ namespace TreeGame.Saving
                 waterFill = water.Normalized,
                 nutrientsFill = nutrients.Normalized,
                 healthFill = health.Normalized,
+                overwateredSecondsLeft = overwatering.SecondsLeft,
+                overfedSecondsLeft = overfeeding.SecondsLeft,
                 playerX = player.transform.position.x,
                 inventorySlots = CaptureInventory(),
                 composter = new SavedComposter
@@ -93,6 +97,8 @@ namespace TreeGame.Saving
             water.SetAmount(data.waterFill * water.MaxAmount);
             nutrients.SetAmount(data.nutrientsFill * nutrients.MaxAmount);
             health.SetAmount(data.healthFill * health.MaxAmount);
+            overwatering.RestoreSecondsLeft(data.overwateredSecondsLeft);
+            overfeeding.RestoreSecondsLeft(data.overfedSecondsLeft);
             player.PlaceAt(data.playerX);
             RestoreInventory(data.inventorySlots);
             composter.RestoreState((CompostState)data.composter.state, data.composter.workSeconds,

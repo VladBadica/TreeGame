@@ -43,8 +43,9 @@ namespace TreeGame.Trees
 
             foreach (TreeGrowthPart part in TreeGrowth.Parts)
             {
-                // The rate at this moment: a change takes effect from the next frame, so time is never counted twice.
-                int rate = growthRates.GetRate(part);
+                // The rate at this moment, including temporary changes such as overwatering: a change takes effect from
+                // the next frame, so time is never counted twice.
+                int rate = growthRates.GetEffectiveRate(part);
                 treeGrowth.AddGrowth(part, seconds * GrowthRates.GrowthPerSecond(rate, config.SecondsToFullyGrow));
                 extraGrowth.AddExtraGrowth(part, seconds * GrowthRates.ExtraGrowthPerSecond(rate, config.SecondsToFillExtraGrowth));
             }

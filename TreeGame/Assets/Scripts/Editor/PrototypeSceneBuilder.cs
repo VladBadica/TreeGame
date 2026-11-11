@@ -68,7 +68,10 @@ namespace TreeGame.EditorTools
             TreeResource health = TreeBuilder.CreateResource(tree.transform, TreeResourceType.Health, config);
             TreeBuilder.CreateHealthRegeneration(health, water, nutrients, config);
             TreeBuilder.CreateNeglectDamage(tree, health, water, nutrients, config);
-            ResourceReceiver treeWaterReceiver = TreeBuilder.CreateTreeCare(tree.transform, water, nutrients);
+            ResourceReceiver treeWaterReceiver = TreeBuilder.CreateTreeCare(tree.transform, water, nutrients,
+                out ResourceReceiver treeNutrientsReceiver);
+            OverflowPenalty overwatering = TreeBuilder.CreateOverflowPenalty(tree, treeWaterReceiver, config);
+            OverflowPenalty overfeeding = TreeBuilder.CreateOverflowPenalty(tree, treeNutrientsReceiver, config);
             StationBuilder.CreateRunningWaterSound(well, treeWaterReceiver);
             TreeBuilder.CreateFallenLeafSpawner(tree, config, fallenLeafPrefab);
             InsectInfestation insects = InsectBuilder.CreateInsects(tree, health, config, insect, out InsectVisuals insectVisuals);
@@ -87,6 +90,7 @@ namespace TreeGame.EditorTools
             UIFactory.CreateEventSystem();
             Transform hud = UIFactory.CreateCanvas("HUD", 0);
             HudBuilder.CreateResourceHud(hud, health, water, nutrients);
+            HudBuilder.CreatePenaltyBadges(hud, overwatering, overfeeding);
             HudBuilder.CreateInteractionPrompt(hud, player.GetComponent<Interactor>(), viewCamera);
             HudBuilder.CreateGatherPrompt(hud, player.GetComponent<ItemCollector>(), viewCamera);
             HudBuilder.CreateInventoryBar(hud, player.GetComponent<Inventory>());
@@ -96,7 +100,7 @@ namespace TreeGame.EditorTools
             PauseMenu pauseMenu = PauseMenuBuilder.CreatePauseMenu(player, minigameRunner, tree.GetComponent<TreeSeed>(), out Button quitToMenuButton);
             MarketBuilder.CreateMenu(marketStall, marketInteractable, player, pauseMenu);
             GameSaver saver = SaveBuilder.CreateSaveAndLoad(minigameRunner, pauseMenu, quitToMenuButton, tree, water, nutrients, health,
-                player, composter, insects, camera, waterBucket, compostBucket, brownLeaves, coin);
+                overwatering, overfeeding, player, composter, insects, camera, waterBucket, compostBucket, brownLeaves, coin);
             HudBuilder.CreateSaveMessage(hud, saver);
 
             BuilderHelpers.SaveGeneratedScene(scene, scenePath);

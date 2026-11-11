@@ -45,6 +45,7 @@ namespace TreeGame.DevTools
                 CheckComposter(failures, composter);
                 CheckInsects(failures, insects);
                 CheckInsectWait(failures);
+                CheckOverflowPenalties(failures);
                 CheckLeaves(failures, leaves);
                 CheckPlayer(failures, player);
                 CheckCapture(failures, composter, insects, leaves, player);
@@ -172,6 +173,8 @@ namespace TreeGame.DevTools
                 waterFill = 0.25f,
                 nutrientsFill = 0.75f,
                 healthFill = 0.125f,
+                overwateredSecondsLeft = 8f,
+                overfedSecondsLeft = 3f,
                 playerX = 0.5f,
                 inventorySlots = slots,
                 composter = new SavedComposter { state = (int)CompostState.Done, workSeconds = 30f, workDuration = 30f, compostGrams = 40f },
@@ -196,6 +199,8 @@ namespace TreeGame.DevTools
             Expect(failures, Mathf.Approximately(changed.trunkExtraGrowth, 0.4f), $"extra growth of 0.4 restored as {changed.trunkExtraGrowth}");
             Expect(failures, changed.branchExtraGrowth == original.branchExtraGrowth, "a NaN extra growth should leave the part's extra growth as it was");
             Expect(failures, changed.foliageExtraGrowth == 1f, $"extra growth of 3 should be restored as 1, not {changed.foliageExtraGrowth}");
+            Expect(failures, changed.overwateredSecondsLeft == 8f, $"8s left overwatered restored as {changed.overwateredSecondsLeft}");
+            Expect(failures, changed.overfedSecondsLeft == 3f, $"3s left overfed restored as {changed.overfedSecondsLeft}");
             Expect(failures, changed.secondsUntilNextInsect == 12.5f, $"a wait of 12.5s for the next insect restored as {changed.secondsUntilNextInsect}");
             Expect(failures, Mathf.Approximately(changed.waterFill, 0.25f), $"water restored as {changed.waterFill}");
             Expect(failures, Mathf.Approximately(changed.nutrientsFill, 0.75f), $"nutrients restored as {changed.nutrientsFill}");
@@ -330,6 +335,59 @@ namespace TreeGame.DevTools
             Expect(failures, spawner.SecondsUntilNextInsect < 1000000f, "a wait longer than the longest allowed should be cut");
 
             spawner.RestoreSecondsUntilNextInsect(original);
+        }
+
+        /// <summary>
+        /// The overwatering and overfeeding rules, how restoring them changes growth rates, that the two add up, and that
+        /// everything goes back. Expects the default settings: 10% allowed, then 10s plus 2s per percent past it.
+        /// </summary>
+        private static void CheckOverflowPenalties(List<string> failures)
+        {
+            OverflowPenalty[] penalties = Object.FindObjectsByType<OverflowPenalty>();
+            OverflowPenalty overwatering = System.Array.Find(penalties, penalty => penalty.ResourceType == TreeResourceType.Water);
+            OverflowPenalty overfeeding = System.Array.Find(penalties, penalty => penalty.ResourceType == TreeResourceType.Nutrients);
+            var rates = Object.FindAnyObjectByType<TreeGrowthRates>();
+            TreeResource[] resources = Object.FindObjectsByType<TreeResource>();
+            if (overwatering == null || overfeeding == null || rates == null)
+            {
+                failures.Add("the scene needs overwatering, overfeeding and growth rates");
+                return;
+            }
+
+            foreach (OverflowPenalty penalty in new[] { overwatering, overfeeding })
+            {
+                float max = System.Array.Find(resources, resource => resource.Type == penalty.ResourceType).MaxAmount;
+                string name = penalty.ResourceType.ToString();
+
+                // 10% of the maximum is allowed; 15% is 5 points past it: 10s + 5 x 2s = 20s.
+                Expect(failures, penalty.SecondsFor(max * 0.1f) == 0f, $"{name}: overflowing exactly 10% shouldn't bring a penalty");
+                Expect(failures, Mathf.Approximately(penalty.SecondsFor(max * 0.15f), 20f), $"{name}: overflowing 15% should last 20s, not {penalty.SecondsFor(max * 0.15f)}");
+                Expect(failures, Mathf.Approximately(penalty.SecondsFor(max * 0.3f), 50f), $"{name}: overflowing 30% should last 50s, not {penalty.SecondsFor(max * 0.3f)}");
+                Expect(failures, penalty.SecondsFor(float.NaN) == 0f && penalty.SecondsFor(-5f) == 0f, $"{name}: an invalid overflow shouldn't bring a penalty");
+            }
+
+            float originalWater = overwatering.SecondsLeft;
+            float originalNutrients = overfeeding.SecondsLeft;
+            overwatering.RestoreSecondsLeft(0f);
+            overfeeding.RestoreSecondsLeft(0f);
+            int noPenalty = rates.TemporaryChange;
+
+            overwatering.RestoreSecondsLeft(5f);
+            int oneDown = rates.TemporaryChange;
+            Expect(failures, overwatering.IsActive && oneDown < noPenalty, "a restored overwatering should slow growth");
+            overfeeding.RestoreSecondsLeft(10f);
+            Expect(failures, rates.TemporaryChange < oneDown, "overfeeding as well should slow growth further");
+
+            overwatering.Advance(6f);
+            Expect(failures, !overwatering.IsActive && rates.TemporaryChange == oneDown, "overfeeding should still count once overwatering ends");
+            overfeeding.Advance(5f);
+            Expect(failures, !overfeeding.IsActive && rates.TemporaryChange == noPenalty, "growth should recover once both are over");
+
+            overwatering.RestoreSecondsLeft(float.NaN);
+            Expect(failures, !overwatering.IsActive, "a NaN time shouldn't bring a penalty");
+
+            overwatering.RestoreSecondsLeft(originalWater);
+            overfeeding.RestoreSecondsLeft(originalNutrients);
         }
 
         private static void CheckLeaves(List<string> failures, FallenLeafSpawner leaves)
